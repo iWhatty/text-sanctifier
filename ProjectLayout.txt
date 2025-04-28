@@ -5,6 +5,7 @@ text-sanctifier/
 │   └── index.d.ts 
 ├── package.json
 ├── README.md
+├── CREDITS.md
 ├── LICENSE (DR.WATT)
 ├── .gitignore
 ├── jsconfig.json (optional, for your editor)

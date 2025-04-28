@@ -1,0 +1,12 @@
+# Ignore all dev-only files and folders
+node_modules/
+tests/
+.vscode/
+.gitignore
+CREDITS.md
+jsconfig.json
+*.txt
+
+# Ignore OS clutter
+.DS_Store
+Thumbs.db

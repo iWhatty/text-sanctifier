@@ -3,6 +3,7 @@
     "version": "0.0.1",
     "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
     "main": "src/index.js",
+    "type": "module",
     "exports": {
         ".": "./src/index.js"
     },
@@ -20,7 +21,7 @@
         "clean",
         "sanctify"
     ],
-    "author": "Your Name <your@email.com>",
+    "author": "👾Dr.Watt👾 <WATT3D@protonmail.com>",
     "license": "SEE LICENSE IN LICENSE",
     "licenses": [
         {
@@ -30,12 +31,12 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/yourname/text-sanctifier.git"
+        "url": "git+https://github.com/iWhatty/text-sanctifier.git"
     },
     "bugs": {
-        "url": "https://github.com/yourname/text-sanctifier/issues"
+        "url": "https://github.com/iWhatty/text-sanctifier/issues"
     },
-    "homepage": "https://github.com/yourname/text-sanctifier#readme",
+    "homepage": "https://github.com/iWhatty/text-sanctifier#readme",
     "directories": {
         "test": "tests"
     }

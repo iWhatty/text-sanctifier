@@ -84,11 +84,7 @@ export function sanctifyText(text, {
 }
 
 
-
-
-
 // --- Micro helpers ---
-
 
 /**
  * Purges invisible Unicode "trash" characters and replaces them with a normal space.
@@ -126,8 +122,6 @@ const NORMALIZE_NEWLINES_REGEX = /\r\n?/g;
 function normalizeNewlines(text) {
     return text.replace(NORMALIZE_NEWLINES_REGEX, '\n');
 }
-
-
 
 
 /**
