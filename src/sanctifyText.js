@@ -1,4 +1,4 @@
-
+// src/sanctifyText.js
 
 
 /**
@@ -24,6 +24,42 @@ export function summonSanctifier(defaultOptions = {}) {
         return sanctifyText(text, defaultOptions);
     };
 }
+
+
+
+
+// --- Added Presets ---
+
+/**
+ * Strict sanitizer:
+ * - Aggressively collapse spaces
+ * - Collapse all excessive newlines into 1
+ * - Purge invisible Unicode trash
+ * - Purge hidden control characters
+ */
+sanctifyText.strict = function () {
+    return summonSanctifier({
+        preserveParagraphs: false,
+        collapseSpaces: true,
+        nukeControls: true,
+    });
+};
+
+/**
+ * Loose sanitizer:
+ * - Preserve paragraph breaks (2 \n newlines)
+ * - Collapse spaces
+ * - Purge invisible Unicode trash
+ * - Leave hidden control characters alone (unless needed separately)
+ */
+sanctifyText.loose = function () {
+    return summonSanctifier({
+        preserveParagraphs: true,
+        collapseSpaces: true,
+        nukeControls: false,
+    });
+};
+
 
 
 
@@ -57,32 +93,31 @@ export function sanctifyText(text, {
 
     let cleaned = text;
 
-    // Step 0: Purge invisible Unicode trash (zero-width, non-breaking, etc.)
+    // Step 0: Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
     cleaned = purgeInvisibleTrash(cleaned);
 
-    // Step 1: Normalize line endings to Unix style (\n)
+    if (nukeControls) {
+        // Step 1: Aggressively nuke control characters (excluding whitespace)
+        cleaned = purgeControlCharacters(cleaned);
+    }
+
+    // Step 2: Normalize line endings to Unix style (\n)
     cleaned = normalizeNewlines(cleaned);
 
-    // Step 2: Remove spaces/tabs around newlines
+    // Step 3: Remove spaces/tabs around newlines
     cleaned = trimSpacesAroundNewlines(cleaned);
 
-    // Step 3: Collapse excessive newlines
+    // Step 4: Collapse excessive newlines
     cleaned = collapseParagraphs(cleaned, preserveParagraphs);
 
     if (collapseSpaces) {
-        // Step 4: Collapse multiple spaces into single space
+        // Step 5: Collapse multiple spaces into a single space
         cleaned = collapseExtraSpaces(cleaned);
-    }
-
-    if (nukeControls) {
-        // Step 5: Nuke hidden control characters (excluding whitespace)
-        cleaned = purgeControlCharacters(cleaned);
     }
 
     // Step 6: Final trim
     return cleaned.trim();
 }
-
 
 // --- Micro helpers ---
 
@@ -92,16 +127,14 @@ export function sanctifyText(text, {
  * Targets:
  * - Non-breaking spaces (\u00A0)
  * - Zero-width spaces and miscellaneous Unicode spaces (\u2000–\u200D, \u202F, \u2060, \u3000, \uFEFF)
- * 
- * Example:
- * "Hello\u200BWorld" → "Hello World"
+ * - Left-to-right/right-to-left markers and overrides (\u200E, \u200F, \u202A–\u202E)
  *
  * @param {string} text
  * @returns {string}
  */
-const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF]+/g;
+const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u200E\u200F\u202A-\u202E]+/g;
 function purgeInvisibleTrash(text) {
-    return text.replace(INVISIBLE_TRASH_REGEX, ' ');
+    return text.replace(INVISIBLE_TRASH_REGEX, '');
 }
 
 
@@ -134,33 +167,34 @@ function normalizeNewlines(text) {
  * @param {string} text
  * @returns {string}
  */
-const TRIM_SPACES_AROUND_NEWLINES_REGEX = /[ \t]*\n+[ \t]*/g;
+const TRIM_SPACES_AROUND_NEWLINES_REGEX = /[ \t]*(\n+)[ \t]*/g;
 function trimSpacesAroundNewlines(text) {
-    return text.replace(TRIM_SPACES_AROUND_NEWLINES_REGEX, '\n');
+    return text.replace(TRIM_SPACES_AROUND_NEWLINES_REGEX, '$1');
 }
 
 
 /**
  * Collapses excessive newlines based on paragraph preservation settings.
  *
- * - If preserveParagraphs = true: 
- *     Collapses 3+ newlines → exactly two ("\n\n")
+ * - If preserveParagraphs = true:
+ *     Collapses 3 or more consecutive newlines → exactly two ("\n\n")
  * - If preserveParagraphs = false:
- *     Collapses 2+ newlines → exactly one ("\n")
+ *     Collapses 2 or more consecutive newlines → exactly one ("\n")
  * 
  * Example (preserveParagraphs = true):
  * "Line1\n\n\n\nLine2" → "Line1\n\nLine2"
  *
  * @param {string} text
- * @param {boolean} preserveParagraphs - Whether to preserve double newlines as paragraph breaks.
+ * @param {boolean} preserveParagraphs - Whether to preserve paragraph breaks (double newlines).
  * @returns {string}
  */
-const PARAGRAPH_TRIPLE_NEWLINES_REGEX = /\n{3,}/g;
-const PARAGRAPH_DOUBLE_NEWLINES_REGEX = /\n+/g;
+const MULTIPLE_NEWLINES_REGEX = /\n{2,}/g;
+const TRIPLE_NEWLINES_REGEX = /\n{3,}/g;
+
 function collapseParagraphs(text, preserveParagraphs) {
     return preserveParagraphs
-        ? text.replace(PARAGRAPH_TRIPLE_NEWLINES_REGEX, '\n\n')
-        : text.replace(PARAGRAPH_DOUBLE_NEWLINES_REGEX, '\n');
+        ? text.replace(TRIPLE_NEWLINES_REGEX, '\n\n')
+        : text.replace(MULTIPLE_NEWLINES_REGEX, '\n');
 }
 
 
@@ -191,7 +225,7 @@ function collapseExtraSpaces(text) {
  * @param {string} text
  * @returns {string}
  */
-const CONTROL_CHARS_REGEX = /[\u0000-\u001F\u007F\u0080-\u009F\u200E\u200F\u202A-\u202E]+/g;
+const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200E\u200F\u202A-\u202E]+/g;
 function purgeControlCharacters(text) {
     return text.replace(CONTROL_CHARS_REGEX, '');
 }
