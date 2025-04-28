@@ -39,6 +39,9 @@ export interface SanctifyOptions {
   
   export const sanctifyText: SanctifyText;
   
+  /**
+   * Creates a pre-configured text sanitizer function with default options.
+   */
   export function summonSanctifier(
     defaultOptions?: SanctifyOptions
   ): Sanctifier;
