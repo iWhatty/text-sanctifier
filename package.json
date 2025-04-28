@@ -1,0 +1,42 @@
+{
+    "name": "text-sanctifier",
+    "version": "0.0.1",
+    "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
+    "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js"
+    },
+    "types": "./src/index.d.ts",
+    "scripts": {
+        "test": "echo \"No tests yet, but it's clean.\""
+    },
+    "keywords": [
+        "text",
+        "sanitize",
+        "normalize",
+        "invisible",
+        "scrubber",
+        "unicode",
+        "clean",
+        "sanctify"
+    ],
+    "author": "Your Name <your@email.com>",
+    "license": "SEE LICENSE IN LICENSE",
+    "licenses": [
+        {
+            "type": "Doctor Watt License v2.0",
+            "url": "https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE.MD"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/yourname/text-sanctifier.git"
+    },
+    "bugs": {
+        "url": "https://github.com/yourname/text-sanctifier/issues"
+    },
+    "homepage": "https://github.com/yourname/text-sanctifier#readme",
+    "directories": {
+        "test": "tests"
+    }
+}

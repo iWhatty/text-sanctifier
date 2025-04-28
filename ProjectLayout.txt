@@ -1,0 +1,12 @@
+text-sanctifier/
+├── src/
+│   ├── sanctifyText.js
+│   ├── index.js
+│   └── index.d.ts 
+├── package.json
+├── README.md
+├── LICENSE (DR.WATT)
+├── .gitignore
+├── jsconfig.json (optional, for your editor)
+└── tests/
+    └── sanctifyText.test.js (optional, lightweight tests)
