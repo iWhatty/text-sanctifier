@@ -4,6 +4,14 @@
     "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
     "main": "src/index.js",
     "type": "module",
+    "browser": "dist/text-sanctifier.min.js",
+    "files": [
+        "src",
+        "dist",
+        "LICENSE.md",
+        "README.md"
+      ],
+      
     "exports": {
         ".": "./src/index.js"
     },
@@ -39,5 +47,8 @@
     "homepage": "https://github.com/iWhatty/text-sanctifier#readme",
     "directories": {
         "test": "tests"
+    },
+    "devDependencies": {
+        "esbuild": "^0.25.3"
     }
 }

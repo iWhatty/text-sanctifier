@@ -1,0 +1,8 @@
+# Ignore all dev-only files and folders
+node_modules/
+.vscode/
+package-lock.json
+
+# Ignore OS clutter
+.DS_Store
+Thumbs.db
