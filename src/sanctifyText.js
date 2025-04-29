@@ -6,6 +6,7 @@
  * @property {boolean} [preserveParagraphs=false]
  * @property {boolean} [collapseSpaces=false]
  * @property {boolean} [nukeControls=false]
+*  @property {boolean} [purgeEmojis=false]
  */
 
 
@@ -16,14 +17,16 @@
  * @param {boolean} [o.preserveParagraphs=false]
  * @param {boolean} [o.collapseSpaces=false]
  * @param {boolean} [o.nukeControls=false]
+ * @param {boolean} [o.purgeEmojis=false]
  * @returns {(text: string) => string}
  */
 export function summonSanctifier(defaultOptions = {}) {
     const p = !!defaultOptions.preserveParagraphs;
     const c = !!defaultOptions.collapseSpaces;
     const n = !!defaultOptions.nukeControls;
+    const e = !!defaultOptions.purgeEmojis;
 
-    return text => sanctifyText(text, p, c, n);
+    return text => sanctifyText(text, p, c, n, e);
 }
 
 
@@ -35,7 +38,7 @@ export function summonSanctifier(defaultOptions = {}) {
  * - Collapse all newlines
  * - Nuke control characters
  */
-summonSanctifier.strict = text => sanctifyText(text, false, true, true);
+summonSanctifier.strict = text => sanctifyText(text, false, true, true, true);
 
 
 /**
@@ -44,7 +47,7 @@ summonSanctifier.strict = text => sanctifyText(text, false, true, true);
  * - Preserve paragraphs
  * - Skip nuking control characters
  */
-summonSanctifier.loose = text => sanctifyText(text, true, true, false);
+summonSanctifier.loose = text => sanctifyText(text, true, true);
 
 
 /**
@@ -63,13 +66,15 @@ summonSanctifier.loose = text => sanctifyText(text, true, true, false);
  * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks (2 newlines) instead of collapsing all.
  * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into a single space.
  * @param {boolean} [nukeControls=false] - Remove hidden control characters (except whitespace).
+ * @param {boolean} [purgeEmojis=false] - Remove emoji characters from the text.
  * @returns {string}
  */
 export function sanctifyText(
     text,
     preserveParagraphs = false,
     collapseSpaces = false,
-    nukeControls = false
+    nukeControls = false,
+    purgeEmojis = false
 ) {
 
     if (typeof text !== 'string') {
@@ -78,29 +83,34 @@ export function sanctifyText(
 
     let cleaned = text;
 
-    // Step 0: Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
+    // Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
     cleaned = purgeInvisibleTrash(cleaned);
 
-    // Step 1: Aggressively nuke control characters (excluding whitespace)
+    // Optionally, remove emojis
+    if (purgeEmojis) {
+        cleaned = purgeEmojisCharacters(cleaned);
+    }
+
+    // Optionally, nuke control characters (excluding whitespace)
     if (nukeControls) {
         cleaned = purgeControlCharacters(cleaned);
     }
 
-    // Step 2: Normalize line endings to Unix style (\n)
+    // Normalize line endings to Unix style (\n)
     cleaned = normalizeNewlines(cleaned);
 
-    // Step 3: Remove spaces/tabs around newlines
+    // Remove spaces/tabs around newlines
     cleaned = trimSpacesAroundNewlines(cleaned);
 
-    // Step 4: Collapse excessive newlines
+    // Collapse excessive newlines, Optionally preserve Paragraphs
     cleaned = collapseParagraphs(cleaned, preserveParagraphs);
 
-    // Step 5: Collapse multiple spaces into a single space
+    // Optionally, Collapse multiple spaces into a single space
     if (collapseSpaces) {
         cleaned = collapseExtraSpaces(cleaned);
     }
 
-    // Step 6: Final trim
+    // Final trim
     return cleaned.trim();
 }
 
@@ -121,6 +131,19 @@ export function sanctifyText(
 const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u200E\u200F\u202A-\u202E]+/g;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
+}
+
+
+/**
+ * Removes all emoji characters using Unicode property escapes.
+ * Requires support for ES2018+.
+ * 
+ * @param {string} text
+ * @returns {string}
+ */
+const EMOJI_REGEX = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
+function purgeEmojisCharacters(text) {
+    return text.replace(EMOJI_REGEX, '');
 }
 
 

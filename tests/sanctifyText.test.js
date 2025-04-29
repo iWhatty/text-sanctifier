@@ -1,3 +1,6 @@
+// ./tests/sanctifyText.test.js
+
+
 import { summonSanctifier } from '../src/index.js';
 
 function assertEqual(actual, expected, message) {

@@ -9,6 +9,9 @@ export interface SanctifyOptions {
 
   /** Nuke hidden control characters (excluding whitespace like \n and \t) */
   nukeControls?: boolean;
+
+  /** Remove emoji characters. */
+  purgeEmojis?: boolean;
 }
 
 /** Preconfigured sanitizer function */
@@ -28,6 +31,7 @@ export function summonSanctifier(
  * - Collapse multiple spaces
  * - Collapse all newlines
  * - Purge control and invisible characters
+ * - Purge emoji characters
  */
 export function strict(): Sanctifier;
 
@@ -36,15 +40,18 @@ export function strict(): Sanctifier;
  * - Preserve paragraph breaks
  * - Collapse spaces
  * - Purge invisible characters (but leave control characters)
+*  - Preserve emoji characters
  */
 export function loose(): Sanctifier;
 
 /**
  * Brutally normalizes and cleans a string of text.
  * 
- * Internal helper — expects bitflag `mode` directly.
  */
 export function sanctifyText(
   text: string,
-  mode?: number
+  preserveParagraphs: boolean,
+  collapseSpaces: boolean,
+  nukeControls: boolean,
+  purgeEmojis: boolean
 ): string;

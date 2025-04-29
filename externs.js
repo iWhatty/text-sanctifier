@@ -4,34 +4,45 @@
  */
 
 /**
- * @param {string} text
- * @param {number=} mode Bitflag mode for sanitizer options
- * @return {string}
- */
-var sanctifyText;
-
-/**
- * @param {!SanctifyOptions=} defaultOptions
- * @param {number=} bitFlag Optional precomputed bitflag mode
- * @return {function(string): string}
- */
-var summonSanctifier;
-
-/**
- * @return {function(string): string}
- */
-summonSanctifier.strict;
-
-/**
- * @return {function(string): string}
- */
-summonSanctifier.loose;
-
-/**
  * @typedef {{
- *   preserveParagraphs: (boolean|undefined),
- *   collapseSpaces: (boolean|undefined),
- *   nukeControls: (boolean|undefined),
- * }}
- */
+*   preserveParagraphs: (boolean|undefined),
+*   collapseSpaces: (boolean|undefined),
+*   nukeControls: (boolean|undefined),
+*   purgeEmojis: (boolean|undefined),
+* }}
+*/
 var SanctifyOptions;
+
+/**
+* Summon a reusable text sanitizer.
+*
+* @param {!SanctifyOptions=} defaultOptions
+* @return {function(string): string}
+*/
+function summonSanctifier(defaultOptions) {}
+
+/**
+* Creates a strict sanitizer.
+*
+* @return {function(string): string}
+*/
+function strict() {}
+
+/**
+* Creates a loose sanitizer.
+*
+* @return {function(string): string}
+*/
+function loose() {}
+
+/**
+* Brutally normalizes and cleans a string of text.
+*
+* @param {string} text
+* @param {boolean} preserveParagraphs
+* @param {boolean} collapseSpaces
+* @param {boolean} nukeControls
+* @param {boolean} purgeEmojis
+* @return {string}
+*/
+function sanctifyText(text, preserveParagraphs, collapseSpaces, nukeControls, purgeEmojis) {}
