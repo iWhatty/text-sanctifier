@@ -9,6 +9,7 @@ jsconfig.json
 package-lock.json
 dist/
 local_dev_test/
+*.gz
 
 # Ignore OS clutter
 .DS_Store
