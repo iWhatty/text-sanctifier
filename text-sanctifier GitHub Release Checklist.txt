@@ -10,6 +10,23 @@
       `git add . && git commit -m "Release vX.Y.Z" && git tag vX.Y.Z && git push && git push origin vX.Y.Z`.
 - [ ]  Generate fresh Shields.io badges (npm version, bundle size, license, etc.).
 
+
+
+****
+Unpublish Command (only <72h, <300 downloads)
+npm unpublish text-sanctifier@1.0.0
+npm unpublish text-sanctifier@1.0.1
+npm unpublish text-sanctifier@1.0.2
+npm unpublish text-sanctifier@1.0.3
+
+****
+Deprecate Command (always possible)
+npm deprecate text-sanctifier@1.0.0 "⚠️ This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.1 "⚠️ This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.2 "⚠️ This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.3 "⚠️ This version is outdated. Please upgrade to 1.0.4."
+
+
 ---
 
 ## GitHub Release Checklist

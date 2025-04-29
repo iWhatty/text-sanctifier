@@ -1,6 +1,8 @@
 # text-sanctifier
 
-🧹 Brutal text normalizer and invisible trash scrubber for modern web projects.
+Brutal text normalizer and invisible trash scrubber for modern web projects.
+- Minified: 713 bytes (0.70 KB)
+- Gzipped : 439 bytes (0.43 KB)
 
 ## Features
 
@@ -19,11 +21,11 @@ npm install text-sanctifier
 
 ## 📦 Package & Build Info
 
-- **Source (`src/`)**: Clean, commented, ES2020+ ESM modules with JSDoc. Designed for modern bundlers and full tree-shaking (no side effects).
+- **Source (`src/`)**: ES2020+ ESM modules with JSDoc. Designed for modern bundlers and full tree-shaking.
 - **Browser Bundle (`dist/`)**: Pre-minified ES2020+ module (`text-sanctifier.min.js`, 0.70 KB minified / 0.43 KB gzipped) for direct `<script type="module">` usage.
 - **Module Format**: Native ESM (ECMAScript Modules).
 - **Bundler Compatibility**: Optimized for Vite, Rollup, Webpack 5+, ESBuild, and Parcel.
-- **Transpilation**: The clean source (`src/`) allows you to downlevel during your own build process (e.g., targeting `es2015` if needed).
+- **Transpilation**: The (`src/`) allows you to downlevel in your build process (e.g., targeting `es2015`).
 - **No Transpilers Included**: No built-in shims, polyfills, or transpilation; you control environment compatibility.
 - **Tree-shaking Friendly**: Fully optimized with `sideEffects: false` for dead code elimination.
 - **Publishing Philosophy**: 
@@ -68,13 +70,13 @@ const cleanBodyText = looseSanitizer(rawInput);
 
 ## API
 
-### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+#### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
 Creates a sanitizer with options pre-bound.
 
-### `summonSanctifier.strict: (text: string) => string`
+#### `summonSanctifier.strict: (text: string) => string`
 Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls).
 
-### `summonSanctifier.loose: (text: string) => string`
+#### `summonSanctifier.loose: (text: string) => string`
 Loose sanitizer preset (preserve paragraph breaks, collapse spaces, skip nuking controls).
 
 ---

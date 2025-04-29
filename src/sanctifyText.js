@@ -38,13 +38,13 @@ export function summonSanctifier(defaultOptions = {}) {
 summonSanctifier.strict = text => sanctifyText(text, false, true, true);
 
 
-  /**
-   * Loose sanitizer:
-   * - Collapse spaces
-   * - Preserve paragraphs
-   * - Skip nuking control characters
-   */
-  summonSanctifier.loose = text => sanctifyText(text, true, true, false);
+/**
+ * Loose sanitizer:
+ * - Collapse spaces
+ * - Preserve paragraphs
+ * - Skip nuking control characters
+ */
+summonSanctifier.loose = text => sanctifyText(text, true, true, false);
 
 
 /**

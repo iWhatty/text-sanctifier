@@ -1,6 +1,6 @@
 {
     "name": "text-sanctifier",
-    "version": "1.0.1",
+    "version": "1.0.4",
     "type": "module",
     "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
     "main": "./src/index.js",
@@ -8,7 +8,7 @@
     "browser": "./dist/text-sanctifier.min.js",
     "files": [
         "src",
-        "dist",
+        "dist/text-sanctifier.min.js",
         "LICENSE.md",
         "README.md"
     ],
