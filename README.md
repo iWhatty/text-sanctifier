@@ -1,12 +1,14 @@
 # text-sanctifier
 
-Brutal text normalizer and invisible trash scrubber for modern web projects.
-- Minified: 713 bytes (0.70 KB)
-- Gzipped : 439 bytes (0.43 KB)
-
 ![npm](https://img.shields.io/npm/v/text-sanctifier)
 ![gzip size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)
 ![downloads](https://img.shields.io/npm/dw/text-sanctifier)
+
+Brutal text normalizer and invisible trash scrubber for modern web projects.
+- Minified: 713 bytes (0.70 KB)
+- Gzipped (GCC) : 439 bytes (0.43 KB)
+
+
 
 ## Features
 
