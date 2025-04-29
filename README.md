@@ -5,8 +5,8 @@
 ![downloads](https://img.shields.io/npm/dw/text-sanctifier)
 
 Brutal text normalizer and invisible trash scrubber for modern web projects.
-- Minified: 713 bytes (0.70 KB)
-- Gzipped (GCC) : 439 bytes (0.43 KB)
+- Minified: 806 bytes (0.79 KB)
+- Gzipped (GCC) : 482 bytes (0.47 KB)
 
 
 
@@ -51,6 +51,7 @@ const customSanitizer = summonSanctifier({
   preserveParagraphs: true,
   collapseSpaces: true,
   nukeControls: true,
+  purgeEmojis: true,
 });
 
 const cleaned = customSanitizer(rawText);
@@ -80,10 +81,10 @@ const cleanBodyText = looseSanitizer(rawInput);
 Creates a sanitizer with options pre-bound.
 
 #### `summonSanctifier.strict: (text: string) => string`
-Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls).
+Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls, purge Emojis).
 
 #### `summonSanctifier.loose: (text: string) => string`
-Loose sanitizer preset (preserve paragraph breaks, collapse spaces, skip nuking controls).
+Loose sanitizer preset (preserve paragraph breaks, collapse spaces, skip nuking controls, preserve Emojis).
 
 ---
 
