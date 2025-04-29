@@ -118,7 +118,7 @@ export function sanctifyText(
 // --- Micro helpers ---
 
 /**
- * Purges invisible Unicode "trash" characters and replaces them with a normal space.
+ * Purges invisible Unicode "trash" characters and removes them.
  * 
  * Targets:
  * - Non-breaking spaces (\u00A0)
