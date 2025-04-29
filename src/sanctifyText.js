@@ -1,12 +1,6 @@
 // src/sanctifyText.js
 
 
-// --- Define Bitflags ---
-const FLAG_PRESERVE_PARAGRAPHS = 1;
-const FLAG_COLLAPSE_SPACES = 2;
-const FLAG_NUKE_CONTROLS = 4;
-
-
 /**
  * @typedef {Object} SanctifyOptions
  * @property {boolean} [preserveParagraphs=false]
@@ -14,23 +8,23 @@ const FLAG_NUKE_CONTROLS = 4;
  * @property {boolean} [nukeControls=false]
  */
 
+
 /**
- * Summons a customized sanctifier function with pre-bound options.
- * Converts human-readable options into a compressed bitflag mode internally.
+ * Summons a customized sanctifier function with pre-bound booleans.
  * 
- * @param {SanctifyOptions} [defaultOptions]
- * @param {number} [bitFlag]
+ * @param {Object} [o={}]
+ * @param {boolean} [o.preserveParagraphs=false]
+ * @param {boolean} [o.collapseSpaces=false]
+ * @param {boolean} [o.nukeControls=false]
  * @returns {(text: string) => string}
  */
-export function summonSanctifier(defaultOptions = {}, bitFlag=0) {
-    const mode = bitFlag || (
-        (defaultOptions.preserveParagraphs ? FLAG_PRESERVE_PARAGRAPHS : 0) |
-        (defaultOptions.collapseSpaces ? FLAG_COLLAPSE_SPACES : 0) |
-        (defaultOptions.nukeControls ? FLAG_NUKE_CONTROLS : 0)
-      );
-      
+export function summonSanctifier(o = {}) {
+    const p = !!o.preserveParagraphs;
+    const c = !!o.collapseSpaces;
+    const n = !!o.nukeControls;
+
     return function (text) {
-        return sanctifyText(text, mode);
+        return sanctifyText(text, p, c, n);
     };
 }
 
@@ -43,17 +37,21 @@ export function summonSanctifier(defaultOptions = {}, bitFlag=0) {
  * - Collapse all newlines
  * - Nuke control characters
  */
-summonSanctifier.strict = summonSanctifier({}, FLAG_COLLAPSE_SPACES + FLAG_NUKE_CONTROLS);
+summonSanctifier.strict = function (text) {
+    return sanctifyText(text, false, true, true);
+  };
+  
 
-
-/**
- * Loose sanitizer:
- * - Collapse spaces
- * - Preserve paragraphs
- * - Skip nuking control characters
- */
-summonSanctifier.loose = summonSanctifier({}, FLAG_PRESERVE_PARAGRAPHS + FLAG_COLLAPSE_SPACES);
-
+  /**
+   * Loose sanitizer:
+   * - Collapse spaces
+   * - Preserve paragraphs
+   * - Skip nuking control characters
+   */
+  summonSanctifier.loose = function (text) {
+    return sanctifyText(text, true, true, false);
+  };
+  
 
 /**
  * Text Sanctifier
@@ -68,27 +66,29 @@ summonSanctifier.loose = summonSanctifier({}, FLAG_PRESERVE_PARAGRAPHS + FLAG_CO
  *   const cleaned = sanctifyText(rawText, FLAG_COLLAPSE_SPACES | FLAG_NUKE_CONTROLS);
  * 
  * @param {string | null | undefined} text
- * @param {number} [mode=0] Bitflag mode for sanitizer options
+ * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks (2 newlines) instead of collapsing all.
+ * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into a single space.
+ * @param {boolean} [nukeControls=false] - Remove hidden control characters (except whitespace).
  * @returns {string}
  */
-export function sanctifyText(text, mode = 0) {
+export function sanctifyText(
+    text,
+    preserveParagraphs = false,
+    collapseSpaces = false,
+    nukeControls = false
+) {
 
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
     }
-
-    const preserveParagraphs = (mode & FLAG_PRESERVE_PARAGRAPHS) !== 0;
-    const collapseSpaces = (mode & FLAG_COLLAPSE_SPACES) !== 0;
-    const nukeControls = (mode & FLAG_NUKE_CONTROLS) !== 0;
-
 
     let cleaned = text;
 
     // Step 0: Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
     cleaned = purgeInvisibleTrash(cleaned);
 
+    // Step 1: Aggressively nuke control characters (excluding whitespace)
     if (nukeControls) {
-        // Step 1: Aggressively nuke control characters (excluding whitespace)
         cleaned = purgeControlCharacters(cleaned);
     }
 
@@ -101,14 +101,15 @@ export function sanctifyText(text, mode = 0) {
     // Step 4: Collapse excessive newlines
     cleaned = collapseParagraphs(cleaned, preserveParagraphs);
 
+    // Step 5: Collapse multiple spaces into a single space
     if (collapseSpaces) {
-        // Step 5: Collapse multiple spaces into a single space
         cleaned = collapseExtraSpaces(cleaned);
     }
 
     // Step 6: Final trim
     return cleaned.trim();
 }
+
 
 // --- Micro helpers ---
 

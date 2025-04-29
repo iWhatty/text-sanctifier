@@ -6,3 +6,4 @@
 - [ ] Final check of README, LICENSE, CREDITS
 - [ ] `npm publish --access public`
 - [ ] Git push and tag new release
+- [ ] Create Repo / Build badges from --> https://shields.io/

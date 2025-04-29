@@ -1,10 +1,4 @@
 import { summonSanctifier } from '../src/index.js';
-import { sanctifyText } from '../src/sanctifyText.js'; // internal test-only import
-
-// --- Define bitflags for tests ---
-const FLAG_PRESERVE_PARAGRAPHS = 1;
-const FLAG_COLLAPSE_SPACES = 2;
-const FLAG_NUKE_CONTROLS = 4;
 
 function assertEqual(actual, expected, message) {
   if (actual !== expected) {
@@ -16,6 +10,12 @@ function assertEqual(actual, expected, message) {
 }
 
 console.log('Running text-sanctifier tests...');
+
+
+let sanctifyText = summonSanctifier();
+let sanctifyText_collapseSpaces = summonSanctifier({collapseSpaces: true});
+let sanctifyText_preserveParagraphs = summonSanctifier({preserveParagraphs: true});
+
 
 // 1. Basic invisible character purge
 assertEqual(
@@ -31,16 +31,16 @@ assertEqual(
   '2. Normalize line endings to Unix \\n'
 );
 
-// 3. Collapse multiple spaces
+// 3. Collapse multiple spaces, collapseSpaces: true
 assertEqual(
-  sanctifyText('Hello   World', FLAG_COLLAPSE_SPACES),
+  sanctifyText_collapseSpaces('Hello   World'),
   'Hello World',
   '3. Collapse multiple spaces into one'
 );
 
-// 4. Collapse multiple newlines (preserve paragraphs)
+// 4. Collapse multiple newlines (preserve paragraphs), preserveParagraphs: true
 assertEqual(
-  sanctifyText('Line1\n\n\nLine2', FLAG_PRESERVE_PARAGRAPHS),
+  sanctifyText_preserveParagraphs('Line1\n\n\nLine2'),
   'Line1\n\nLine2',
   '4. Preserve paragraph breaks (2 newlines)'
 );
@@ -59,34 +59,37 @@ assertEqual(
 );
 
 // 6. Double space around newlines should not collapse lines
+sanctifyText = summonSanctifier();
 assertEqual(
   sanctifyText('Line1   \n   Line2'),
   'Line1\nLine2',
   '6. Trim spaces around newlines without collapsing'
 );
 
-// 7. Excessive tabs between words should be preserved unless collapseSpaces
+// 7. Excessive tabs between words should be preserved unless collapseSpaces, collapseSpaces: true
 assertEqual(
-  sanctifyText('Hello\t\tWorld', FLAG_COLLAPSE_SPACES),
+  sanctifyText_collapseSpaces('Hello\t\tWorld'),
   'Hello\t\tWorld',
   '7. Preserve tabs even when collapsing spaces'
 );
 
 // 8. Mixed invisible Unicode junk
+sanctifyText = summonSanctifier();
 assertEqual(
   sanctifyText('\u200B\u200C\u200D Hello\u200F\u202DWorld\u202E'),
   'HelloWorld',
   '8. Purge diverse invisible Unicode trash'
 );
 
-// 9. Extreme multiple newlines with paragraph preservation
-assertEqual(
-  sanctifyText('A\n\n\n\n\n\nB', FLAG_PRESERVE_PARAGRAPHS),
+// 9. Extreme multiple newlines with paragraph preservation, preserveParagraphs: true
+sanctifyText_preserveParagraphs(
+  sanctifyText('A\n\n\n\n\n\nB'),
   'A\n\nB',
   '9. Collapse 6+ newlines into paragraph break (\\n\\n)'
 );
 
 // 10. No collapse when paragraph preservation is off
+sanctifyText = summonSanctifier();
 assertEqual(
   sanctifyText('X\n\nY'),
   'X\nY',
