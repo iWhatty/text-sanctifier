@@ -3,11 +3,17 @@ text-sanctifier/
 │   ├── sanctifyText.js
 │   ├── index.js
 │   └── index.d.ts 
+├── dist/
+│   └── text-sanctifier.min.js
+│   └── text-sanctifier.min.js.gz
+├── scripts/
+│   └── build.js
 ├── package.json
 ├── README.md
 ├── CREDITS.md
 ├── LICENSE (DR.WATT)
+├── .npmignore
 ├── .gitignore
-├── jsconfig.json (optional, for your editor)
+├── jsconfig.json
 └── tests/
-    └── sanctifyText.test.js (optional, lightweight tests)
+    └── sanctifyText.test.js

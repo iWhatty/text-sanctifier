@@ -10,15 +10,15 @@
         "dist",
         "LICENSE.md",
         "README.md"
-      ],
-      
+    ],
     "exports": {
         ".": "./src/index.js"
     },
     "types": "./src/index.d.ts",
     "sideEffects": false,
     "scripts": {
-        "test": "echo \"No tests yet, but it's clean.\""
+        "build": "node scripts/buildc.js",
+        "test": "node tests/sanctifyText.test.js"
     },
     "keywords": [
         "text",
@@ -49,6 +49,8 @@
         "test": "tests"
     },
     "devDependencies": {
-        "esbuild": "^0.25.3"
+        "esbuild": "^0.25.3",
+        "google-closure-compiler": "^20240317.0.0",
+        "terser": "^5.39.0"
     }
 }

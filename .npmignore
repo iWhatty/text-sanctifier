@@ -6,6 +6,9 @@ tests/
 CREDITS.md
 jsconfig.json
 *.txt
+package-lock.json
+dist/
+local_dev_test/
 
 # Ignore OS clutter
 .DS_Store

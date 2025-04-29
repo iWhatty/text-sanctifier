@@ -19,69 +19,51 @@ npm install text-sanctifier
 
 ## Quick Usage
 
-### Basic
-
-```javascript
-import { sanctifyText } from 'text-sanctifier';
-
-const cleaned = sanctifyText(rawText, {
-  preserveParagraphs: true,
-  collapseSpaces: true,
-  nukeControls: true,
-});
-```
-
-### Pre-configured Sanitizers
-
-#### Strict Mode (aggressive cleanup)
-
-```javascript
-import { sanctifyText } from 'text-sanctifier';
-
-const strictSanitizer = sanctifyText.strict();
-const cleanText = strictSanitizer(rawText);
-```
-
-#### Loose Mode (preserve paragraphs)
-
-```javascript
-import { sanctifyText } from 'text-sanctifier';
-
-const looseSanitizer = sanctifyText.loose();
-const cleanBodyText = looseSanitizer(rawInput);
-```
-
-### Custom Summoner
+### Basic (via `summonSanctifier`)
 
 ```javascript
 import { summonSanctifier } from 'text-sanctifier';
 
 const customSanitizer = summonSanctifier({
-  preserveParagraphs: false,
+  preserveParagraphs: true,
   collapseSpaces: true,
-  nukeControls: false,
+  nukeControls: true,
 });
 
-const result = customSanitizer(rawInput);
+const cleaned = customSanitizer(rawText);
+```
+
+### Strict Mode (aggressive cleanup)
+
+```javascript
+import { summonSanctifier } from 'text-sanctifier';
+
+const strictSanitizer = summonSanctifier.strict();
+const cleanText = strictSanitizer(rawText);
+```
+
+### Loose Mode (preserve paragraphs)
+
+```javascript
+import { summonSanctifier } from 'text-sanctifier';
+
+const looseSanitizer = summonSanctifier.loose();
+const cleanBodyText = looseSanitizer(rawInput);
 ```
 
 ## API
 
-### `sanctifyText(text: string, options?: SanctifyOptions): string`
-Manually sanitize a text string with configurable options.
+### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+Creates a sanitizer with options pre-bound.
 
-### `sanctifyText.strict(): (text: string) => string`
-Create a strict sanitizer preset.
+### `summonSanctifier.strict(): (text: string) => string`
+Returns a strict sanitizer preset.
 
-### `sanctifyText.loose(): (text: string) => string`
-Create a loose sanitizer preset.
-
-### `summonSanctifier(defaultOptions?: SanctifyOptions): (text: string) => string`
-Create a reusable pre-bound sanitizer.
+### `summonSanctifier.loose(): (text: string) => string`
+Returns a loose sanitizer preset.
 
 ---
 
 ## License
 
 --{DR.WATT}--
-

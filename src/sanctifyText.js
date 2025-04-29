@@ -1,6 +1,12 @@
 // src/sanctifyText.js
 
 
+// --- Define Bitflags ---
+const FLAG_PRESERVE_PARAGRAPHS = 1;
+const FLAG_COLLAPSE_SPACES = 2;
+const FLAG_NUKE_CONTROLS = 4;
+
+
 /**
  * @typedef {Object} SanctifyOptions
  * @property {boolean} [preserveParagraphs=false]
@@ -9,58 +15,44 @@
  */
 
 /**
- * Summons a customized sanctifier function with default options pre-bound.
+ * Summons a customized sanctifier function with pre-bound options.
+ * Converts human-readable options into a compressed bitflag mode internally.
  * 
- * Usage:
- * 
- *   const sanitize = summonSanctifier({ preserveParagraphs: true, collapseSpaces: true });
- *   const cleaned = sanitize(rawText);
- *
  * @param {SanctifyOptions} [defaultOptions]
- * @returns {(text: string) => string} A function that sanitizes text with the pre-bound options.
+ * @param {number} [bitFlag]
+ * @returns {(text: string) => string}
  */
-export function summonSanctifier(defaultOptions = {}) {
+export function summonSanctifier(defaultOptions = {}, bitFlag=0) {
+    const mode = bitFlag || (
+        (defaultOptions.preserveParagraphs ? FLAG_PRESERVE_PARAGRAPHS : 0) |
+        (defaultOptions.collapseSpaces ? FLAG_COLLAPSE_SPACES : 0) |
+        (defaultOptions.nukeControls ? FLAG_NUKE_CONTROLS : 0)
+      );
+      
     return function (text) {
-        return sanctifyText(text, defaultOptions);
+        return sanctifyText(text, mode);
     };
 }
-
-
 
 
 // --- Added Presets ---
 
 /**
  * Strict sanitizer:
- * - Aggressively collapse spaces
- * - Collapse all excessive newlines into 1
- * - Purge invisible Unicode trash
- * - Purge hidden control characters
+ * - Collapse spaces
+ * - Collapse all newlines
+ * - Nuke control characters
  */
-sanctifyText.strict = function () {
-    return summonSanctifier({
-        preserveParagraphs: false,
-        collapseSpaces: true,
-        nukeControls: true,
-    });
-};
+summonSanctifier.strict = summonSanctifier({}, FLAG_COLLAPSE_SPACES + FLAG_NUKE_CONTROLS);
+
 
 /**
  * Loose sanitizer:
- * - Preserve paragraph breaks (2 \n newlines)
  * - Collapse spaces
- * - Purge invisible Unicode trash
- * - Leave hidden control characters alone (unless needed separately)
+ * - Preserve paragraphs
+ * - Skip nuking control characters
  */
-sanctifyText.loose = function () {
-    return summonSanctifier({
-        preserveParagraphs: true,
-        collapseSpaces: true,
-        nukeControls: false,
-    });
-};
-
-
+summonSanctifier.loose = summonSanctifier({}, FLAG_PRESERVE_PARAGRAPHS + FLAG_COLLAPSE_SPACES);
 
 
 /**
@@ -73,23 +65,22 @@ sanctifyText.loose = function () {
  * 
  *   import { sanctifyText } from './utils/sanctifyText';
  * 
- *   const cleaned = sanctifyText(rawText, { preserveParagraphs: true, collapseSpaces: true, nukeControls: true });
+ *   const cleaned = sanctifyText(rawText, FLAG_COLLAPSE_SPACES | FLAG_NUKE_CONTROLS);
  * 
  * @param {string | null | undefined} text
- * @param {Object} [options]
- * @param {boolean} [options.preserveParagraphs=false] - Preserve paragraph breaks (2 newlines) instead of collapsing all.
- * @param {boolean} [options.collapseSpaces=false] - Collapse multiple spaces into a single space.
- * @param {boolean} [options.nukeControls=false] - Remove hidden control characters (except whitespace).
+ * @param {number} [mode=0] Bitflag mode for sanitizer options
  * @returns {string}
  */
-export function sanctifyText(text, {
-    preserveParagraphs = false,
-    collapseSpaces = false,
-    nukeControls = false,
-} = {}) {
+function sanctifyText(text, mode = 0) {
+
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
     }
+
+    const preserveParagraphs = (mode & FLAG_PRESERVE_PARAGRAPHS) !== 0;
+    const collapseSpaces = (mode & FLAG_COLLAPSE_SPACES) !== 0;
+    const nukeControls = (mode & FLAG_NUKE_CONTROLS) !== 0;
+
 
     let cleaned = text;
 
