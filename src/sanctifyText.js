@@ -18,14 +18,12 @@
  * @param {boolean} [o.nukeControls=false]
  * @returns {(text: string) => string}
  */
-export function summonSanctifier(o = {}) {
-    const p = !!o.preserveParagraphs;
-    const c = !!o.collapseSpaces;
-    const n = !!o.nukeControls;
+export function summonSanctifier(defaultOptions = {}) {
+    const p = !!defaultOptions.preserveParagraphs;
+    const c = !!defaultOptions.collapseSpaces;
+    const n = !!defaultOptions.nukeControls;
 
-    return function (text) {
-        return sanctifyText(text, p, c, n);
-    };
+    return text => sanctifyText(text, p, c, n);
 }
 
 
@@ -37,10 +35,8 @@ export function summonSanctifier(o = {}) {
  * - Collapse all newlines
  * - Nuke control characters
  */
-summonSanctifier.strict = function (text) {
-    return sanctifyText(text, false, true, true);
-  };
-  
+summonSanctifier.strict = text => sanctifyText(text, false, true, true);
+
 
   /**
    * Loose sanitizer:
@@ -48,10 +44,8 @@ summonSanctifier.strict = function (text) {
    * - Preserve paragraphs
    * - Skip nuking control characters
    */
-  summonSanctifier.loose = function (text) {
-    return sanctifyText(text, true, true, false);
-  };
-  
+  summonSanctifier.loose = text => sanctifyText(text, true, true, false);
+
 
 /**
  * Text Sanctifier

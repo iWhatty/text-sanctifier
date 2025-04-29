@@ -17,6 +17,21 @@
 npm install text-sanctifier
 ```
 
+## 📦 Package & Build Info
+
+- **Source (`src/`)**: Clean, commented, ES2020+ ESM modules with JSDoc. Designed for modern bundlers and full tree-shaking (no side effects).
+- **Browser Bundle (`dist/`)**: Pre-minified ES2020+ module (`text-sanctifier.min.js`, 0.70 KB minified / 0.43 KB gzipped) for direct `<script type="module">` usage.
+- **Module Format**: Native ESM (ECMAScript Modules).
+- **Bundler Compatibility**: Optimized for Vite, Rollup, Webpack 5+, ESBuild, and Parcel.
+- **Transpilation**: The clean source (`src/`) allows you to downlevel during your own build process (e.g., targeting `es2015` if needed).
+- **No Transpilers Included**: No built-in shims, polyfills, or transpilation; you control environment compatibility.
+- **Tree-shaking Friendly**: Fully optimized with `sideEffects: false` for dead code elimination.
+- **Publishing Philosophy**: 
+  - Source-first design for flexibility, debuggability, and modern bundling pipelines.
+  - Minified bundle included separately for raw browser consumption without a build step.
+
+
+
 ## Quick Usage
 
 ### Basic (via `summonSanctifier`)
@@ -53,8 +68,8 @@ const cleanBodyText = looseSanitizer(rawInput);
 
 ## API
 
-### `summonSanctifier(options?: SanctifyOptions, bitFlag?: number): (text: string) => string`
-Creates a sanitizer with options pre-bound or accepts a direct bitFlag.
+### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+Creates a sanitizer with options pre-bound.
 
 ### `summonSanctifier.strict: (text: string) => string`
 Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls).

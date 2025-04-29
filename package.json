@@ -1,10 +1,11 @@
 {
     "name": "text-sanctifier",
     "version": "1.0.1",
-    "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
-    "main": "src/index.js",
     "type": "module",
-    "browser": "dist/text-sanctifier.min.js",
+    "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
+    "main": "./src/index.js",
+    "module":  "./src/index.js",
+    "browser": "./dist/text-sanctifier.min.js",
     "files": [
         "src",
         "dist",
@@ -12,8 +13,9 @@
         "README.md"
     ],
     "exports": {
-        ".": "./src/index.js"
-    },
+        ".": "./src/index.js",              
+        "./browser": "./dist/text-sanctifier.min.js" 
+      },
     "types": "./src/index.d.ts",
     "sideEffects": false,
     "scripts": {
@@ -32,12 +34,7 @@
         "sanctify"
     ],
     "author": "👾Dr.Watt👾 <WATT3D@protonmail.com>",
-    "licenses": [
-        {
-            "type": "Doctor Watt License v2.0",
-            "url": "https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE.MD"
-        }
-    ],
+    "license":  "👾Dr.Watt👾 License v2.0",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/text-sanctifier.git"
@@ -50,8 +47,9 @@
         "test": "tests"
     },
     "devDependencies": {
+        "terser": "^5.39.0",
         "esbuild": "^0.25.3",
-        "google-closure-compiler": "^20240317.0.0",
-        "terser": "^5.39.0"
+        "google-closure-compiler": "^20240317.0.0"
+
     }
 }

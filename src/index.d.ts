@@ -18,11 +18,9 @@ export type Sanctifier = (text: string) => string;
  * Summon a reusable text sanitizer.
  * 
  * If `defaultOptions` is provided, it creates a sanitizer configured with human options.
- * If `bitFlag` is provided, it uses pre-computed mode flags directly.
  */
 export function summonSanctifier(
   defaultOptions?: SanctifyOptions,
-  bitFlag?: number
 ): Sanctifier;
 
 /**

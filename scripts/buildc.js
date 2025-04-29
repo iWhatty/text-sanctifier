@@ -8,7 +8,7 @@ import { resolve } from 'path';
 const srcEntry = resolve('src/index.js');
 const distDir = resolve('dist');
 const bundleFile = resolve(distDir, 'text-sanctifier.bundle.js');
-const closureFile = resolve(distDir, 'text-sanctifier.closure.min.js');
+const closureFile = resolve(distDir, 'text-sanctifier.min.js');
 const gzippedFile = closureFile + '.gz';
 const externsFile = resolve('externs.js');
 
