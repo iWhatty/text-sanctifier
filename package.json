@@ -1,6 +1,6 @@
 {
     "name": "text-sanctifier",
-    "version": "0.0.1",
+    "version": "1.0.1",
     "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
     "main": "src/index.js",
     "type": "module",
@@ -8,6 +8,7 @@
         ".": "./src/index.js"
     },
     "types": "./src/index.d.ts",
+    "sideEffects": false,
     "scripts": {
         "test": "echo \"No tests yet, but it's clean.\""
     },
@@ -22,7 +23,6 @@
         "sanctify"
     ],
     "author": "👾Dr.Watt👾 <WATT3D@protonmail.com>",
-    "license": "SEE LICENSE IN LICENSE",
     "licenses": [
         {
             "type": "Doctor Watt License v2.0",
