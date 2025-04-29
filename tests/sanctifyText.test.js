@@ -1,17 +1,19 @@
-// tests/sanctifyText.test.js
+import { summonSanctifier } from '../src/index.js';
+import { sanctifyText } from '../src/sanctifyText.js'; // internal test-only import
 
-import { sanctifyText, summonSanctifier } from '../src/index.js';
+// --- Define bitflags for tests ---
+const FLAG_PRESERVE_PARAGRAPHS = 1;
+const FLAG_COLLAPSE_SPACES = 2;
+const FLAG_NUKE_CONTROLS = 4;
 
 function assertEqual(actual, expected, message) {
   if (actual !== expected) {
     console.error(`❌ ${message}\n  Expected: "${expected}"\n  Received: "${actual}"`);
-    process.exitCode = 1; // Mark test run as failed
+    process.exitCode = 1;
   } else {
     console.log(`✅ ${message}`);
   }
 }
-
-// --- Tests ---
 
 console.log('Running text-sanctifier tests...');
 
@@ -31,14 +33,14 @@ assertEqual(
 
 // 3. Collapse multiple spaces
 assertEqual(
-  sanctifyText('Hello   World', { collapseSpaces: true }),
+  sanctifyText('Hello   World', FLAG_COLLAPSE_SPACES),
   'Hello World',
   '3. Collapse multiple spaces into one'
 );
 
-// 4. Collapse multiple newlines
+// 4. Collapse multiple newlines (preserve paragraphs)
 assertEqual(
-  sanctifyText('Line1\n\n\nLine2', { preserveParagraphs: true }),
+  sanctifyText('Line1\n\n\nLine2', FLAG_PRESERVE_PARAGRAPHS),
   'Line1\n\nLine2',
   '4. Preserve paragraph breaks (2 newlines)'
 );
@@ -56,7 +58,6 @@ assertEqual(
   '5. Summoned sanitizer aggressively nukes control chars and collapse newlines'
 );
 
-
 // 6. Double space around newlines should not collapse lines
 assertEqual(
   sanctifyText('Line1   \n   Line2'),
@@ -66,7 +67,7 @@ assertEqual(
 
 // 7. Excessive tabs between words should be preserved unless collapseSpaces
 assertEqual(
-  sanctifyText('Hello\t\tWorld', { collapseSpaces: true }),
+  sanctifyText('Hello\t\tWorld', FLAG_COLLAPSE_SPACES),
   'Hello\t\tWorld',
   '7. Preserve tabs even when collapsing spaces'
 );
@@ -80,14 +81,14 @@ assertEqual(
 
 // 9. Extreme multiple newlines with paragraph preservation
 assertEqual(
-  sanctifyText('A\n\n\n\n\n\nB', { preserveParagraphs: true }),
+  sanctifyText('A\n\n\n\n\n\nB', FLAG_PRESERVE_PARAGRAPHS),
   'A\n\nB',
   '9. Collapse 6+ newlines into paragraph break (\\n\\n)'
 );
 
 // 10. No collapse when paragraph preservation is off
 assertEqual(
-  sanctifyText('X\n\nY', { preserveParagraphs: false }),
+  sanctifyText('X\n\nY'),
   'X\nY',
   '10. Collapse double newline to single when not preserving paragraphs'
 );
@@ -96,15 +97,10 @@ assertEqual(
 const inputWithGhosts = 'A\u200B\u200C\u200D\u2060\uFEFF\u200E\u200F\u202A\u202E\u00A0B';
 const cleaned = sanctifyText(inputWithGhosts);
 
-// Assert that after sanitization:
-// - No known trash characters remain
-// - Only "AB" is left
-
 assertEqual(
   cleaned,
   'AB',
   '11. Ghostproof: Invisible Unicode characters are fully purged'
 );
-
 
 console.log('All tests finished.');

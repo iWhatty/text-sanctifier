@@ -38,7 +38,7 @@ const cleaned = customSanitizer(rawText);
 ```javascript
 import { summonSanctifier } from 'text-sanctifier';
 
-const strictSanitizer = summonSanctifier.strict();
+const strictSanitizer = summonSanctifier.strict;
 const cleanText = strictSanitizer(rawText);
 ```
 
@@ -47,20 +47,20 @@ const cleanText = strictSanitizer(rawText);
 ```javascript
 import { summonSanctifier } from 'text-sanctifier';
 
-const looseSanitizer = summonSanctifier.loose();
+const looseSanitizer = summonSanctifier.loose;
 const cleanBodyText = looseSanitizer(rawInput);
 ```
 
 ## API
 
-### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
-Creates a sanitizer with options pre-bound.
+### `summonSanctifier(options?: SanctifyOptions, bitFlag?: number): (text: string) => string`
+Creates a sanitizer with options pre-bound or accepts a direct bitFlag.
 
-### `summonSanctifier.strict(): (text: string) => string`
-Returns a strict sanitizer preset.
+### `summonSanctifier.strict: (text: string) => string`
+Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls).
 
-### `summonSanctifier.loose(): (text: string) => string`
-Returns a loose sanitizer preset.
+### `summonSanctifier.loose: (text: string) => string`
+Loose sanitizer preset (preserve paragraph breaks, collapse spaces, skip nuking controls).
 
 ---
 

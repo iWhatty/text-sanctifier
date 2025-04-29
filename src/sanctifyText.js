@@ -71,7 +71,7 @@ summonSanctifier.loose = summonSanctifier({}, FLAG_PRESERVE_PARAGRAPHS + FLAG_CO
  * @param {number} [mode=0] Bitflag mode for sanitizer options
  * @returns {string}
  */
-function sanctifyText(text, mode = 0) {
+export function sanctifyText(text, mode = 0) {
 
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
