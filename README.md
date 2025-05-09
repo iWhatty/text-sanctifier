@@ -1,8 +1,9 @@
 # text-sanctifier
 
-![npm](https://img.shields.io/npm/v/text-sanctifier)
-![gzip size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)
-![downloads](https://img.shields.io/npm/dw/text-sanctifier)
+[![npm](https://img.shields.io/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+[![gzip size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)](https://bundlephobia.com/package/text-sanctifier)
+[![downloads](https://img.shields.io/npm/dw/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+
 
 Brutal text normalizer and invisible trash scrubber for modern web projects.
 
