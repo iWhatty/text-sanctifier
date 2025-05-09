@@ -7,6 +7,7 @@
  * @property {boolean} [collapseSpaces=false]
  * @property {boolean} [nukeControls=false]
 *  @property {boolean} [purgeEmojis=false]
+ * @property {boolean} [keyboardOnlyFilter=false]
  */
 
 
@@ -18,6 +19,7 @@
  * @param {boolean} [o.collapseSpaces=false]
  * @param {boolean} [o.nukeControls=false]
  * @param {boolean} [o.purgeEmojis=false]
+ * @param {boolean} [o.keyboardOnlyFilter=false]
  * @returns {(text: string) => string}
  */
 export function summonSanctifier(defaultOptions = {}) {
@@ -25,8 +27,9 @@ export function summonSanctifier(defaultOptions = {}) {
     const c = !!defaultOptions.collapseSpaces;
     const n = !!defaultOptions.nukeControls;
     const e = !!defaultOptions.purgeEmojis;
+    const k = !!defaultOptions.keyboardOnlyFilter;
 
-    return text => sanctifyText(text, p, c, n, e);
+    return text => sanctifyText(text, p, c, n, e, k);
 }
 
 
@@ -51,6 +54,29 @@ summonSanctifier.loose = text => sanctifyText(text, true, true);
 
 
 /**
+ * Keyboard-only (with emojis):
+ * - Keeps emojis and printable ASCII.
+ * - Normalizes typographic trash (quotes, dashes, etc.)
+ * - Strips non-standard characters.
+ * - Keeps spacing soft (spaces not collapsed).
+ */
+summonSanctifier.keyboardOnlyEmoji = text =>
+    sanctifyText(text, false, false, true, false, true);
+
+    
+/**
+* Keyboard-only (strict):
+* - No emojis.
+* - Collapses whitespace.
+* - Keeps only printable ASCII.
+*/
+summonSanctifier.keyboardOnly = text =>
+    sanctifyText(text, false, true, true, true, true);
+
+
+
+
+/**
  * Text Sanctifier
  * 
  * Brutal text normalizer and invisible trash scrubber,
@@ -67,6 +93,7 @@ summonSanctifier.loose = text => sanctifyText(text, true, true);
  * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into a single space.
  * @param {boolean} [nukeControls=false] - Remove hidden control characters (except whitespace).
  * @param {boolean} [purgeEmojis=false] - Remove emoji characters from the text.
+ * @param {boolean} [keyboardOnlyFilter=false] - Keep only printable ASCII and emoji characters.
  * @returns {string}
  */
 export function sanctifyText(
@@ -74,7 +101,8 @@ export function sanctifyText(
     preserveParagraphs = false,
     collapseSpaces = false,
     nukeControls = false,
-    purgeEmojis = false
+    purgeEmojis = false,
+    keyboardOnlyFilter = false
 ) {
 
     if (typeof text !== 'string') {
@@ -95,6 +123,12 @@ export function sanctifyText(
     if (nukeControls) {
         cleaned = purgeControlCharacters(cleaned);
     }
+
+
+    if (keyboardOnlyFilter) {
+        cleaned = purgeNonKeyboardChars(cleaned, purgeEmojis);
+    }
+
 
     // Normalize line endings to Unix style (\n)
     cleaned = normalizeNewlines(cleaned);
@@ -135,13 +169,81 @@ function purgeInvisibleTrash(text) {
 
 
 /**
+ * Removes all non-keyboard characters, preserving:
+ * - Printable ASCII (0x20–0x7E)
+ * - Emojis (Unicode Emoji_Presentation + FE0F variants)
+ */
+const ASCII_PRINTABLE_REGEX = /[^\x20-\x7E]/gu;
+
+function purgeNonKeyboardChars(text, purgeEmojis = false) {
+    const normalized = normalizeTypographicJank(text);
+
+    if (purgeEmojis) {
+        return normalized.replace(ASCII_PRINTABLE_REGEX, '');
+    }
+
+    // Remove non-ASCII unless it's a valid emoji
+    return normalized.replace(/[^\x20-\x7E]+/gu, m =>
+        m.match(EMOJI_REGEX) ? m : ''
+    );
+}
+
+
+// Smart apostrophes (single quote variations)
+const SMART_SINGLE_QUOTES_REGEX = /[\u2018\u2019\u201A\u201B\u2032\u2035]/g;
+
+// Smart double quotes (including primes and guillemets)
+const SMART_DOUBLE_QUOTES_REGEX = /[\u201C\u201D\u201E\u201F\u2033\u2036\u00AB\u00BB]/g;
+
+// Dash variants: en dash, em dash, horizontal bar, figure dash, minus
+const UNICODE_DASHES_REGEX = /[\u2012\u2013\u2014\u2015\u2212]/g;
+
+// Ellipsis character
+const ELLIPSIS_REGEX = /\u2026/g;
+
+// Bullets and middle dot
+const BULLETS_REGEX = /[\u2022\u00B7]/g;
+
+// Full-width ASCII punctuation: U+FF01 - U+FF5E
+const FULLWIDTH_PUNCTUATION_REGEX = /[\uFF01-\uFF5E]/g;
+
+function normalizeTypographicJank(text) {
+    return text
+        .replace(SMART_SINGLE_QUOTES_REGEX, "'")
+        .replace(SMART_DOUBLE_QUOTES_REGEX, '"')
+        .replace(UNICODE_DASHES_REGEX, '-')
+        .replace(ELLIPSIS_REGEX, '...')
+        .replace(BULLETS_REGEX, '*')
+        .replace(FULLWIDTH_PUNCTUATION_REGEX, m =>
+            String.fromCharCode(m.charCodeAt(0) - 0xFEE0)
+        );
+}
+
+
+
+let EMOJI_REGEX;
+
+/**
+ * Try Unicode property escape regex (preferred).
+ * Fallback to basic emoji range if unsupported.
+ */
+try {
+    EMOJI_REGEX = new RegExp(
+        '(?:\\p{Extended_Pictographic}(?:\\uFE0F|\\uFE0E)?(?:\\u200D(?:\\p{Extended_Pictographic}|\\w)+)*)',
+        'gu'
+    );
+} catch {
+    // Fallback: less precise but safe
+    EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}]/gu;
+}
+
+/**
  * Removes all emoji characters using Unicode property escapes.
- * Requires support for ES2018+.
- * 
+ * Supports modern environments (Unicode v13+) with fallback.
+ *
  * @param {string} text
  * @returns {string}
  */
-const EMOJI_REGEX = /\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
 function purgeEmojisCharacters(text) {
     return text.replace(EMOJI_REGEX, '');
 }

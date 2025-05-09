@@ -9,6 +9,7 @@
 *   collapseSpaces: (boolean|undefined),
 *   nukeControls: (boolean|undefined),
 *   purgeEmojis: (boolean|undefined),
+*   keyboardOnlyFilter: (boolean|undefined),
 * }}
 */
 var SanctifyOptions;
@@ -23,17 +24,27 @@ function summonSanctifier(defaultOptions) {}
 
 /**
 * Creates a strict sanitizer.
-*
-* @return {function(string): string}
+* @type {function(string): string}
 */
-function strict() {}
+summonSanctifier.strict;
 
 /**
 * Creates a loose sanitizer.
-*
-* @return {function(string): string}
+* @type {function(string): string}
 */
-function loose() {}
+summonSanctifier.loose;
+
+/**
+* Creates a keyboard-only ASCII-only sanitizer (no emojis).
+* @type {function(string): string}
+*/
+summonSanctifier.keyboardOnly;
+
+/**
+* Creates a keyboard-only sanitizer that retains emojis.
+* @type {function(string): string}
+*/
+summonSanctifier.keyboardOnlyEmoji;
 
 /**
 * Brutally normalizes and cleans a string of text.
@@ -43,6 +54,14 @@ function loose() {}
 * @param {boolean} collapseSpaces
 * @param {boolean} nukeControls
 * @param {boolean} purgeEmojis
+* @param {boolean} keyboardOnlyFilter
 * @return {string}
 */
-function sanctifyText(text, preserveParagraphs, collapseSpaces, nukeControls, purgeEmojis) {}
+function sanctifyText(
+ text,
+ preserveParagraphs,
+ collapseSpaces,
+ nukeControls,
+ purgeEmojis,
+ keyboardOnlyFilter
+) {}

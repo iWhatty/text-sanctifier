@@ -109,4 +109,50 @@ assertEqual(
   '11. Ghostproof: Invisible Unicode characters are fully purged'
 );
 
+
+
+// 12. Keyboard-onlyEmoji: preserve ASCII + emojis, strip non-keyboard extras
+const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
+
+assertEqual(
+  keyboardEmojiSanctifier('Hello — World 😊 👽 𝌆 ‼️'),
+  'Hello - World 😊 👽  ‼️',
+  '12. keyboardOnlyEmoji: normalize dashes and preserve emojis'
+);
+
+// 13. Keyboard-onlyEmoji: normalize smart quotes and dashes
+assertEqual(
+  keyboardEmojiSanctifier(`“Hello”—‘World’`),
+  '"Hello"-\'World\'',
+  '13. keyboardOnlyEmoji: normalize smart quotes and dashes'
+);
+
+// 14. Keyboard-only strict: purge emojis and normalize symbols
+const keyboardStrict = summonSanctifier.keyboardOnly;
+
+assertEqual(
+  keyboardStrict('Hi 😊 — “there”! 👋'),
+  'Hi - "there"!',
+  '14. keyboardOnly: emojis removed, symbols normalized, spaces collapsed'
+);
+
+// 15. Keyboard-onlyEmoji: normalize full-width ASCII punctuation
+assertEqual(
+  keyboardEmojiSanctifier('Ｈｅｌｌｏ！Ｗｏｒｌｄ？'),
+  'Hello!World?',
+  '15. keyboardOnlyEmoji: full-width punctuation normalized'
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
 console.log('All tests finished.');
