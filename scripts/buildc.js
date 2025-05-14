@@ -35,7 +35,8 @@ mkdirSync(distDir, { recursive: true });
     let bundleCode = readFileSync(bundleFile, 'utf8');
 
     // Step 2: Inject globalThis hack ONLY for Closure
-    bundleCode += '\nif (typeof globalThis !== "undefined") { globalThis.summonSanctifier = summonSanctifier; }';
+    bundleCode += '\nif (typeof globalThis !== "undefined") { globalThis.summonSanctifier = summonSanctifier, globalThis.inspectText = inspectText; }';
+
 
     // Step 3: Write back modified bundle
     writeFileSync(bundleFile, bundleCode);
@@ -55,9 +56,10 @@ mkdirSync(distDir, { recursive: true });
 
     // Replace globalThis.summonSanctifier assignment with ESM export
     const fixedCode = closureCode.replace(
-        /"undefined"!==typeof globalThis&&\(globalThis\.summonSanctifier=([a-zA-Z_$][0-9a-zA-Z_$]*)\);/,
-        'export { $1 as summonSanctifier };'
-    );
+        /"undefined"!==typeof globalThis&&\(\s*globalThis\.summonSanctifier=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.inspectText=([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\);/,
+        'export { $1 as summonSanctifier, $2 as inspectText };'
+      );
+      
 
     writeFileSync(closureFile, fixedCode);
 

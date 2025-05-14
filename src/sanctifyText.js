@@ -162,7 +162,7 @@ export function sanctifyText(
  * @param {string} text
  * @returns {string}
  */
-const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u200E\u200F\u202A-\u202E]+/g;
+export const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u200E\u200F\u202A-\u202E]+/g;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
 }
@@ -207,7 +207,7 @@ const BULLETS_REGEX = /[\u2022\u00B7]/g;
 // Full-width ASCII punctuation: U+FF01 - U+FF5E
 const FULLWIDTH_PUNCTUATION_REGEX = /[\uFF01-\uFF5E]/g;
 
-function normalizeTypographicJank(text) {
+export function normalizeTypographicJank(text) {
     return text
         .replace(SMART_SINGLE_QUOTES_REGEX, "'")
         .replace(SMART_DOUBLE_QUOTES_REGEX, '"')
@@ -221,7 +221,7 @@ function normalizeTypographicJank(text) {
 
 
 
-let EMOJI_REGEX;
+export let EMOJI_REGEX;
 
 /**
  * Try Unicode property escape regex (preferred).
@@ -237,6 +237,7 @@ try {
     EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}]/gu;
 }
 
+
 /**
  * Removes all emoji characters using Unicode property escapes.
  * Supports modern environments (Unicode v13+) with fallback.
@@ -250,21 +251,19 @@ function purgeEmojisCharacters(text) {
 
 
 /**
- * Normalizes all line endings to Unix-style (\n).
+ * Normalizes all line endings to a consistent format.
  * 
  * Converts:
- * - Windows line endings ("\r\n") → "\n"
- * - Old Mac line endings ("\r") → "\n"
- * 
- * Example:
- * "Line1\r\nLine2\rLine3" → "Line1\nLine2\nLine3"
+ * - Windows ("\r\n"), Old Mac ("\r"), Unix ("\n")
+ * Into the specified newline format (default: Unix "\n").
  *
- * @param {string} text
+ * @param {string} text - Input string to normalize.
+ * @param {string} [normalized='\n'] - Target newline style (e.g. '\n', '\r\n').
  * @returns {string}
  */
-const NORMALIZE_NEWLINES_REGEX = /\r\n?/g;
-function normalizeNewlines(text) {
-    return text.replace(NORMALIZE_NEWLINES_REGEX, '\n');
+const NORMALIZE_NEWLINES_REGEX = /\r\n|\r|\n/g;
+function normalizeNewlines(text, normalized = '\n') {
+    return text.replace(NORMALIZE_NEWLINES_REGEX, normalized);
 }
 
 
@@ -336,7 +335,7 @@ function collapseExtraSpaces(text) {
  * @param {string} text
  * @returns {string}
  */
-const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200E\u200F\u202A-\u202E]+/g;
+export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200E\u200F\u202A-\u202E]+/g;
 function purgeControlCharacters(text) {
     return text.replace(CONTROL_CHARS_REGEX, '');
 }

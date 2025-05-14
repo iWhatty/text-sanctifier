@@ -8,8 +8,8 @@
 
 Brutal text normalizer and invisible trash scrubber for modern web projects.
 
-* Minified: 1425 bytes (1.39 KB)
-* Gzipped (GCC) : 784 bytes (0.77 KB)
+* Minified: (2.47 KB)
+* Gzipped (GCC) : (1.18 KB)
 
 ## Features
 
@@ -112,6 +112,37 @@ Removes everything except printable ASCII. Emojis are removed. Spaces are collap
 #### `summonSanctifier.keyboardOnlyEmoji: (text: string) => string`
 
 Keeps printable ASCII and emoji characters. Typographic normalization included.
+
+---
+
+
+### Unicode Trash Detection
+
+```javascript
+import { inspectText } from 'text-sanctifier';
+
+const report = inspectText(rawInput);
+
+/*
+{
+  hasControlChars: true,
+  hasInvisibleChars: true,
+  hasMixedNewlines: false,
+  newlineStyle: 'LF',
+  hasEmojis: true,
+  hasNonKeyboardChars: false,
+  summary: [
+    'Control characters detected.',
+    'Invisible Unicode characters detected.',
+    'Emojis detected.',
+    'Consistent newline style: LF'
+  ]
+}
+*/
+```
+
+Use this to preflight inputs and flag unwanted characters (like control codes, zero-width spaces, or mixed newline styles) before sanitization or storage.
+
 
 ---
 

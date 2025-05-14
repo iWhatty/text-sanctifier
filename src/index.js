@@ -1,6 +1,9 @@
 // src/index.js
 
 
+import { inspectText } from './inspectText.js';
+export { inspectText };
+
 import { summonSanctifier } from './sanctifyText.js';
 export { summonSanctifier };
 

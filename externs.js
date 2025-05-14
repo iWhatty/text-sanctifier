@@ -65,3 +65,34 @@ function sanctifyText(
  purgeEmojis,
  keyboardOnlyFilter
 ) {}
+
+
+
+/**
+ * @typedef {(
+*   'LF' |
+*   'CRLF' |
+*   'CR' |
+*   'Mixed' |
+*   null
+* )} NewlineStyle
+*/
+
+/**
+* @typedef {Object} UnicodeTrashReport
+* @property {boolean} hasControlChars
+* @property {boolean} hasInvisibleChars
+* @property {boolean} hasMixedNewlines
+* @property {NewlineStyle} newlineStyle
+* @property {boolean} hasEmojis
+* @property {boolean} hasNonKeyboardChars
+* @property {!Array<string>} summary
+*/
+
+/**
+* Analyze a string for textual anomalies or "trash".
+* 
+* @param {string} text
+* @return {!UnicodeTrashReport}
+*/
+function inspectText(text) {}
