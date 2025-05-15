@@ -148,4 +148,4 @@ Use this to preflight inputs and flag unwanted characters (like control codes, z
 
 ## License
 
-\--{DR.WATT}--
+\--{DR.WATT v3.0}--
