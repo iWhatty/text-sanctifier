@@ -5,11 +5,16 @@
 
 /**
  * @typedef {{
+*   purgeInvisibleChars: (boolean|undefined),
+*   purgeEmojis: (boolean|undefined),
+*   nukeControls: (boolean|undefined),
+*   keyboardOnlyFilter: (boolean|undefined),
+*   normalizeNewlines: (boolean|undefined),
+*   trimSpacesAroundNewlines: (boolean|undefined),
+*   collapseNewLines: (boolean|undefined),
 *   preserveParagraphs: (boolean|undefined),
 *   collapseSpaces: (boolean|undefined),
-*   nukeControls: (boolean|undefined),
-*   purgeEmojis: (boolean|undefined),
-*   keyboardOnlyFilter: (boolean|undefined),
+*   finalTrim: (boolean|undefined)
 * }}
 */
 var SanctifyOptions;
@@ -35,41 +40,49 @@ summonSanctifier.strict;
 summonSanctifier.loose;
 
 /**
-* Creates a keyboard-only ASCII-only sanitizer (no emojis).
-* @type {function(string): string}
-*/
-summonSanctifier.keyboardOnly;
-
-/**
 * Creates a keyboard-only sanitizer that retains emojis.
 * @type {function(string): string}
 */
 summonSanctifier.keyboardOnlyEmoji;
 
 /**
+* Creates a keyboard-only ASCII-only sanitizer (no emojis).
+* @type {function(string): string}
+*/
+summonSanctifier.keyboardOnly;
+
+/**
 * Brutally normalizes and cleans a string of text.
 *
 * @param {string} text
-* @param {boolean} preserveParagraphs
-* @param {boolean} collapseSpaces
-* @param {boolean} nukeControls
-* @param {boolean} purgeEmojis
-* @param {boolean} keyboardOnlyFilter
+* @param {boolean=} purgeInvisibleChars
+* @param {boolean=} purgeEmojis
+* @param {boolean=} nukeControls
+* @param {boolean=} keyboardOnlyFilter
+* @param {boolean=} normalizeNewlines
+* @param {boolean=} trimSpacesAroundNewlines
+* @param {boolean=} collapseNewLines
+* @param {boolean=} preserveParagraphs
+* @param {boolean=} collapseSpaces
+* @param {boolean=} finalTrim
 * @return {string}
 */
 function sanctifyText(
  text,
+ purgeInvisibleChars,
+ purgeEmojis,
+ nukeControls,
+ keyboardOnlyFilter,
+ normalizeNewlines,
+ trimSpacesAroundNewlines,
+ collapseNewLines,
  preserveParagraphs,
  collapseSpaces,
- nukeControls,
- purgeEmojis,
- keyboardOnlyFilter
+ finalTrim
 ) {}
 
-
-
 /**
- * @typedef {(
+* @typedef {(
 *   'LF' |
 *   'CRLF' |
 *   'CR' |
@@ -91,7 +104,7 @@ function sanctifyText(
 
 /**
 * Analyze a string for textual anomalies or "trash".
-* 
+*
 * @param {string} text
 * @return {!UnicodeTrashReport}
 */

@@ -1,20 +1,35 @@
 // src/index.d.ts
 
 export interface SanctifyOptions {
-  /** Preserve paragraph breaks by collapsing 3+ newlines into 2 */
+  /** Remove ZWSP, NBSP, bidi, and other invisible Unicode trash */
+  purgeInvisibleChars?: boolean;
+
+  /** Remove emoji characters */
+  purgeEmojis?: boolean;
+
+  /** Nuke hidden control characters (excluding whitespace like \n and \t) */
+  nukeControls?: boolean;
+
+  /** Restrict to printable ASCII (+ emoji if `purgeEmojis` is false) */
+  keyboardOnlyFilter?: boolean;
+
+  /** Normalize all newline sequences to LF (`\n`) */
+  normalizeNewlines?: boolean;
+
+  /** Remove tabs and spaces before/after newline characters */
+  trimSpacesAroundNewlines?: boolean;
+
+  /** Collapse multiple consecutive newlines */
+  collapseNewLines?: boolean;
+
+  /** When collapsing newlines, preserve paragraph breaks as double `\n\n` */
   preserveParagraphs?: boolean;
 
   /** Collapse multiple spaces into a single space */
   collapseSpaces?: boolean;
 
-  /** Nuke hidden control characters (excluding whitespace like \n and \t) */
-  nukeControls?: boolean;
-
-  /** Remove emoji characters */
-  purgeEmojis?: boolean;
-
-  /** Restrict to printable ASCII (+ emoji if `purgeEmojis` is false) */
-  keyboardOnlyFilter?: boolean;
+  /** Trim leading and trailing whitespace from final result */
+  finalTrim?: boolean;
 }
 
 /** Preconfigured sanitizer function */
@@ -56,11 +71,16 @@ export namespace summonSanctifier {
  */
 export function sanctifyText(
   text: string,
+  purgeInvisibleChars?: boolean,
+  purgeEmojis?: boolean,
+  nukeControls?: boolean,
+  keyboardOnlyFilter?: boolean,
+  normalizeNewlines?: boolean,
+  trimSpacesAroundNewlines?: boolean,
+  collapseNewLines?: boolean,
   preserveParagraphs?: boolean,
   collapseSpaces?: boolean,
-  nukeControls?: boolean,
-  purgeEmojis?: boolean,
-  keyboardOnlyFilter?: boolean
+  finalTrim?: boolean,
 ): string;
 
 /** Style of newline characters detected in a string */

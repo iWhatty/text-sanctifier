@@ -5,22 +5,21 @@
 [![downloads](https://img.shields.io/npm/dw/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 [![GitHub stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 
-
 Brutal text normalizer and invisible trash scrubber for modern web projects.
 
-* Minified: (2.45 KB)
-* Gzipped (GCC) : (1.18 KB)
+* Minified: (2.69 KB)
+* Gzipped (GCC): (1.27 KB)
 
 ## Features
 
 * Purges zero-width Unicode garbage
-* Normalizes line endings
+* Normalizes line endings (CRLF, CR, LF) → LF
 * Collapses unwanted spaces and paragraphs
 * Nukes control characters (if enabled)
-* Configurable via options or presets
-* Includes strict and loose sanitization modes
-* **NEW:** Keyboard-only filtering — retains only printable ASCII + emojis
-* **NEW:** Smart normalization of typographic junk (smart quotes, em dashes, full-width punctuation)
+* Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
+* Keyboard-only filtering (retain printable ASCII + emoji, or restrict)
+* Configurable via fine-grained flags or ready-made presets
+* Includes strict, loose, and keyboard-only modes
 
 ## Install
 
@@ -30,98 +29,65 @@ npm install text-sanctifier
 
 ## 📦 Package & Build Info
 
-* **Source (`src/`)**: ES2020+ ESM modules with JSDoc. Designed for modern bundlers and full tree-shaking.
-* **Browser Bundle (`dist/`)**: Pre-minified ES2020+ module (`text-sanctifier.min.js`, 0.70 KB minified / 0.43 KB gzipped) for direct `<script type="module">` usage.
-* **Module Format**: Native ESM (ECMAScript Modules).
-* **Bundler Compatibility**: Optimized for Vite, Rollup, Webpack 5+, ESBuild, and Parcel.
-* **Transpilation**: The (`src/`) allows you to downlevel in your build process (e.g., targeting `es2015`).
-* **No Transpilers Included**: No built-in shims, polyfills, or transpilation; you control environment compatibility.
-* **Tree-shaking Friendly**: Fully optimized with `sideEffects: false` for dead code elimination.
-* **Publishing Philosophy**:
-
-  * Source-first design for flexibility, debuggability, and modern bundling pipelines.
-  * Minified bundle included separately for raw browser consumption without a build step.
-
-## Quick Usage
-
-### Basic (via `summonSanctifier`)
-
-```javascript
-import { summonSanctifier } from 'text-sanctifier';
-
-const customSanitizer = summonSanctifier({
-  preserveParagraphs: true,
-  collapseSpaces: true,
-  nukeControls: true,
-  purgeEmojis: true,
-});
-
-const cleaned = customSanitizer(rawText);
-```
-
-### Strict Mode (aggressive cleanup)
-
-```javascript
-import { summonSanctifier } from 'text-sanctifier';
-
-const strictSanitizer = summonSanctifier.strict;
-const cleanText = strictSanitizer(rawText);
-```
-
-### Loose Mode (preserve paragraphs)
-
-```javascript
-import { summonSanctifier } from 'text-sanctifier';
-
-const looseSanitizer = summonSanctifier.loose;
-const cleanBodyText = looseSanitizer(rawInput);
-```
-
-### Keyboard-only Mode (keep only printable ASCII)
-
-```javascript
-const keyboardOnly = summonSanctifier.keyboardOnly;
-const asciiOnlyText = keyboardOnly(userInput);
-```
-
-### Keyboard-only with Emoji Support
-
-```javascript
-const keyboardWithEmoji = summonSanctifier.keyboardOnlyEmoji;
-const cleanAndFun = keyboardWithEmoji(commentBox);
-```
-
-## API
-
-#### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
-
-Creates a sanitizer with options pre-bound.
-
-#### `summonSanctifier.strict: (text: string) => string`
-
-Strict sanitizer preset (collapse spaces, collapse all newlines, nuke controls, purge Emojis).
-
-#### `summonSanctifier.loose: (text: string) => string`
-
-Loose sanitizer preset (preserve paragraph breaks, collapse spaces, skip nuking controls, preserve Emojis).
-
-#### `summonSanctifier.keyboardOnly: (text: string) => string`
-
-Removes everything except printable ASCII. Emojis are removed. Spaces are collapsed.
-
-#### `summonSanctifier.keyboardOnlyEmoji: (text: string) => string`
-
-Keeps printable ASCII and emoji characters. Typographic normalization included.
+* **Source (`src/`)**: ES2020+ ESM modules with JSDoc
+* **Browser Build (`dist/`)**: Minified ESM bundle for `<script type="module">`
+* **Tree-shaking Friendly**: Fully optimized with `sideEffects: false`
+* **Zero Transpilation**: No built-in polyfills or runtime overhead
+* **Bundler Ready**: Works great with Vite, Rollup, Webpack, Parcel, etc.
 
 ---
 
+## 🔧 Quick Usage
 
-### Unicode Trash Detection
+### Custom Config
 
-```javascript
+```js
+import { summonSanctifier } from 'text-sanctifier';
+
+const clean = summonSanctifier({
+  purgeInvisibleChars: true,
+  purgeEmojis: true,
+  collapseSpaces: true,
+  collapseNewLines: true,
+  preserveParagraphs: true,
+  finalTrim: true,
+});
+
+const output = clean(rawText);
+```
+
+### Strict Preset
+
+```js
+const output = summonSanctifier.strict(rawText);
+```
+
+### Loose Preset
+
+```js
+const output = summonSanctifier.loose(rawText);
+```
+
+### Keyboard-Only (No Emojis)
+
+```js
+const output = summonSanctifier.keyboardOnly(userInput);
+```
+
+### Keyboard-Only (With Emojis)
+
+```js
+const output = summonSanctifier.keyboardOnlyEmoji(commentText);
+```
+
+---
+
+## 🔍 Unicode Trash Detection
+
+```js
 import { inspectText } from 'text-sanctifier';
 
-const report = inspectText(rawInput);
+const report = inspectText(input);
 
 /*
 {
@@ -141,8 +107,35 @@ const report = inspectText(rawInput);
 */
 ```
 
-Use this to preflight inputs and flag unwanted characters (like control codes, zero-width spaces, or mixed newline styles) before sanitization or storage.
+Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs.
 
+---
+
+## API
+
+### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+
+Creates a reusable sanitizer from an option object.
+
+### `summonSanctifier.strict`
+
+Aggressively purges: emojis, control characters, extra spacing, and newlines.
+
+### `summonSanctifier.loose`
+
+Gently normalizes spacing and newlines while preserving emojis and paragraphs.
+
+### `summonSanctifier.keyboardOnly`
+
+Restricts to printable ASCII only (removes emojis).
+
+### `summonSanctifier.keyboardOnlyEmoji`
+
+Restricts to keyboard-safe ASCII + emojis. Preserves fun, removes weird.
+
+### `inspectText(text: string): UnicodeTrashReport`
+
+Returns a structural report of control codes, invisible chars, newline styles, and more.
 
 ---
 

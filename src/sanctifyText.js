@@ -3,77 +3,149 @@
 
 /**
  * @typedef {Object} SanctifyOptions
- * @property {boolean} [preserveParagraphs=false]
- * @property {boolean} [collapseSpaces=false]
- * @property {boolean} [nukeControls=false]
-*  @property {boolean} [purgeEmojis=false]
- * @property {boolean} [keyboardOnlyFilter=false]
+ * @property {boolean} [purgeInvisibleChars]
+ * @property {boolean} [purgeEmojis]
+ * @property {boolean} [nukeControls]
+ * @property {boolean} [keyboardOnlyFilter]
+ * @property {boolean} [normalizeNewlines]
+ * @property {boolean} [trimSpacesAroundNewlines]
+ * @property {boolean} [collapseNewLines]
+ * @property {boolean} [preserveParagraphs]
+ * @property {boolean} [collapseSpaces]
+ * @property {boolean} [finalTrim]
  */
 
 
 /**
  * Summons a customized sanctifier function with pre-bound booleans.
- * 
- * @param {Object} [o={}]
- * @param {boolean} [o.preserveParagraphs=false]
- * @param {boolean} [o.collapseSpaces=false]
- * @param {boolean} [o.nukeControls=false]
- * @param {boolean} [o.purgeEmojis=false]
- * @param {boolean} [o.keyboardOnlyFilter=false]
+ *
+ * Accepts full flag names and returns a text-cleaning function.
+ *
+ * @param {Object} [defaultOptions={}]
+ * @param {boolean} [defaultOptions.purgeInvisibleChars]
+ * @param {boolean} [defaultOptions.purgeEmojis]
+ * @param {boolean} [defaultOptions.nukeControls]
+ * @param {boolean} [defaultOptions.keyboardOnlyFilter]
+ * @param {boolean} [defaultOptions.normalizeNewlines]
+ * @param {boolean} [defaultOptions.trimSpacesAroundNewlines]
+ * @param {boolean} [defaultOptions.collapseNewLines]
+ * @param {boolean} [defaultOptions.preserveParagraphs]
+ * @param {boolean} [defaultOptions.collapseSpaces]
+ * @param {boolean} [defaultOptions.finalTrim]
  * @returns {(text: string) => string}
  */
 export function summonSanctifier(defaultOptions = {}) {
-    const p = !!defaultOptions.preserveParagraphs;
-    const c = !!defaultOptions.collapseSpaces;
-    const n = !!defaultOptions.nukeControls;
-    const e = !!defaultOptions.purgeEmojis;
-    const k = !!defaultOptions.keyboardOnlyFilter;
+    const purgeInvisibleChars = !!defaultOptions.purgeInvisibleChars;
+    const purgeEmojis = !!defaultOptions.purgeEmojis;
+    const nukeControls = !!defaultOptions.nukeControls;
+    const keyboardOnlyFilter = !!defaultOptions.keyboardOnlyFilter;
+    const normalizeNewlines = !!defaultOptions.normalizeNewlines;
+    const trimSpacesAroundNewlines = !!defaultOptions.trimSpacesAroundNewlines;
+    const collapseNewLines = !!defaultOptions.collapseNewLines;
+    const preserveParagraphs = !!defaultOptions.preserveParagraphs;
+    const collapseSpaces = !!defaultOptions.collapseSpaces;
+    const finalTrim = !!defaultOptions.finalTrim;
 
-    return text => sanctifyText(text, p, c, n, e, k);
+    return text => sanctifyText(
+        text,
+        purgeInvisibleChars,
+        purgeEmojis,
+        nukeControls,
+        keyboardOnlyFilter,
+        normalizeNewlines,
+        trimSpacesAroundNewlines,
+        collapseNewLines,
+        preserveParagraphs,
+        collapseSpaces,
+        finalTrim
+    );
 }
-
 
 // --- Added Presets ---
 
 /**
  * Strict sanitizer:
- * - Collapse spaces
+ * - Purge emojis
  * - Collapse all newlines
+ * - Collapse spaces
  * - Nuke control characters
  */
-summonSanctifier.strict = text => sanctifyText(text, false, true, true, true);
+summonSanctifier.strict = text => sanctifyText(
+    text,
+    true,   // purgeInvisibleChars
+    true,   // purgeEmojis
+    true,   // nukeControls
+    false,  // keyboardOnlyFilter
+    true,   // normalizeNewlines
+    true,   // trimSpacesAroundNewlines
+    true,   // collapseNewLines
+    false,  // preserveParagraphs
+    true,   // collapseSpaces
+    true    // finalTrim
+);
 
 
 /**
  * Loose sanitizer:
  * - Collapse spaces
  * - Preserve paragraphs
- * - Skip nuking control characters
+ * - Normalize newlines
  */
-summonSanctifier.loose = text => sanctifyText(text, true, true);
+summonSanctifier.loose = text => sanctifyText(
+    text,
+    false,  // purgeInvisibleChars
+    false,  // purgeEmojis
+    false,  // nukeControls
+    false,  // keyboardOnlyFilter
+    true,   // normalizeNewlines
+    true,   // trimSpacesAroundNewlines
+    true,   // collapseNewLines
+    true,   // preserveParagraphs
+    true,   // collapseSpaces
+    true    // finalTrim
+);
 
 
 /**
  * Keyboard-only (with emojis):
- * - Keeps emojis and printable ASCII.
- * - Normalizes typographic trash (quotes, dashes, etc.)
- * - Strips non-standard characters.
- * - Keeps spacing soft (spaces not collapsed).
+ * - Keeps emojis and printable ASCII
+ * - Strips non-standard characters
+ * - Normalizes typographic trash
  */
-summonSanctifier.keyboardOnlyEmoji = text =>
-    sanctifyText(text, false, false, true, false, true);
+summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
+    text,
+    false,  // purgeInvisibleChars
+    false,  // purgeEmojis
+    false,  // nukeControls
+    true,   // keyboardOnlyFilter
+    true,   // normalizeNewlines
+    true,   // trimSpacesAroundNewlines
+    false,  // collapseNewLines
+    false,  // preserveParagraphs
+    false,  // collapseSpaces
+    true    // finalTrim
+);
 
 
 /**
-* Keyboard-only (strict):
-* - No emojis.
-* - Collapses whitespace.
-* - Keeps only printable ASCII.
-*/
-summonSanctifier.keyboardOnly = text =>
-    sanctifyText(text, false, true, true, true, true);
-
-
+ * Keyboard-only (strict):
+ * - Removes emojis
+ * - Collapses all whitespace
+ * - Restricts to printable ASCII only
+ */
+summonSanctifier.keyboardOnly = text => sanctifyText(
+    text,
+    true,  // purgeInvisibleChars
+    true,   // purgeEmojis
+    true,   // nukeControls
+    true,   // keyboardOnlyFilter
+    true,   // normalizeNewlines
+    true,   // trimSpacesAroundNewlines
+    true,   // collapseNewLines
+    false,  // preserveParagraphs
+    true,   // collapseSpaces
+    true    // finalTrim
+);
 
 
 /**
@@ -82,70 +154,64 @@ summonSanctifier.keyboardOnly = text =>
  * Brutal text normalizer and invisible trash scrubber,
  * configurable to kill whatever ghosts you want dead.
  * 
- * Usage:
- * 
- *   import { sanctifyText } from './utils/sanctifyText';
- * 
- *   const cleaned = sanctifyText(rawText, FLAG_COLLAPSE_SPACES | FLAG_NUKE_CONTROLS);
- * 
  * @param {string | null | undefined} text
- * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks (2 newlines) instead of collapsing all.
- * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into a single space.
- * @param {boolean} [nukeControls=false] - Remove hidden control characters (except whitespace).
- * @param {boolean} [purgeEmojis=false] - Remove emoji characters from the text.
- * @param {boolean} [keyboardOnlyFilter=false] - Keep only printable ASCII and emoji characters.
+ * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, etc.
+ * @param {boolean} [purgeEmojis=false] - Remove emoji characters entirely.
+ * @param {boolean} [nukeControls=false] - Remove non-whitespace control characters.
+ * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII and emojis only.
+ * @param {boolean} [normalizeNewlines=false] - Convert all newlines to `\n`.
+ * @param {boolean} [trimSpacesAroundNewlines=false] - Remove spaces/tabs around newlines.
+ * @param {boolean} [collapseNewLines=false] - Collapse `\n` runs (optionally preserve paragraphs).
+ * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks when collapsing newlines.
+ * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into one.
+ * @param {boolean} [finalTrim=false] - `.trim()` the final output (head/tail).
  * @returns {string}
  */
 export function sanctifyText(
     text,
+    purgeInvisibleChars = false,
+    purgeEmojis = false,
+    nukeControls = false,
+    keyboardOnlyFilter = false,
+    normalizeNewlines = false,
+    trimSpacesAroundNewlines = false,
+    collapseNewLines = false,
     preserveParagraphs = false,
     collapseSpaces = false,
-    nukeControls = false,
-    purgeEmojis = false,
-    keyboardOnlyFilter = false
+    finalTrim = false,
 ) {
-
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
     }
 
     let cleaned = text;
 
-    // Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
-    cleaned = purgeInvisibleTrash(cleaned);
+    //  Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
+    if (purgeInvisibleChars) cleaned = purgeInvisibleTrash(cleaned);
 
-    // Optionally, remove emojis
-    if (purgeEmojis) {
-        cleaned = purgeEmojisCharacters(cleaned);
-    }
+    // Remove emojis
+    if (purgeEmojis) cleaned = purgeEmojisCharacters(cleaned);
 
-    // Optionally, nuke control characters (excluding whitespace)
-    if (nukeControls) {
-        cleaned = purgeControlCharacters(cleaned);
-    }
+    // Nuke control characters (excluding whitespace)
+    if (nukeControls) cleaned = purgeControlCharacters(cleaned);
 
-
-    if (keyboardOnlyFilter) {
-        cleaned = purgeNonKeyboardChars(cleaned, purgeEmojis);
-    }
-
+    // Keep only ASCII/emojis
+    if (keyboardOnlyFilter) cleaned = purgeNonKeyboardChars(cleaned, purgeEmojis);
 
     // Normalize line endings to Unix style (\n)
-    cleaned = normalizeNewlines(cleaned);
+    if (normalizeNewlines) cleaned = normalizeNewlineChars(cleaned);
 
     // Remove spaces/tabs around newlines
-    cleaned = trimSpacesAroundNewlines(cleaned);
+    if (trimSpacesAroundNewlines) cleaned = trimSpacesAroundNewlineChars(cleaned);
 
     // Collapse excessive newlines, Optionally preserve Paragraphs
-    cleaned = collapseParagraphs(cleaned, preserveParagraphs);
+    if (collapseNewLines) cleaned = collapseMultipleNewLines(cleaned, preserveParagraphs);
 
-    // Optionally, Collapse multiple spaces into a single space
-    if (collapseSpaces) {
-        cleaned = collapseExtraSpaces(cleaned);
-    }
+    // Collapse multiple spaces into a single space
+    if (collapseSpaces) cleaned = collapseExtraSpaces(cleaned);
 
-    // Final trim
-    return cleaned.trim();
+    // Final trim, return Sanctified Text
+    return finalTrim ? cleaned.trim() : cleaned;
 }
 
 
@@ -268,7 +334,7 @@ function purgeEmojisCharacters(text) {
  * @returns {string}
  */
 const NORMALIZE_NEWLINES_REGEX = /\r\n|\r|\n/g;
-function normalizeNewlines(text, normalized = '\n') {
+function normalizeNewlineChars(text, normalized = '\n') {
     return text.replace(NORMALIZE_NEWLINES_REGEX, normalized);
 }
 
@@ -284,7 +350,7 @@ function normalizeNewlines(text, normalized = '\n') {
  * @returns {string}
  */
 const TRIM_SPACES_AROUND_NEWLINES_REGEX = /[ \t]*(\n+)[ \t]*/g;
-function trimSpacesAroundNewlines(text) {
+function trimSpacesAroundNewlineChars(text) {
     return text.replace(TRIM_SPACES_AROUND_NEWLINES_REGEX, '$1');
 }
 
@@ -307,7 +373,7 @@ function trimSpacesAroundNewlines(text) {
 const MULTIPLE_NEWLINES_REGEX = /\n{2,}/g;
 const TRIPLE_NEWLINES_REGEX = /\n{3,}/g;
 
-function collapseParagraphs(text, preserveParagraphs) {
+function collapseMultipleNewLines(text, preserveParagraphs) {
     return preserveParagraphs
         ? text.replace(TRIPLE_NEWLINES_REGEX, '\n\n')
         : text.replace(MULTIPLE_NEWLINES_REGEX, '\n');
