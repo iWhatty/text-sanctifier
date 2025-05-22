@@ -8,7 +8,7 @@
 
 Brutal text normalizer and invisible trash scrubber for modern web projects.
 
-* Minified: (2.47 KB)
+* Minified: (2.45 KB)
 * Gzipped (GCC) : (1.18 KB)
 
 ## Features

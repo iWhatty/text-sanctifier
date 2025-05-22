@@ -1,8 +1,15 @@
 
 
 
-import { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX, EMOJI_REGEX, normalizeTypographicJank } from './sanctifyText.js'
+import {
+    CONTROL_CHARS_REGEX,
+    INVISIBLE_TRASH_REGEX,
+    EMOJI_REGEX,
+    ASCII_KEYBOARD_SAFE_REGEX,
+    normalizeTypographicJank
+  } from './sanctifyText.js';
 
+  
 /**
  * Detects textual "trash" or anomalies in a given string.
  * @param {string} text
@@ -58,9 +65,9 @@ export function inspectText(text) {
  }
 
  // === Non-keyboard characters (excluding emojis) ===
- const filtered = normalizeTypographicJank(text).replace(/[^\x20-\x7E]+/gu, m =>
-   m.match(EMOJI_REGEX) ? '' : '☒'
- );
+ const filtered = normalizeTypographicJank(text).replace(ASCII_KEYBOARD_SAFE_REGEX, m =>
+    m.match(EMOJI_REGEX) ? '' : '☒'
+  );
  flag(/[☒]/.test(filtered), 'hasNonKeyboardChars', 'Non-keyboard characters detected.');
 
  return report;

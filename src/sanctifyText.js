@@ -63,7 +63,7 @@ summonSanctifier.loose = text => sanctifyText(text, true, true);
 summonSanctifier.keyboardOnlyEmoji = text =>
     sanctifyText(text, false, false, true, false, true);
 
-    
+
 /**
 * Keyboard-only (strict):
 * - No emojis.
@@ -169,21 +169,27 @@ function purgeInvisibleTrash(text) {
 
 
 /**
+ * Matches any character that is NOT:
+ * - Printable ASCII (U+0020–U+007E)
+ * - Newline characters: \n (LF), \r (CR)
+ * This allows for \n, \r, and \r\n line endings.
+ */
+export const ASCII_KEYBOARD_SAFE_REGEX = /[^\x20-\x7E\r\n]+/gu;
+
+/**
  * Removes all non-keyboard characters, preserving:
  * - Printable ASCII (0x20–0x7E)
  * - Emojis (Unicode Emoji_Presentation + FE0F variants)
  */
-const ASCII_PRINTABLE_REGEX = /[^\x20-\x7E]/gu;
-
 function purgeNonKeyboardChars(text, purgeEmojis = false) {
     const normalized = normalizeTypographicJank(text);
 
     if (purgeEmojis) {
-        return normalized.replace(ASCII_PRINTABLE_REGEX, '');
+        return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, '');
     }
 
     // Remove non-ASCII unless it's a valid emoji
-    return normalized.replace(/[^\x20-\x7E]+/gu, m =>
+    return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, m =>
         m.match(EMOJI_REGEX) ? m : ''
     );
 }
