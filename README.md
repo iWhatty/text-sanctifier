@@ -7,8 +7,8 @@
 
 Brutal text normalizer and invisible trash scrubber for modern web projects.
 
-* Minified: (2.69 KB)
-* Gzipped (GCC): (1.27 KB)
+* Minified: (3.09 KB)
+* Gzipped (GCC): (1.36 KB)
 
 ## Features
 
@@ -108,6 +108,8 @@ const report = inspectText(input);
 ```
 
 Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs.
+
+Pass the report to getRecommendedSanctifierOptions(report) to auto-generate config flags for summonSanctifier().
 
 ---
 

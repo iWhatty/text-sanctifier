@@ -104,3 +104,13 @@ export interface UnicodeTrashReport {
  * invisible characters, newline styles, emojis, and more.
  */
 export function inspectText(text: string): UnicodeTrashReport;
+
+
+/**
+ * Creates a recommended set of `summonSanctifier` options based on the findings
+ * of `inspectText()`. This maps only what can be inferred automatically —
+ * user-preference settings like whitespace collapsing are left unset.
+ */
+export function getRecommendedSanctifierOptions(
+  report: UnicodeTrashReport
+): SanctifyOptions;

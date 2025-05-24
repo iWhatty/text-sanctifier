@@ -1,8 +1,8 @@
 // src/index.js
 
 
-import { inspectText } from './inspectText.js';
-export { inspectText };
+import { inspectText, getRecommendedSanctifierOptions } from './inspectText.js';
+export { inspectText, getRecommendedSanctifierOptions };
 
 import { summonSanctifier } from './sanctifyText.js';
 export { summonSanctifier };

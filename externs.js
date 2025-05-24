@@ -25,7 +25,7 @@ var SanctifyOptions;
 * @param {!SanctifyOptions=} defaultOptions
 * @return {function(string): string}
 */
-function summonSanctifier(defaultOptions) {}
+function summonSanctifier(defaultOptions) { }
 
 /**
 * Creates a strict sanitizer.
@@ -68,44 +68,48 @@ summonSanctifier.keyboardOnly;
 * @return {string}
 */
 function sanctifyText(
- text,
- purgeInvisibleChars,
- purgeEmojis,
- nukeControls,
- keyboardOnlyFilter,
- normalizeNewlines,
- trimSpacesAroundNewlines,
- collapseNewLines,
- preserveParagraphs,
- collapseSpaces,
- finalTrim
-) {}
+    text,
+    purgeInvisibleChars,
+    purgeEmojis,
+    nukeControls,
+    keyboardOnlyFilter,
+    normalizeNewlines,
+    trimSpacesAroundNewlines,
+    collapseNewLines,
+    preserveParagraphs,
+    collapseSpaces,
+    finalTrim
+) { }
 
 /**
-* @typedef {(
-*   'LF' |
-*   'CRLF' |
-*   'CR' |
-*   'Mixed' |
-*   null
-* )} NewlineStyle
-*/
+ * @typedef {string} NewlineStyle
+ * One of: 'LF', 'CRLF', 'CR', 'Mixed', or null
+ */
+var NewlineStyle;
 
 /**
-* @typedef {Object} UnicodeTrashReport
-* @property {boolean} hasControlChars
-* @property {boolean} hasInvisibleChars
-* @property {boolean} hasMixedNewlines
-* @property {NewlineStyle} newlineStyle
-* @property {boolean} hasEmojis
-* @property {boolean} hasNonKeyboardChars
-* @property {!Array<string>} summary
+ * @typedef {{
+*   hasControlChars: boolean,
+*   hasInvisibleChars: boolean,
+*   hasMixedNewlines: boolean,
+*   newlineStyle: (NewlineStyle|null),
+*   hasEmojis: boolean,
+*   hasNonKeyboardChars: boolean,
+*   summary: !Array<string>
+* }}
 */
+var UnicodeTrashReport;
 
 /**
 * Analyze a string for textual anomalies or "trash".
-*
 * @param {string} text
 * @return {!UnicodeTrashReport}
 */
-function inspectText(text) {}
+function inspectText(text) { }
+
+/**
+* Suggests recommended flags for summonSanctifier based on a UnicodeTrashReport.
+* @param {!UnicodeTrashReport} report
+* @return {!SanctifyOptions}
+*/
+function getRecommendedSanctifierOptions(report) { }
