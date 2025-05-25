@@ -190,7 +190,7 @@ export function sanctifyText(
     if (purgeInvisibleChars) cleaned = purgeInvisibleTrash(cleaned);
 
     // Remove emojis
-    if (purgeEmojis) cleaned = purgeEmojisCharacters(cleaned);
+    if (purgeEmojis) cleaned = purgeEmojiCharacters(cleaned);
 
     // Nuke control characters (excluding whitespace)
     if (nukeControls) cleaned = purgeControlCharacters(cleaned);
@@ -297,7 +297,7 @@ export let EMOJI_REGEX;
 
 /**
  * Try Unicode property escape regex (preferred).
- * Fallback to basic emoji range if unsupported.
+ * Fallback to basic emoji ranges if unsupported.
  */
 try {
     EMOJI_REGEX = new RegExp(
@@ -305,10 +305,15 @@ try {
         'gu'
     );
 } catch {
-    // Fallback: less precise but safe
-    EMOJI_REGEX = /[\u{1F300}-\u{1FAFF}]/gu;
+    // Fallback: wide-range emoji component match (flags, tones, symbols)
+    //   * Covers:
+    //   * - Emoji base chars (1F300–1FAFF)
+    //   * - Dingbats (2700–27BF) like ❌, ✅, ☑️
+    //   * - Skin tones (1F3FB–1F3FF)
+    //   * - ZWJ (200D), variation selectors (FE0F)
+    //   * - Regional indicators (1F1E6–1F1FF)
+    EMOJI_REGEX = /[\u{2700}-\u{27BF}\u{1F300}-\u{1FAFF}\u{1F3FB}-\u{1F3FF}\u200D\uFE0F\u{1F1E6}-\u{1F1FF}]/gu;
 }
-
 
 /**
  * Removes all emoji characters using Unicode property escapes.
@@ -317,7 +322,7 @@ try {
  * @param {string} text
  * @returns {string}
  */
-function purgeEmojisCharacters(text) {
+function purgeEmojiCharacters(text) {
     return text.replace(EMOJI_REGEX, '');
 }
 
