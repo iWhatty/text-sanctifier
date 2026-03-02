@@ -135,7 +135,7 @@ summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
  */
 summonSanctifier.keyboardOnly = text => sanctifyText(
     text,
-    true,  // purgeInvisibleChars
+    true,   // purgeInvisibleChars
     true,   // purgeEmojis
     true,   // nukeControls
     true,   // keyboardOnlyFilter
@@ -217,6 +217,7 @@ export function sanctifyText(
 
 // --- Micro helpers ---
 
+
 /**
  * Purges invisible Unicode "trash" characters and removes them.
  * 
@@ -235,6 +236,37 @@ function purgeInvisibleTrash(text) {
 
 
 /**
+ * Extracts and preserves complete emoji sequences from a string.
+ *
+ * Uses the global `EMOJI_REGEX` to match full emoji grapheme sequences,
+ * including:
+ *   - Extended pictographic characters
+ *   - Zero-width joiner (ZWJ) sequences (e.g. 👨‍👩‍👧‍👦)
+ *   - Variation Selector-16 (VS16) emoji presentation forms (e.g. ✌️, ‼️)
+ *
+ * Any non-emoji characters are ignored.
+ *
+ * Important:
+ * `EMOJI_REGEX` is global (`/g`), so `lastIndex` is reset before matching
+ * to ensure deterministic behavior across repeated calls.
+ *
+ * @param {string} text - Input string potentially containing emoji sequences.
+ * @returns {string} A string containing only the matched emoji sequences,
+ *                   concatenated in original order.
+ */
+function extractEmojiSequences(text) {
+    // EMOJI_REGEX is global; ensure deterministic behavior
+    EMOJI_REGEX.lastIndex = 0;
+
+    let out = '';
+    for (const match of text.matchAll(EMOJI_REGEX)) {
+        out += match[0];
+    }
+
+    return out;
+}
+
+/**
  * Matches any character that is NOT:
  * - Printable ASCII (U+0020–U+007E)
  * - Newline characters: \n (LF), \r (CR)
@@ -250,14 +282,15 @@ export const ASCII_KEYBOARD_SAFE_REGEX = /[^\x20-\x7E\r\n]+/gu;
 function purgeNonKeyboardChars(text, purgeEmojis = false) {
     const normalized = normalizeTypographicJank(text);
 
+    // If emojis are being purged, keyboard-only becomes "ASCII + CR/LF only"
     if (purgeEmojis) {
         return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, '');
     }
 
-    // Remove non-ASCII unless it's a valid emoji
-    return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, m =>
-        m.match(EMOJI_REGEX) ? m : ''
-    );
+    // Replace each non-ASCII run with ONLY the emoji sequences inside it.
+    // This preserves ZWJ sequences and VS16 variants (e.g. 👨‍👩‍👧‍👦, ✌️, ‼️),
+    // while dropping non-emoji non-ASCII (e.g. 𝌆).
+    return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, (run) => extractEmojiSequences(run));
 }
 
 

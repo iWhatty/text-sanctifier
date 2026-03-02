@@ -2,6 +2,8 @@
 
 
 import { summonSanctifier } from '../src/index.js';
+import { inspectText } from '../src/index.js';
+
 
 function assertEqual(actual, expected, message) {
   if (actual !== expected) {
@@ -173,13 +175,76 @@ assertEqual(
 
 
 
+// 16. inspectText should be stable across multiple calls (global RegExp .test lastIndex bug)
+{
+  const s = 'A\u200B B'; // contains invisible trash
+  const r1 = inspectText(s);
+  const r2 = inspectText(s);
+  const r3 = inspectText(s);
+
+  assertEqual(r1.hasInvisibleChars, true, '16a. inspectText detects invisible chars (1st call)');
+  assertEqual(r2.hasInvisibleChars, true, '16b. inspectText detects invisible chars (2nd call)');
+  assertEqual(r3.hasInvisibleChars, true, '16c. inspectText detects invisible chars (3rd call)');
+}
+
+
+// 17. keyboardOnlyEmoji should NOT keep non-emoji junk adjacent to emoji in same non-ASCII run
+{
+  const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
+
+  // 𝌆 is non-ASCII and NOT an emoji; adjacent to emoji to form a single non-ASCII run
+  const input = 'X😊𝌆Y';
+  const out = keyboardEmojiSanctifier(input);
+
+  assertEqual(
+    out,
+    'X😊Y',
+    '17. keyboardOnlyEmoji drops non-emoji non-ASCII even when adjacent to emoji'
+  );
+}
+
+
+// 18. Emoji ZWJ sequences should be preserved (keyboardOnlyEmoji)
+{
+  const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
+
+  // family emoji is a ZWJ sequence in many renderers
+  const input = 'Hi 👨‍👩‍👧‍👦!';
+  assertEqual(
+    keyboardEmojiSanctifier(input),
+    'Hi 👨‍👩‍👧‍👦!',
+    '18. Preserve ZWJ emoji sequences'
+  );
+}
+
+
+// 19. Variation selector emoji should be preserved (keyboardOnlyEmoji)
+{
+  const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
+
+  // "✌️" includes VS16; often tricky
+  const input = 'Vibes ✌️ ok';
+  assertEqual(
+    keyboardEmojiSanctifier(input),
+    'Vibes ✌️ ok',
+    '19. Preserve VS16 emoji variants'
+  );
+}
+
+
+// 20. Default sanitizer does NOT normalize typographic jank unless keyboardOnlyFilter is on
+{
+  const out = defaultSanctifier('“Hello”—World');
+  assertEqual(out, '“Hello”—World', '20. Default does not normalize typographic punctuation');
+}
 
 
 
-
-
-
-
-
+// 21. CR-only newlines normalize then trim around them
+assertEqual(
+  defaultSanctifier('A  \r   B'),
+  'A\nB',
+  '21. CR-only newline normalized and surrounding spaces trimmed'
+);
 
 console.log('All tests finished.');
