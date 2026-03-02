@@ -5,7 +5,10 @@
 [![downloads](https://img.shields.io/npm/dw/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 [![GitHub stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 
-Brutal text normalizer and invisible trash scrubber for modern web projects.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects.
+
+> ⚠️ **Not an HTML/XSS sanitizer.**
+> This library normalizes and filters plain text. It does not parse or sanitize HTML.
 
 * Minified: (3.09 KB)
 * Gzipped (GCC): (1.36 KB)
@@ -17,15 +20,28 @@ Brutal text normalizer and invisible trash scrubber for modern web projects.
 * Collapses unwanted spaces and paragraphs
 * Nukes control characters (if enabled)
 * Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
-* Keyboard-only filtering (retain printable ASCII + emoji, or restrict)
+* Keyboard-only filtering (retain printable ASCII + full emoji sequences)
+
+  * Preserves ZWJ emoji clusters (👨‍👩‍👧‍👦)
+  * Preserves VS16 emoji presentation variants (✌️, ‼️)
 * Configurable via fine-grained flags or ready-made presets
 * Includes strict, loose, and keyboard-only modes
+* Deterministic RegExp usage (no global `lastIndex` state leaks)
 
 ## Install
 
 ```bash
 npm install text-sanctifier
 ```
+
+## Runtime Requirements
+
+Requires modern JavaScript runtime with ES2020+ support.
+
+* Node.js 14+
+* Modern evergreen browsers
+
+---
 
 ## 📦 Package & Build Info
 
@@ -109,7 +125,7 @@ const report = inspectText(input);
 
 Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs.
 
-Pass the report to getRecommendedSanctifierOptions(report) to auto-generate config flags for summonSanctifier().
+Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
 
 ---
 
@@ -133,7 +149,8 @@ Restricts to printable ASCII only (removes emojis).
 
 ### `summonSanctifier.keyboardOnlyEmoji`
 
-Restricts to keyboard-safe ASCII + emojis. Preserves fun, removes weird.
+Restricts to printable ASCII + full emoji sequences.
+Preserves ZWJ emoji clusters and emoji presentation variants.
 
 ### `inspectText(text: string): UnicodeTrashReport`
 
@@ -143,4 +160,4 @@ Returns a structural report of control codes, invisible chars, newline styles, a
 
 ## License
 
-\--{DR.WATT v3.0}--
+--{DR.WATT v3.0}--
