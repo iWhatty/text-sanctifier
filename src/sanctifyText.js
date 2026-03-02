@@ -13,6 +13,8 @@
  * @property {boolean} [preserveParagraphs]
  * @property {boolean} [collapseSpaces]
  * @property {boolean} [finalTrim]
+ * @property {number} [maxLength]
+ * @property {'throw'|'truncate'|'noop'} [onMaxLength]
  */
 
 
@@ -32,6 +34,8 @@
  * @param {boolean} [defaultOptions.preserveParagraphs]
  * @param {boolean} [defaultOptions.collapseSpaces]
  * @param {boolean} [defaultOptions.finalTrim]
+ * @param {number} [defaultOptions.maxLength=Infinity] - Hard input length cap (UTF-16 code units).
+ * @param {'throw' | 'truncate' | 'noop'} [defaultOptions.onMaxLength='throw'] - Behavior when input exceeds maxLength.
  * @returns {(text: string) => string}
  */
 export function summonSanctifier(defaultOptions = {}) {
@@ -46,19 +50,34 @@ export function summonSanctifier(defaultOptions = {}) {
     const collapseSpaces = !!defaultOptions.collapseSpaces;
     const finalTrim = !!defaultOptions.finalTrim;
 
-    return text => sanctifyText(
-        text,
-        purgeInvisibleChars,
-        purgeEmojis,
-        nukeControls,
-        keyboardOnlyFilter,
-        normalizeNewlines,
-        trimSpacesAroundNewlines,
-        collapseNewLines,
-        preserveParagraphs,
-        collapseSpaces,
-        finalTrim
-    );
+    const maxLength =
+        Number.isFinite(defaultOptions.maxLength) && defaultOptions.maxLength >= 0
+            ? defaultOptions.maxLength
+            : Infinity;
+
+    const onMaxLength =
+        defaultOptions.onMaxLength === 'truncate' ||
+            defaultOptions.onMaxLength === 'noop' ||
+            defaultOptions.onMaxLength === 'throw'
+            ? defaultOptions.onMaxLength
+            : 'throw';
+
+    return (text) =>
+        sanctifyText(
+            text,
+            purgeInvisibleChars,
+            purgeEmojis,
+            nukeControls,
+            keyboardOnlyFilter,
+            normalizeNewlines,
+            trimSpacesAroundNewlines,
+            collapseNewLines,
+            preserveParagraphs,
+            collapseSpaces,
+            finalTrim,
+            maxLength,
+            onMaxLength
+        );
 }
 
 // --- Added Presets ---
@@ -70,6 +89,7 @@ export function summonSanctifier(defaultOptions = {}) {
  * - Collapse spaces
  * - Nuke control characters
  */
+/** @param {string} text @returns {string} */
 summonSanctifier.strict = text => sanctifyText(
     text,
     true,   // purgeInvisibleChars
@@ -91,6 +111,7 @@ summonSanctifier.strict = text => sanctifyText(
  * - Preserve paragraphs
  * - Normalize newlines
  */
+/** @param {string} text @returns {string} */
 summonSanctifier.loose = text => sanctifyText(
     text,
     false,  // purgeInvisibleChars
@@ -112,6 +133,7 @@ summonSanctifier.loose = text => sanctifyText(
  * - Strips non-standard characters
  * - Normalizes typographic trash
  */
+/** @param {string} text @returns {string} */
 summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
     text,
     false,  // purgeInvisibleChars
@@ -133,6 +155,7 @@ summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
  * - Collapses all whitespace
  * - Restricts to printable ASCII only
  */
+/** @param {string} text @returns {string} */
 summonSanctifier.keyboardOnly = text => sanctifyText(
     text,
     true,   // purgeInvisibleChars
@@ -150,22 +173,31 @@ summonSanctifier.keyboardOnly = text => sanctifyText(
 
 /**
  * Text Sanctifier
- * 
+ *
  * Brutal text normalizer and invisible trash scrubber,
  * configurable to kill whatever ghosts you want dead.
- * 
- * @param {string | null | undefined} text
+ *
+ * ⚠️ Note: This is plain-text normalization/filtering — not an HTML/XSS sanitizer.
+ *
+ * @param {string} text
  * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, etc.
  * @param {boolean} [purgeEmojis=false] - Remove emoji characters entirely.
  * @param {boolean} [nukeControls=false] - Remove non-whitespace control characters.
- * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII and emojis only.
+ * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII + full emoji sequences only (drops other Unicode).
  * @param {boolean} [normalizeNewlines=false] - Convert all newlines to `\n`.
  * @param {boolean} [trimSpacesAroundNewlines=false] - Remove spaces/tabs around newlines.
  * @param {boolean} [collapseNewLines=false] - Collapse `\n` runs (optionally preserve paragraphs).
  * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks when collapsing newlines.
  * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into one.
  * @param {boolean} [finalTrim=false] - `.trim()` the final output (head/tail).
+ * @param {number} [maxLength=Infinity] - Hard input length cap (UTF-16 code units via `text.length`).
+ * @param {'throw'|'truncate'|'noop'} [onMaxLength='throw'] - Behavior when `text.length` exceeds `maxLength`:
+ *   - `'throw'`: throw a `RangeError`
+ *   - `'truncate'`: slice to `maxLength` before processing
+ *   - `'noop'`: return the original input unchanged (skips processing)
  * @returns {string}
+ * @throws {TypeError} If `text` is not a string.
+ * @throws {RangeError} If input exceeds `maxLength` and `onMaxLength` is `'throw'`.
  */
 export function sanctifyText(
     text,
@@ -179,9 +211,30 @@ export function sanctifyText(
     preserveParagraphs = false,
     collapseSpaces = false,
     finalTrim = false,
+    maxLength = Infinity,
+    onMaxLength = 'throw'
 ) {
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
+    }
+
+    if (onMaxLength !== 'truncate' && onMaxLength !== 'noop' && onMaxLength !== 'throw') {
+        onMaxLength = 'throw';
+    }
+
+    if (text.length > maxLength) {
+        switch (onMaxLength) {
+            case 'truncate':
+                text = text.slice(0, maxLength);
+                break;
+            case 'noop':
+                return text;
+            case 'throw':
+            default:
+                throw new RangeError(
+                    `sanctifyText input length ${text.length} exceeds maxLength ${maxLength}.`
+                );
+        }
     }
 
     let cleaned = text;
@@ -255,14 +308,12 @@ function purgeInvisibleTrash(text) {
  *                   concatenated in original order.
  */
 function extractEmojiSequences(text) {
-    // EMOJI_REGEX is global; ensure deterministic behavior
+    EMOJI_REGEX.lastIndex = 0;
+    if (!EMOJI_REGEX.test(text)) return ''; // quick reject
     EMOJI_REGEX.lastIndex = 0;
 
     let out = '';
-    for (const match of text.matchAll(EMOJI_REGEX)) {
-        out += match[0];
-    }
-
+    for (const match of text.matchAll(EMOJI_REGEX)) out += match[0];
     return out;
 }
 
@@ -312,6 +363,11 @@ const BULLETS_REGEX = /[\u2022\u00B7]/g;
 // Full-width ASCII punctuation: U+FF01 - U+FF5E
 const FULLWIDTH_PUNCTUATION_REGEX = /[\uFF01-\uFF5E]/g;
 
+/**
+ * Normalizes typographic Unicode punctuation into ASCII equivalents.
+ * @param {string} text
+ * @returns {string}
+ */
 export function normalizeTypographicJank(text) {
     return text
         .replace(SMART_SINGLE_QUOTES_REGEX, "'")
@@ -325,7 +381,7 @@ export function normalizeTypographicJank(text) {
 }
 
 
-
+/** @type {RegExp} */
 export let EMOJI_REGEX;
 
 /**

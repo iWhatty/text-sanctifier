@@ -1,27 +1,35 @@
 {
     "name": "text-sanctifier",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "type": "module",
     "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
     "main": "./src/index.js",
-    "module":  "./src/index.js",
+    "module": "./src/index.js",
     "browser": "./dist/text-sanctifier.min.js",
     "files": [
         "src",
         "dist/text-sanctifier.min.js",
+        "dist/types",
         "LICENSE.md",
         "README.md"
     ],
     "exports": {
-        ".": "./src/index.js",              
-        "./browser": "./dist/text-sanctifier.min.js" 
-      },
-    "types": "./src/index.d.ts",
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "default": "./src/index.js"
+        },
+        "./browser": {
+            "default": "./dist/text-sanctifier.min.js"
+        }
+    },
+    "types": "./dist/types/index.d.ts",
     "sideEffects": false,
     "scripts": {
         "build": "node scripts/buildc.js",
+        "build:types": "tsc -p tsconfig.types.json",
         "test": "node tests/sanctifyText.test.js",
-        "test-min": "node tests/sanctifyText.test.min.js"
+        "test-min": "node tests/sanctifyText.test.min.js",
+        "ci": "npm run test && npm run build && npm run build:types && npm run test-min"
     },
     "keywords": [
         "text",
@@ -34,7 +42,7 @@
         "sanctify"
     ],
     "author": "👾Dr.Watt👾 <WATT3D@protonmail.com>",
-    "license":  "👾Dr.Watt👾 License v3.0",
+    "license": "👾Dr.Watt👾 License v3.0",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/text-sanctifier.git"
@@ -47,9 +55,9 @@
         "test": "tests"
     },
     "devDependencies": {
-        "terser": "^5.39.0",
         "esbuild": "^0.25.3",
-        "google-closure-compiler": "^20240317.0.0"
-
+        "google-closure-compiler": "^20240317.0.0",
+        "terser": "^5.39.0",
+        "typescript": "^5.9.3"
     }
 }

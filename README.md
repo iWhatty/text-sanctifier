@@ -7,9 +7,6 @@
 
 Brutal text normalizer and invisible Unicode scrubber for modern web projects.
 
-> ⚠️ **Not an HTML/XSS sanitizer.**
-> This library normalizes and filters plain text. It does not parse or sanitize HTML.
-
 * Minified: (3.09 KB)
 * Gzipped (GCC): (1.36 KB)
 
@@ -27,6 +24,13 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects.
 * Configurable via fine-grained flags or ready-made presets
 * Includes strict, loose, and keyboard-only modes
 * Deterministic RegExp usage (no global `lastIndex` state leaks)
+
+## Security notes
+
+- **Not an HTML/XSS sanitizer.** This library normalizes and filters plain text.
+- If you need to render **untrusted content**, render it as text (e.g. `textContent`), not HTML (`innerHTML`).
+- If you need to sanitize **HTML**, use a dedicated HTML sanitizer (e.g. DOMPurify / sanitize-html).
+- Like any text-processing library, extremely large untrusted inputs can be used for CPU/DoS pressure; consider input size limits in high-risk environments.
 
 ## Install
 

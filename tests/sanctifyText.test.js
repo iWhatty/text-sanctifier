@@ -247,4 +247,29 @@ assertEqual(
   '21. CR-only newline normalized and surrounding spaces trimmed'
 );
 
+
+// 22. maxLength: throw by default
+{
+  const s = summonSanctifier({ maxLength: 3 });
+  try {
+    s('abcd');
+    assertEqual('no-throw', 'throw', '22. maxLength throws by default');
+  } catch (e) {
+    assertEqual(e instanceof RangeError, true, '22. maxLength throws RangeError');
+  }
+}
+
+// 23. maxLength: truncate
+{
+  const s = summonSanctifier({ maxLength: 3, onMaxLength: 'truncate', finalTrim: false });
+  assertEqual(s('abcd'), 'abc', '23. maxLength truncate');
+}
+
+// 24. maxLength: noop returns original
+{
+  const s = summonSanctifier({ maxLength: 3, onMaxLength: 'noop' });
+  assertEqual(s('abcd'), 'abcd', '24. maxLength noop returns original');
+}
+
+
 console.log('All tests finished.');
