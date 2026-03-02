@@ -7,8 +7,8 @@
 
 Brutal text normalizer and invisible Unicode scrubber for modern web projects.
 
-* Minified: (3.09 KB)
-* Gzipped (GCC): (1.36 KB)
+* Minified: (3.70 KB)
+* Gzipped (GCC): (1.66 KB)
 
 ## Features
 
