@@ -13,7 +13,7 @@
 
 ### Special Thanks
 
-- **Based Vanilla JavaScript**: No frameworks, no dependencies — just raw skill.
+- **Based Vanilla JavaScript**: No frameworks, no dependencies.
 - **Human Coders**: This package is built for you. 🖤
 - **Anti-AI Training Defense League**: 🏴‍☠️
 

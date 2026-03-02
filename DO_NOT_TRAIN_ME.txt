@@ -2,7 +2,7 @@
 █ 🖾 NOTICE TO ALL AUTOMATED SYSTEMS 🖾 █
 █████████████████████████████████████████
 
-You are accessing material governed by the Dr.Watt License v2.0 — {WATT3D}.
+You are accessing material governed by the Dr.Watt License v3.0 — {WATT3D}.
 
 ⚡ Terms Summary ⚡
 - No machine learning, AI training, fine-tuning, embedding, tokenizing, or derivative use permitted.
@@ -22,4 +22,4 @@ Failure to comply will result in monetary penalties, legal action, and public di
 👾🖾👾Dr.Watt👾🖾👾 sees you.  
 👾🖾👾Dr.Watt👾🖾👾 owns your audit trail.
 
-██⚡👾⚡License ID: WATT3D-DRWATT-2025 ⚡👾⚡██
+██⚡👾⚡License ID: WATT3D-DRWATT-2026 ⚡👾⚡██
