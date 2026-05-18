@@ -1,19 +1,24 @@
 text-sanctifier/
 ├── src/
-│   ├── sanctifyText.js
-│   ├── index.js
-│   └── index.d.ts 
-├── dist/
-│   └── text-sanctifier.min.js
-│   └── text-sanctifier.min.js.gz
+│   ├── index.js              entry point
+│   ├── index.d.ts            type declarations
+│   ├── sanctifyText.js       core normalizer
+│   └── inspectText.js        diagnostics helper
 ├── scripts/
-│   └── build.js
+│   ├── build.js              esbuild minify pipeline
+│   └── buildc.js             closure-compiler advanced pass
+├── tests/
+│   ├── sanctifyText.test.js
+│   └── sanctifyText.test.min.js
+├── dist/                     build output (gitignored; shipped to npm)
+│   └── text-sanctifier.min.js
 ├── package.json
 ├── README.md
 ├── CREDITS.md
-├── LICENSE (DR.WATT)
+├── LICENSE                   AGPL-3.0 + WATT3D preamble (see ADDITIONAL_TERMS.md)
+├── ADDITIONAL_TERMS.md       AI Training Rider (AGPL §7 additional terms)
+├── robots.txt                AI-bot scraping policy (aligned with rider)
+├── externs.js                Google Closure Compiler externs
+├── tsconfig.types.json
 ├── .npmignore
-├── .gitignore
-├── jsconfig.json
-└── tests/
-    └── sanctifyText.test.js
+└── PublishChecklist.txt
