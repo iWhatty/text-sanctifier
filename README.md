@@ -1,9 +1,10 @@
 # text-sanctifier
 
 [![npm](https://img.shields.io/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![gzip size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)](https://bundlephobia.com/package/text-sanctifier)
-[![downloads](https://img.shields.io/npm/dw/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![GitHub stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
+[![downloads](https://img.shields.io/npm/dm/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)](https://bundlephobia.com/package/text-sanctifier)
+[![license](https://img.shields.io/npm/l/text-sanctifier)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
+[![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 
 Brutal text normalizer and invisible Unicode scrubber for modern web projects.
 
