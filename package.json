@@ -41,8 +41,8 @@
         "clean",
         "sanctify"
     ],
-    "author": "👾Dr.Watt👾 <WATT3D@protonmail.com>",
-    "license": "👾Dr.Watt👾 License v3.0",
+    "author": "WATT3D <WATT3D@protonmail.com>",
+    "license": "SEE LICENSE IN LICENSE",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/text-sanctifier.git"

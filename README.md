@@ -165,4 +165,4 @@ Returns a structural report of control codes, invisible chars, newline styles, a
 
 ## License
 
---{DR.WATT v3.0}--
+See [LICENSE](./LICENSE.md). © WATT3D.

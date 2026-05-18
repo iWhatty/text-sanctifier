@@ -5,9 +5,9 @@
 ### Creator
 
 - **Author**: [@WATT3D](https://github.com/iWhatty)
-- **Handle**: 👾🖾👾 Dr.Watt 👾🖾👾
+- **Handle**: WATT3D
 - **Organization**: WATT3D
-- **License**: [Doctor Watt License v2.0](./LICENSE)
+- **License**: See [LICENSE](./LICENSE.md)
 
 ---
 
