@@ -12,7 +12,8 @@
         "dist/types",
         "LICENSE",
         "README.md",
-        "ADDITIONAL_TERMS.md"
+        "ADDITIONAL_TERMS.md",
+        "robots.txt"
     ],
     "exports": {
         ".": {

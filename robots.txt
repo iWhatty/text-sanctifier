@@ -1,3 +1,79 @@
-User-agent: *
+# WATT3D — AI scraping policy
+#
+# This file enumerates known AI / LLM training and inference crawlers
+# that the WATT3D AI Training Rider does not consent to. See
+# ./ADDITIONAL_TERMS.md for the legal scope and definitions.
+#
+# Honoring robots.txt is voluntary. The rider applies whether or not
+# a bot respects this file. The enumeration is non-exhaustive — bots
+# not listed here are still bound by the rider if they perform
+# Training Use as defined in ADDITIONAL_TERMS.md §1.
+
+User-agent: GPTBot
 Disallow: /
-License: Dr.Watt v3.0
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: Claude-SearchBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: Meta-ExternalFetcher
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: AI2Bot
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+# Everyone else: full access. Search engines and human-driven crawlers
+# remain welcome.
+
+User-agent: *
+Allow: /
