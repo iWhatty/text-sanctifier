@@ -6,61 +6,35 @@
 [![license](https://img.shields.io/npm/l/text-sanctifier)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
 [![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects.
-
-* Minified: (3.70 KB)
-* Gzipped (GCC): (1.66 KB)
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~1.66 KB gzipped.
 
 ## Features
 
-* Purges zero-width Unicode garbage
-* Normalizes line endings (CRLF, CR, LF) → LF
-* Collapses unwanted spaces and paragraphs
-* Nukes control characters (if enabled)
-* Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
-* Keyboard-only filtering (retain printable ASCII + full emoji sequences)
+- Purges zero-width Unicode garbage
+- Normalizes line endings (CRLF, CR, LF) to LF
+- Collapses unwanted spaces and paragraphs
+- Nukes control characters (if enabled)
+- Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
+- Keyboard-only filtering (retain printable ASCII + full emoji sequences)
+  - Preserves ZWJ emoji clusters (👨‍👩‍👧‍👦)
+  - Preserves VS16 emoji presentation variants (✌️, ‼️)
+- Configurable via fine-grained flags or ready-made presets
+- Includes strict, loose, and keyboard-only modes
+- Deterministic RegExp usage (no global `lastIndex` state leaks)
 
-  * Preserves ZWJ emoji clusters (👨‍👩‍👧‍👦)
-  * Preserves VS16 emoji presentation variants (✌️, ‼️)
-* Configurable via fine-grained flags or ready-made presets
-* Includes strict, loose, and keyboard-only modes
-* Deterministic RegExp usage (no global `lastIndex` state leaks)
-
-## Security notes
-
-- **Not an HTML/XSS sanitizer.** This library normalizes and filters plain text.
-- If you need to render **untrusted content**, render it as text (e.g. `textContent`), not HTML (`innerHTML`).
-- If you need to sanitize **HTML**, use a dedicated HTML sanitizer (e.g. DOMPurify / sanitize-html).
-- Like any text-processing library, extremely large untrusted inputs can be used for CPU/DoS pressure; consider input size limits in high-risk environments.
+---
 
 ## Install
 
-```bash
-npm install text-sanctifier
+```sh
+pnpm add text-sanctifier
 ```
 
-## Runtime Requirements
-
-Requires modern JavaScript runtime with ES2020+ support.
-
-* Node.js 14+
-* Modern evergreen browsers
-
 ---
 
-## 📦 Package & Build Info
+## Quick start
 
-* **Source (`src/`)**: ES2020+ ESM modules with JSDoc
-* **Browser Build (`dist/`)**: Minified ESM bundle for `<script type="module">`
-* **Tree-shaking Friendly**: Fully optimized with `sideEffects: false`
-* **Zero Transpilation**: No built-in polyfills or runtime overhead
-* **Bundler Ready**: Works great with Vite, Rollup, Webpack, Parcel, etc.
-
----
-
-## 🔧 Quick Usage
-
-### Custom Config
+**Custom config:**
 
 ```js
 import { summonSanctifier } from 'text-sanctifier';
@@ -77,25 +51,25 @@ const clean = summonSanctifier({
 const output = clean(rawText);
 ```
 
-### Strict Preset
+**Strict preset:**
 
 ```js
 const output = summonSanctifier.strict(rawText);
 ```
 
-### Loose Preset
+**Loose preset:**
 
 ```js
 const output = summonSanctifier.loose(rawText);
 ```
 
-### Keyboard-Only (No Emojis)
+**Keyboard-only (no emojis):**
 
 ```js
 const output = summonSanctifier.keyboardOnly(userInput);
 ```
 
-### Keyboard-Only (With Emojis)
+**Keyboard-only (with emojis):**
 
 ```js
 const output = summonSanctifier.keyboardOnlyEmoji(commentText);
@@ -103,7 +77,40 @@ const output = summonSanctifier.keyboardOnlyEmoji(commentText);
 
 ---
 
-## 🔍 Unicode Trash Detection
+## Security notes
+
+- **Not an HTML/XSS sanitizer.** This library normalizes and filters plain text.
+- If you need to render **untrusted content**, render it as text (e.g. `textContent`), not HTML (`innerHTML`).
+- If you need to sanitize **HTML**, use a dedicated HTML sanitizer (e.g. DOMPurify / sanitize-html).
+- Like any text-processing library, extremely large untrusted inputs can be used for CPU/DoS pressure; consider input size limits in high-risk environments.
+
+---
+
+## API
+
+### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+
+Creates a reusable sanitizer from an option object.
+
+### `summonSanctifier.strict`
+
+Aggressively purges: emojis, control characters, extra spacing, and newlines.
+
+### `summonSanctifier.loose`
+
+Gently normalizes spacing and newlines while preserving emojis and paragraphs.
+
+### `summonSanctifier.keyboardOnly`
+
+Restricts to printable ASCII only (removes emojis).
+
+### `summonSanctifier.keyboardOnlyEmoji`
+
+Restricts to printable ASCII + full emoji sequences. Preserves ZWJ emoji clusters and emoji presentation variants.
+
+### `inspectText(text: string): UnicodeTrashReport`
+
+Returns a structural report of control codes, invisible chars, newline styles, and more.
 
 ```js
 import { inspectText } from 'text-sanctifier';
@@ -128,41 +135,29 @@ const report = inspectText(input);
 */
 ```
 
-Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs.
-
-Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
+Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs. Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
 
 ---
 
-## API
+## Notes
 
-### `summonSanctifier(options?: SanctifyOptions): (text: string) => string`
+### Runtime requirements
 
-Creates a reusable sanitizer from an option object.
+Requires a modern JavaScript runtime with ES2020+ support:
 
-### `summonSanctifier.strict`
+- Node.js 14+
+- Modern evergreen browsers
 
-Aggressively purges: emojis, control characters, extra spacing, and newlines.
+### Package and build info
 
-### `summonSanctifier.loose`
-
-Gently normalizes spacing and newlines while preserving emojis and paragraphs.
-
-### `summonSanctifier.keyboardOnly`
-
-Restricts to printable ASCII only (removes emojis).
-
-### `summonSanctifier.keyboardOnlyEmoji`
-
-Restricts to printable ASCII + full emoji sequences.
-Preserves ZWJ emoji clusters and emoji presentation variants.
-
-### `inspectText(text: string): UnicodeTrashReport`
-
-Returns a structural report of control codes, invisible chars, newline styles, and more.
+- **Source (`src/`):** ES2020+ ESM modules with JSDoc
+- **Browser build (`dist/`):** Minified ESM bundle for `<script type="module">`
+- **Tree-shake friendly:** ships `sideEffects: false`
+- **Zero transpilation:** no built-in polyfills or runtime overhead
+- **Bundler ready:** works with Vite, Rollup, Webpack, Parcel, esbuild
 
 ---
 
 ## License
 
-See [LICENSE](./LICENSE.md). © WATT3D.
+See [LICENSE](./LICENSE) and [ADDITIONAL_TERMS.md](./ADDITIONAL_TERMS.md). © WATT3D.
