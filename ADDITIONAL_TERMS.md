@@ -16,7 +16,7 @@ These terms are additional terms within the meaning of Section 7 of the AGPL-3.0
 
 **"Software"** means the work licensed under AGPL-3.0 together with these additional terms, including its source code, comments, documentation, test fixtures, and accompanying assets.
 
-**"Substantive portion"** means a portion of the Software that, on its own or aggregated with other portions used together, is material to the resulting AI Model. For the avoidance of doubt, inclusion below the 0.1% safe-harbor threshold described in Section 3(b) is presumed not to be a Substantive portion.
+**"Substantive portion"** means a portion of the Software that, alone or aggregated with other portions used together, materially contributes to the training signal, retrieved context, or learned behavior of the resulting AI Model. A portion need not constitute a majority or even a large fraction of the training data to be Substantive — what matters is whether the AI Model's behavior, knowledge, or capability is meaningfully informed by the Software. Dilution of the Software with additional training data does not, by itself, render a portion non-Substantive.
 
 **"AI Model"** means any machine-learning artifact whose parameters, weights, embeddings, lookup tables, or equivalent learned state are derived, in whole or substantial part, from a training, fine-tuning, distillation, retrieval-augmentation index-building, or analogous data-driven process.
 
@@ -57,7 +57,7 @@ The following uses of the Software are **exempt** from Section 2:
 
 **(a) Transient analysis.** Reading the Software for code review, search indexing, linting, static analysis, or single-prompt code understanding by an AI assistant operating in a per-session context, where no persistent model parameters are updated as a result.
 
-**(b) Quoted snippets in mixed corpora.** Inclusion of attributed quotations from the Software in a training corpus primarily composed of other works, provided that no Derivative Model is principally derived from the Software. As a rebuttable safe harbor, a corpus in which the Software constitutes less than one one-thousandth (0.1%) of total tokens, measured in good faith against the full training mixture by either token count or weighted contribution to the training signal, is presumed not to be principally derived from the Software.
+**(b) Attributed quotations.** Inclusion of short, attributed quotations from the Software in works primarily composed of other material — for example, in documentation, blog posts, books, or academic citations — provided that no Derivative Model is principally derived from those quotations. This exemption does not extend to bulk inclusion of the Software in a training corpus, regardless of the corpus's overall size: dilution by other training data does not, by itself, take a use outside Section 2.
 
 **(c) Academic research.** Non-commercial academic research conducted at, or on behalf of, an accredited academic institution or recognized non-profit research organization, by individuals acting in their academic capacity. Where industry-affiliated researchers participate, the use is exempt only to the extent the research is unfunded by, and not directed by, a commercial sponsor. Any Derivative Model and the results derived from it must be published under Open Weights within twelve (12) months of the first public disclosure (including any preprint, conference talk, or arXiv submission) of those results.
 
