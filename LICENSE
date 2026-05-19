@@ -1,27 +1,31 @@
-WATT3D Open Source License — AGPL-3.0 with AI Training Rider
+WATT3D Source License — AGPL-3.0 with Additional Terms
 
 Copyright (c) 2026 WATT3D
 
 This Software is licensed under the GNU Affero General Public License,
-version 3.0, the full text of which appears below, **together with the
-additional non-permissive terms set out in the file ADDITIONAL_TERMS.md
-distributed alongside this license** ("the AI Training Rider").
+version 3.0, the full text of which appears below, together with the
+additional terms set out in the file ADDITIONAL_TERMS.md distributed
+alongside this license.
 
-The AI Training Rider is incorporated into this license under Section 7
-of the AGPL-3.0. Redistribution of this Software, in source or object
-form, is permitted only if ADDITIONAL_TERMS.md is included in the same
-distribution and remains discoverable from the project root.
+The additional terms are intended to supplement this license under
+Section 7 of the AGPL-3.0 to the maximum extent permitted. Redistribution
+of this Software, in source or object form, is permitted only if
+ADDITIONAL_TERMS.md is included in the same distribution and remains
+discoverable from the project root.
 
 In summary (this summary is not the license; the legal text below and in
 ADDITIONAL_TERMS.md is what governs):
 
-  - You may use, modify, and redistribute this Software under the AGPL-3.0.
+  - You may use, modify, and redistribute this Software under the AGPL-3.0,
+    subject to the additional terms in ADDITIONAL_TERMS.md.
   - If you make changes and offer the Software (or a derivative) as a
     network service, you must offer the source of your changes to users
     of that service.
   - If you train an AI model on this Software, the resulting model weights
     must be released openly. See ADDITIONAL_TERMS.md for the precise scope,
     definitions, and exemptions.
+  - Commercial use outside the public terms requires a separate commercial
+    license from WATT3D.
 
 The verbatim AGPL-3.0 text follows.
 

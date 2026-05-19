@@ -1,12 +1,10 @@
-# Additional Terms — Commercial Use and AI Training Rider
+# Additional Terms — AI Training and Commercial Use
 
 **Effective:** alongside the GNU Affero General Public License v3.0 (the "AGPL-3.0") that governs this Software, for versions of the Software published on or after the date this rider was first attached. Prior versions remain governed by their original license.
 
-These terms are additional terms within the meaning of Section 7 of the AGPL-3.0. They form an integral part of the license under which this Software is offered. Redistribution of the Software, in source or object form, is permitted only if these terms accompany the Software in the same file or in a clearly-cross-referenced sibling file.
+These terms are intended to supplement the AGPL-3.0 under Section 7 to the maximum extent permitted. They state the WATT3D project's conditions for commercial use and AI model training. Redistribution of the Software, in source or object form, is permitted only if these terms accompany the Software in the same file or in a clearly-cross-referenced sibling file.
 
-> **Note:** This rider is authored by a non-lawyer for the WATT3D project. Treat it as a starting point. Have it reviewed by qualified counsel before relying on it for enforcement.
->
-> **Open question for counsel.** Section 2 (Commercial Use restricted to Fully Open Source entities) and Section 3 (training-trigger reciprocity without a materiality test) are deliberately broader than AGPL-3.0 itself reaches and broader than AGPL §7 cleanly permits. This scope is a deliberate policy choice. Whether it is preserved, narrowed, or restructured is pending legal review.
+If You want to make Commercial Use of the Software, or use the Software for AI model training, outside the public terms below, You need a separate commercial license from WATT3D.
 
 ---
 
@@ -14,7 +12,7 @@ These terms are additional terms within the meaning of Section 7 of the AGPL-3.0
 
 **"You"** has the meaning given in the AGPL-3.0, and additionally includes any organization, employer, principal, or commercial entity on whose behalf You act when exercising rights under this license. Where multiple persons or entities collectively exercise the rights granted here (for example, a contractor working for a client), each is a "You" for the purposes of these terms.
 
-**"Software"** means the work licensed under AGPL-3.0 together with these additional terms, including its source code, comments, documentation, test fixtures, accompanying assets, and the individual lexical tokens that constitute any of the foregoing.
+**"Software"** means the work licensed under AGPL-3.0 together with these additional terms, including its source code, comments, documentation, test fixtures, and accompanying assets. References to portions of the Software include copyrightable expression in those materials, including their selection and arrangement.
 
 **"AI Model"** means any machine-learning artifact whose parameters, weights, embeddings, lookup tables, retrieval indices, or equivalent learned state are derived, in whole or in any part, from a training, fine-tuning, distillation, retrieval-augmentation index-building, or analogous data-driven process.
 
@@ -59,7 +57,9 @@ If You are not Fully Open Source, You must not engage in Commercial Use of the S
 
 (a) bring all software works You own, control, distribute, or operate into compliance with the Fully Open Source definition before continuing Commercial Use; or
 
-(b) cease all Commercial Use of the Software and of any Derivative Model, and remove the Software from any commercial product, service, or training pipeline within thirty (30) days of becoming aware of the breach.
+(b) obtain a separate commercial license from WATT3D before continuing Commercial Use; or
+
+(c) cease all Commercial Use of the Software and of any Derivative Model, and remove the Software from any commercial product, service, or training pipeline within thirty (30) days of becoming aware of the breach.
 
 This restriction is in addition to, and does not replace, the obligations imposed by the AGPL-3.0 itself.
 
@@ -107,9 +107,9 @@ These additional terms are intended to be compatible with the AGPL-3.0 under Sec
 
 The rights granted under the AGPL-3.0 and this rider terminate automatically upon Your material breach of these additional terms. The rights are reinstated:
 
-(a) **Automatically**, as described in AGPL-3.0 Section 8 first paragraph, if within thirty (30) days of becoming aware of the breach, or of receiving notice of the breach from the copyright holder (whichever is earlier), You either (i) bring Yourself into compliance — including, where applicable, by becoming Fully Open Source and releasing all required Derivative Models under Open Weights — or (ii) cease all Commercial Use of the Software and of any Derivative Model and remove the Software from all commercial pipelines;
+(a) **Automatically**, as described in AGPL-3.0 Section 8, if within thirty (30) days of becoming aware of the breach, or of receiving notice of the breach from the copyright holder (whichever is earlier), You either (i) bring Yourself into compliance — including, where applicable, by becoming Fully Open Source, obtaining a separate commercial license, and/or releasing all required Derivative Models under Open Weights — or (ii) cease all Commercial Use of the Software and of any Derivative Model and remove the Software from all commercial pipelines;
 
-(b) **By express reinstatement** from the copyright holder, as described in AGPL-3.0 Section 8 second paragraph, where reinstatement under (a) is not available.
+(b) **By express reinstatement** from the copyright holder, as described in AGPL-3.0 Section 8, where reinstatement under (a) is not available.
 
 Nothing in this Section limits the reinstatement mechanics provided by AGPL-3.0 Section 8; this Section supplements them with a specific cure window for the obligations introduced by this rider.
 

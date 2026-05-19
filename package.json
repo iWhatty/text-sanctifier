@@ -44,7 +44,7 @@
         "sanctify"
     ],
     "author": "WATT3D <WATT3D@protonmail.com>",
-    "license": "AGPL-3.0-only",
+    "license": "SEE LICENSE IN LICENSE",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/iWhatty/text-sanctifier.git"
