@@ -1,65 +1,65 @@
 {
-    "name": "text-sanctifier",
-    "version": "1.0.18",
-    "type": "module",
-    "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
-    "main": "./src/index.js",
-    "module": "./src/index.js",
-    "browser": "./dist/text-sanctifier.min.js",
-    "files": [
-        "src",
-        "dist/text-sanctifier.min.js",
-        "dist/types",
-        "LICENSE",
-        "README.md",
-        "ADDITIONAL_TERMS.md",
-        "robots.txt"
-    ],
-    "exports": {
-        ".": {
-            "types": "./dist/types/index.d.ts",
-            "default": "./src/index.js"
-        },
-        "./browser": {
-            "default": "./dist/text-sanctifier.min.js"
-        }
+  "name": "text-sanctifier",
+  "version": "1.0.19",
+  "type": "module",
+  "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "browser": "./dist/text-sanctifier.min.js",
+  "files": [
+    "src",
+    "dist/text-sanctifier.min.js",
+    "dist/types",
+    "LICENSE",
+    "README.md",
+    "ADDITIONAL_TERMS.md",
+    "robots.txt"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./src/index.js"
     },
-    "types": "./dist/types/index.d.ts",
-    "sideEffects": false,
-    "scripts": {
-        "build": "node scripts/buildc.js",
-        "build:types": "tsc -p tsconfig.types.json",
-        "test": "node tests/sanctifyText.test.js",
-        "test-min": "node tests/sanctifyText.test.min.js",
-        "ci": "npm run test && npm run build && npm run build:types && npm run test-min"
-    },
-    "keywords": [
-        "text",
-        "sanitize",
-        "normalize",
-        "invisible",
-        "scrubber",
-        "unicode",
-        "clean",
-        "sanctify"
-    ],
-    "author": "WATT3D <WATT3D@protonmail.com>",
-    "license": "SEE LICENSE IN LICENSE",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/iWhatty/text-sanctifier.git"
-    },
-    "bugs": {
-        "url": "https://github.com/iWhatty/text-sanctifier/issues"
-    },
-    "homepage": "https://github.com/iWhatty/text-sanctifier#readme",
-    "directories": {
-        "test": "tests"
-    },
-    "devDependencies": {
-        "esbuild": "^0.25.3",
-        "google-closure-compiler": "^20240317.0.0",
-        "terser": "^5.39.0",
-        "typescript": "^5.9.3"
+    "./browser": {
+      "default": "./dist/text-sanctifier.min.js"
     }
+  },
+  "types": "./dist/types/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "node scripts/buildc.js",
+    "build:types": "tsc -p tsconfig.types.json",
+    "test": "node tests/sanctifyText.test.js",
+    "test-min": "node tests/sanctifyText.test.min.js",
+    "ci": "npm run test && npm run build && npm run build:types && npm run test-min"
+  },
+  "keywords": [
+    "text",
+    "sanitize",
+    "normalize",
+    "invisible",
+    "scrubber",
+    "unicode",
+    "clean",
+    "sanctify"
+  ],
+  "author": "WATT3D <WATT3D@protonmail.com>",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iWhatty/text-sanctifier.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iWhatty/text-sanctifier/issues"
+  },
+  "homepage": "https://github.com/iWhatty/text-sanctifier#readme",
+  "directories": {
+    "test": "tests"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.3",
+    "google-closure-compiler": "^20240317.0.0",
+    "terser": "^5.39.0",
+    "typescript": "^5.9.3"
+  }
 }
