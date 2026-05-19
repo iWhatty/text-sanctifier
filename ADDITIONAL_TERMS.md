@@ -1,20 +1,26 @@
 # Additional Terms — AI Training Rider
 
-**Effective:** alongside the GNU Affero General Public License v3.0 (the "AGPL-3.0") that governs this Software.
+**Effective:** alongside the GNU Affero General Public License v3.0 (the "AGPL-3.0") that governs this Software, for versions of the Software published on or after the date this rider was first attached. Prior versions remain governed by their original license.
 
-These additional terms are non-permissive additional terms within the meaning of Section 7 of the AGPL-3.0. They form an integral part of the license under which this Software is offered. Redistribution of the Software, in source or object form, is permitted only if these terms accompany the Software in the same file or in a clearly-cross-referenced sibling file.
+These terms are additional terms within the meaning of Section 7 of the AGPL-3.0. They form an integral part of the license under which this Software is offered. Redistribution of the Software, in source or object form, is permitted only if these terms accompany the Software in the same file or in a clearly-cross-referenced sibling file.
 
 > **Note:** This rider is authored by a non-lawyer for the WATT3D project. Treat it as a starting point. Have it reviewed by qualified counsel before relying on it for enforcement.
+>
+> **Open question for counsel.** Section 2's obligation reaches some uses that AGPL-3.0 itself would not reach without a distribution or network-deployment trigger (notably, AI Models used exclusively for internal commercial purposes). Whether this scope is preserved, narrowed, or restructured is a deliberate decision pending legal review.
 
 ---
 
 ## 1. Definitions
 
+**"You"** has the meaning given in the AGPL-3.0.
+
 **"Software"** means the work licensed under AGPL-3.0 together with these additional terms, including its source code, comments, documentation, test fixtures, and accompanying assets.
+
+**"Substantive portion"** means a portion of the Software that, on its own or aggregated with other portions used together, is material to the resulting AI Model. For the avoidance of doubt, inclusion below the 0.1% safe-harbor threshold described in Section 3(b) is presumed not to be a Substantive portion.
 
 **"AI Model"** means any machine-learning artifact whose parameters, weights, embeddings, lookup tables, or equivalent learned state are derived, in whole or substantial part, from a training, fine-tuning, distillation, retrieval-augmentation index-building, or analogous data-driven process.
 
-**"Open Weights"** means that **all** of the following are published, free of cost and free of any registration, authentication, or access gate, at a stable public URL, under a license at least as permissive of redistribution and modification as the AGPL-3.0:
+**"Open Weights"** means that **all** of the following are published, free of cost and free of any registration, authentication, or access gate, at a stable public URL, under a license **no more restrictive than the AGPL-3.0** with respect to redistribution, modification, and further use:
 
 1. The complete trained parameters of the AI Model.
 2. The tokenizer, vocabulary, or equivalent pre-processing artifacts required to run inference.
@@ -23,18 +29,18 @@ These additional terms are non-permissive additional terms within the meaning of
 
 Quantization, distillation, or pruning of the AI Model does not satisfy Open Weights unless the artifacts above are released for the **full-precision** trained model.
 
-**"Training Use"** means using the Software, or any substantive portion thereof, as input to:
+**"Training Use"** means using the Software, or any Substantive portion thereof, as input to:
 
 1. The training of an AI Model from initialization;
 2. The fine-tuning, instruction-tuning, RLHF, DPO, or analogous post-training adjustment of an AI Model;
-3. The distillation or knowledge-transfer from any model that was itself produced through Training Use of the Software;
-4. The construction of a retrieval-augmented generation (RAG) corpus or vector index that is offered as part of a product or service.
+3. The distillation, knowledge-transfer, or output-based training from (i) any AI Model that was itself produced through Training Use of the Software, or (ii) any AI Model whose outputs You knew or reasonably should have known to reflect Training Use of the Software — including chained or multi-hop distillation through one or more intermediate models;
+4. The construction of a retrieval-augmented generation (RAG) corpus or vector index, whether the resulting system is offered externally, internally, or kept private.
 
 **"Derivative Model"** means any AI Model produced through Training Use of the Software.
 
 ## 2. Open-Weight Reciprocity
 
-If You make Training Use of the Software, then on or before the date of first public availability, internal commercial deployment, or external commercial deployment of any Derivative Model (whichever occurs first), You must release that Derivative Model under Open Weights.
+If You make Training Use of the Software, then on or before the date of any deployment, public release, or internal commercial use of the resulting Derivative Model, whichever occurs first, You must release that Derivative Model under Open Weights.
 
 This obligation applies whether or not the Derivative Model is offered to the public, including:
 
@@ -43,7 +49,7 @@ This obligation applies whether or not the Derivative Model is offered to the pu
 - AI Models used exclusively for internal commercial purposes;
 - AI Models distributed under non-disclosure terms.
 
-This obligation does **not** require You to release training data, training code, or training-time hyperparameters, only the artifacts enumerated in the **Open Weights** definition.
+This obligation does **not** require You to release training data, training code, or training-time hyperparameters — only the artifacts enumerated in the **Open Weights** definition.
 
 ## 3. Exemptions
 
@@ -51,9 +57,9 @@ The following uses of the Software are **exempt** from Section 2:
 
 **(a) Transient analysis.** Reading the Software for code review, search indexing, linting, static analysis, or single-prompt code understanding by an AI assistant operating in a per-session context, where no persistent model parameters are updated as a result.
 
-**(b) Quoted snippets in mixed corpora.** Inclusion of attributed quotations from the Software in a training corpus primarily composed of other works, provided that no Derivative Model is principally derived from the Software. As a safe harbor, a corpus in which the Software constitutes less than one one-thousandth (0.1%) of total tokens, measured against the full training mixture, is presumed not to be principally derived from the Software.
+**(b) Quoted snippets in mixed corpora.** Inclusion of attributed quotations from the Software in a training corpus primarily composed of other works, provided that no Derivative Model is principally derived from the Software. As a rebuttable safe harbor, a corpus in which the Software constitutes less than one one-thousandth (0.1%) of total tokens, measured in good faith against the full training mixture by either token count or weighted contribution to the training signal, is presumed not to be principally derived from the Software.
 
-**(c) Academic research.** Non-commercial academic research, provided that any Derivative Model and the results derived from it are published under Open Weights within twelve (12) months of the first publication or preprint disclosing those results.
+**(c) Academic research.** Non-commercial academic research conducted at, or on behalf of, an accredited academic institution or recognized non-profit research organization, by individuals acting in their academic capacity. Where industry-affiliated researchers participate, the use is exempt only to the extent the research is unfunded by, and not directed by, a commercial sponsor. Any Derivative Model and the results derived from it must be published under Open Weights within twelve (12) months of the first public disclosure (including any preprint, conference talk, or arXiv submission) of those results.
 
 **(d) Pure inference.** Running an AI Model that was not itself produced through Training Use of the Software, even where the Software is invoked at inference time (for example, as a library called by the inference process).
 
@@ -67,13 +73,19 @@ Anyone exercising the rights granted by the AGPL-3.0 in conjunction with these a
 
 These notices may be carried in a single file or in clearly-cross-referenced sibling files, but must remain readily discoverable from the project root.
 
-## 5. Compatibility
+## 5. Compatibility and Severability
 
-These additional terms are intended to be compatible with the AGPL-3.0 under Section 7 thereof. If a court of competent jurisdiction finds any specific provision of this rider incompatible with the AGPL-3.0, that provision shall be severed and the remainder of the rider and the AGPL-3.0 shall remain in full force, except that the Software remains licensed under the AGPL-3.0 alone for the parties affected by the severance.
+These additional terms are intended to be compatible with the AGPL-3.0 under Section 7 thereof. If a court of competent jurisdiction finds any specific provision of this rider incompatible with the AGPL-3.0 or otherwise unenforceable, that provision shall be severed and the remainder of the rider and the AGPL-3.0 shall remain in full force. With respect to parties affected by the severance, the Software remains licensed under the AGPL-3.0 alone, and any reciprocity obligation under this rider shall apply only to the extent it can be reconciled with the AGPL-3.0 grants.
 
-## 6. Termination
+## 6. Termination and Cure
 
-The rights granted under the AGPL-3.0 and this rider terminate automatically upon Your material breach of these additional terms. Rights are reinstated as described in AGPL-3.0 Section 8.
+The rights granted under the AGPL-3.0 and this rider terminate automatically upon Your material breach of these additional terms. The rights are reinstated:
+
+(a) **Automatically**, as described in AGPL-3.0 Section 8 first paragraph, if You cease the breach and bring all required releases under Open Weights within thirty (30) days of becoming aware of the breach, or of receiving notice of the breach from the copyright holder, whichever is earlier;
+
+(b) **By express reinstatement** from the copyright holder, as described in AGPL-3.0 Section 8 second paragraph, where reinstatement under (a) is not available.
+
+Nothing in this Section limits the reinstatement mechanics provided by AGPL-3.0 Section 8; this Section supplements them with a specific cure window for the obligations introduced by this rider.
 
 ## 7. Acceptance
 
