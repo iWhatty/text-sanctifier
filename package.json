@@ -24,6 +24,7 @@
       "default": "./src/index.js"
     },
     "./browser": {
+      "types": "./dist/types/index.d.ts",
       "default": "./dist/text-sanctifier.min.js"
     }
   },
