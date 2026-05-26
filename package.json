@@ -1,6 +1,6 @@
 {
   "name": "text-sanctifier",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "type": "module",
   "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
   "engines": {
