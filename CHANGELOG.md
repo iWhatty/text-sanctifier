@@ -2,6 +2,13 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## Unreleased — 2026-10-05
+
+- fix: bidi isolates U+2066–U+2069 (LRI, RLI, FSI, PDI) and the Arabic letter mark U+061C are detected by `inspectText` and purged by `purgeInvisibleChars` and `nukeControls`; they were missed before (Trojan Source vector)
+- feat: `inspectTextDetailed(text, { maxFindings })` locates each invisible or control character as `{ offset, line, column, codePoint, category }` with per-category counts, `total` and `truncated`; categories `bidi_control`, `zero_width`, `nonbreaking_space`, `bom` (with `atStart`), `nul`, `c0_control`, `c1_control`; also in the browser build
+- perf: `getNewlineStats` counts in one pass with no regex or copy (16 MB of CRLF: ~81 ms / 64 MB heap → ~25 ms / 0.2 MB)
+- build: the Closure export rewrite fails loudly instead of shipping a bundle without exports; minified 3786 → 4923 bytes, gzipped 1701 → 2217
+
 ## Unreleased — 2026-03-02
 
 - feat!: add input length guard, improve emoji handling, and generate types  `d76f13a`

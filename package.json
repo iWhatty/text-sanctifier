@@ -33,7 +33,7 @@
   "scripts": {
     "build": "node scripts/buildc.js",
     "build:types": "tsc -p tsconfig.types.json",
-    "test": "node tests/sanctifyText.test.js",
+    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "ci": "npm run test && npm run build && npm run build:types && npm run test-min"
   },

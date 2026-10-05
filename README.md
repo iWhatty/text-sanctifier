@@ -7,11 +7,13 @@
 [![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://img.shields.io/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~1.66 KB gzipped.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.17 KB gzipped.
 
 ## Features
 
 - Purges zero-width Unicode garbage
+- Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
+- Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
 - Normalizes line endings (CRLF, CR, LF) to LF
 - Collapses unwanted spaces and paragraphs
 - Nukes control characters (if enabled)
@@ -138,6 +140,36 @@ const report = inspectText(input);
 
 Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs. Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
 
+### Located findings
+
+```js
+import { inspectTextDetailed } from 'text-sanctifier';
+
+const { findings, counts, total, truncated } = inspectTextDetailed(input, { maxFindings: 100 });
+
+/*
+findings: [
+  { offset: 0, line: 1, column: 1, codePoint: 0xFEFF, category: 'bom', atStart: true },
+  { offset: 42, line: 3, column: 7, codePoint: 0x2067, category: 'bidi_control' },
+]
+counts: { bidi_control: 1, zero_width: 0, nonbreaking_space: 0, bom: 1, nul: 0, c0_control: 0, c1_control: 0 }
+total: 2
+truncated: false
+*/
+```
+
+| Category | Code points |
+| --- | --- |
+| `bidi_control` | U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069 |
+| `zero_width` | U+200B–U+200D, U+2060 |
+| `nonbreaking_space` | U+00A0, U+2000–U+200A, U+202F, U+3000 (non-breaking and typographic spaces) |
+| `bom` | U+FEFF; `atStart` is true at offset 0, where a BOM is legitimate |
+| `nul` | U+0000 |
+| `c0_control` | U+0001–U+001F except tab, LF and CR; U+007F |
+| `c1_control` | U+0080–U+009F |
+
+`offset` is a 0-based UTF-16 index; `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
+
 ---
 
 ## Notes
@@ -156,6 +188,10 @@ Requires a modern JavaScript runtime with ES2020+ support:
 - **Tree-shake friendly:** ships `sideEffects: false`
 - **Zero transpilation:** no built-in polyfills or runtime overhead
 - **Bundler ready:** works with Vite, Rollup, Webpack, Parcel, esbuild
+
+### `inspectTextDetailed(text: string, options?: { maxFindings?: number }): DetailedTrashReport`
+
+Returns each invisible or control character with its offset, line, column, code point and category, plus per-category counts and a `truncated` flag.
 
 ---
 

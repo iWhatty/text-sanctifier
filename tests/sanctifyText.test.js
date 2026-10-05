@@ -272,4 +272,23 @@ assertEqual(
 }
 
 
+// 25. Bidi isolates (LRI, RLI, FSI, PDI) and the Arabic letter mark are bidi controls:
+//     detected by inspectText and purged by both purge paths (Trojan Source vectors).
+{
+  const nukeControlsOnly = summonSanctifier({ nukeControls: true });
+  const purgeInvisibleOnly = summonSanctifier({ purgeInvisibleChars: true });
+
+  for (const cp of [0x061C, 0x2066, 0x2067, 0x2068, 0x2069]) {
+    const hex = 'U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+    const input = 'A' + String.fromCharCode(cp) + 'B';
+    const report = inspectText(input);
+
+    assertEqual(report.hasControlChars, true, `25. inspectText flags ${hex} as a control char`);
+    assertEqual(report.hasInvisibleChars, true, `25. inspectText flags ${hex} as an invisible char`);
+    assertEqual(nukeControlsOnly(input), 'AB', `25. nukeControls purges ${hex}`);
+    assertEqual(purgeInvisibleOnly(input), 'AB', `25. purgeInvisibleChars purges ${hex}`);
+  }
+}
+
+
 console.log('All tests finished.');

@@ -277,12 +277,12 @@ export function sanctifyText(
  * Targets:
  * - Non-breaking spaces (\u00A0)
  * - Zero-width spaces and miscellaneous Unicode spaces (\u2000–\u200D, \u202F, \u2060, \u3000, \uFEFF)
- * - Left-to-right/right-to-left markers and overrides (\u200E, \u200F, \u202A–\u202E)
+ * - Bidi controls: marks, embeddings/overrides and isolates (\u061C, \u200E, \u200F, \u202A–\u202E, \u2066–\u2069)
  *
  * @param {string} text
  * @returns {string}
  */
-export const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u200E\u200F\u202A-\u202E]+/g;
+export const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+/g;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
 }
@@ -496,12 +496,12 @@ function collapseExtraSpaces(text) {
  * Control characters nuked: 
  *   - ASCII control range (0x00-0x1F, 0x7F)
  *   - Unicode control range (0x80-0x9F)
- *   - RTL/LTR markers (U+200E, U+200F, U+202A–U+202E)
+ *   - Bidi controls (U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069)
  * 
  * @param {string} text
  * @returns {string}
  */
-export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200E\u200F\u202A-\u202E]+/g;
+export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+/g;
 function purgeControlCharacters(text) {
     return text.replace(CONTROL_CHARS_REGEX, '');
 }

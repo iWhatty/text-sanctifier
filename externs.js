@@ -113,3 +113,53 @@ function inspectText(text) { }
 * @return {!SanctifyOptions}
 */
 function getRecommendedSanctifierOptions(report) { }
+
+/**
+ * @typedef {{
+*   offset: number,
+*   line: number,
+*   column: number,
+*   codePoint: number,
+*   category: string,
+*   atStart: (boolean|undefined)
+* }}
+*/
+var TrashFinding;
+
+/**
+ * @typedef {{
+*   bidi_control: number,
+*   zero_width: number,
+*   nonbreaking_space: number,
+*   bom: number,
+*   nul: number,
+*   c0_control: number,
+*   c1_control: number
+* }}
+*/
+var TrashCounts;
+
+/**
+ * @typedef {{
+*   findings: !Array<!TrashFinding>,
+*   counts: !TrashCounts,
+*   total: number,
+*   truncated: boolean
+* }}
+*/
+var DetailedTrashReport;
+
+/**
+ * @typedef {{
+*   maxFindings: (number|undefined)
+* }}
+*/
+var InspectDetailedOptions;
+
+/**
+* Locate invisible and control characters, with per-category counts.
+* @param {string} text
+* @param {InspectDetailedOptions=} options
+* @return {!DetailedTrashReport}
+*/
+function inspectTextDetailed(text, options) { }
