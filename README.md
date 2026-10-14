@@ -140,7 +140,9 @@ const report = inspectText(input);
 
 Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs. Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
 
-### Located findings
+### `inspectTextDetailed(text: string, options?: { maxFindings?: number }): DetailedTrashReport`
+
+Returns each invisible or control character with its offset, line, column, code point and category, plus per-category counts and a `truncated` flag. Also exported from the browser build (`text-sanctifier/browser`). `inspectText`'s output is unchanged.
 
 ```js
 import { inspectTextDetailed } from 'text-sanctifier';
@@ -170,6 +172,10 @@ truncated: false
 
 `offset` is a 0-based UTF-16 index; `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
 
+`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.)
+
+The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip.
+
 ---
 
 ## Notes
@@ -178,20 +184,18 @@ truncated: false
 
 Requires a modern JavaScript runtime with ES2020+ support:
 
-- Node.js 14+
+- Node.js 18+ (`engines.node >=18`)
 - Modern evergreen browsers
 
 ### Package and build info
 
 - **Source (`src/`):** ES2020+ ESM modules with JSDoc
+- **ESM only:** no CommonJS build; `require('text-sanctifier')` works only on Node versions with `require(esm)` support (20.19+, 22.12+)
+- **Types:** TypeScript declarations ship in `dist/types`
 - **Browser build (`dist/`):** Minified ESM bundle for `<script type="module">`
 - **Tree-shake friendly:** ships `sideEffects: false`
 - **Zero transpilation:** no built-in polyfills or runtime overhead
 - **Bundler ready:** works with Vite, Rollup, Webpack, Parcel, esbuild
-
-### `inspectTextDetailed(text: string, options?: { maxFindings?: number }): DetailedTrashReport`
-
-Returns each invisible or control character with its offset, line, column, code point and category, plus per-category counts and a `truncated` flag.
 
 ---
 
