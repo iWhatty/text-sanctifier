@@ -1,6 +1,6 @@
 {
   "name": "text-sanctifier",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
   "engines": {
@@ -33,9 +33,10 @@
   "scripts": {
     "build": "node scripts/buildc.js",
     "build:types": "tsc -p tsconfig.types.json",
+    "test:types": "tsc -p tests/types/tsconfig.json",
     "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
-    "ci": "npm run test && npm run build && npm run build:types && npm run test-min"
+    "ci": "npm run test && npm run build && npm run build:types && npm run test:types && npm run test-min"
   },
   "keywords": [
     "text",

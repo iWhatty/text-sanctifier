@@ -2,6 +2,14 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## 1.1.1 — 2026-10-14
+
+Patch: type declarations only. No runtime changes; the browser build is byte-identical.
+
+- types: `DetailedTrashReport`, `TrashFinding`, `TrashCounts`, `TrashCategory`, `InspectDetailedOptions`, `UnicodeTrashReport` and `SanctifyOptions` are exported from the package root (and `text-sanctifier/browser`), so `import type { DetailedTrashReport } from 'text-sanctifier'` works without `ReturnType<typeof inspectTextDetailed>`
+- fix(types): `dist/types/inspectText.d.ts` referenced `SanctifyOptions` without importing it, which broke consumers compiling with `skipLibCheck: false`
+- test: `npm run test:types` (in `ci`) compiles a strict TypeScript consumer against `dist/types` through the package `exports` map
+
 ## 1.1.0 — 2026-10-14
 
 Minor: adds the `inspectTextDetailed` export. No breaking API changes. `purgeInvisibleChars` and `nukeControls` now also strip the bidi isolates and U+061C, so their output can differ for text containing them.

@@ -8,6 +8,8 @@ import {
     normalizeTypographicJank,
 } from './sanctifyText.js';
 
+/** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
+
 
 /**
 * @typedef {Object} UnicodeTrashReport
