@@ -15,6 +15,7 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~
 - Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
 - Purges Unicode tag characters (U+E0000–U+E007F), the "ASCII smuggling" channel for hiding instructions from humans in text an LLM reads, plus variation selectors, Hangul fillers, soft hyphens and invisible operators
 - Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
+- `text-sanctifier check` / `fix` command line for CI and coding agents, with JSON output and exit codes
 - Normalizes line endings (CRLF, CR, LF) to LF
 - Collapses unwanted spaces and paragraphs
 - Nukes control characters (if enabled)
@@ -181,6 +182,60 @@ truncated: false
 `zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as ✌️ and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16.
 
 The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip.
+
+---
+
+## Command line
+
+The package ships a `text-sanctifier` command for CI and coding agents, which cannot see invisible characters in their own tool output. It runs on Node 18+ and has no dependencies.
+
+```sh
+npx text-sanctifier check src docs "**/*.md"
+npx text-sanctifier fix --dry-run src
+```
+
+### `check [paths...]`
+
+Reports every invisible or control character as `path:line:column  U+XXXX  category`, using the categories of `inspectTextDetailed`:
+
+```
+docs/intro.md:12:7  U+200B  zero_width
+src/auth.js:40:3  U+202E  bidi_control
+2 findings in 2 of 31 files.
+```
+
+- `--json`: one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
+- `--max-findings N`: findings listed per file (default 100; `all` for no cap). Counts always cover every occurrence.
+- `--strip-bom`: also report a BOM at offset 0, which is skipped by default.
+
+### `fix [paths...]`
+
+Rewrites files in place and reports what it removed.
+
+- `--purge-invisible`: `purgeInvisibleChars`
+- `--nuke-controls`: `nukeControls`
+- `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
+- With none of the three, `fix` uses `--purge-invisible --nuke-controls`, which removes exactly what `check` reports.
+- `--strip-bom`: also remove a BOM at offset 0. It is kept by default.
+- `--dry-run`: write nothing; report what would change.
+- `--json`: `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, removed, removedTotal, newlinesNormalized }`.
+
+`fix` deletes characters; it does not replace them. A non-breaking space between two words joins them, and emoji lose their zero width joiners and variation selectors. Run `check` or `fix --dry-run` first on prose.
+
+### Inputs
+
+- Paths can be files, directories or globs (`*`, `**`, `?`, `[...]`, `{a,b}`). Quote globs so the shell passes them through.
+- Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read.
+- Binary files (a NUL byte in the first 8000 bytes) and files that are not valid UTF-8 are skipped, and `fix` never writes them. In JSON they appear under `skipped`.
+- `-`, or no paths with piped input, reads stdin. `fix` writes the cleaned text to stdout and the report to stderr.
+
+### Exit codes
+
+| Code | `check` | `fix` |
+| --- | --- | --- |
+| 0 | nothing found | done (or nothing to do) |
+| 1 | findings | `--dry-run` with changes pending |
+| 2 | usage error, missing path or unreadable file | same |
 
 ---
 

@@ -2,6 +2,17 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## 1.3.0 — 2026-10-14
+
+Minor: adds a `text-sanctifier` command. The library API is unchanged.
+
+- feat: `text-sanctifier check [paths...]` prints `path:line:column  U+XXXX  category` for each finding from `inspectTextDetailed`, or `--json`; `--max-findings N`; exits 1 when anything is found, so CI and coding agents can run it without writing scripts
+- feat: `text-sanctifier fix [paths...]` rewrites files with `--purge-invisible`, `--nuke-controls`, `--normalize-newlines` (default: the first two), `--dry-run` (exits 1 when changes are pending) and `--json`, and reports what it removed per category
+- paths may be files, directories or globs; inside a git work tree, directories and globs skip whatever `.gitignore` excludes (via `git ls-files`); binary and non-UTF-8 files are skipped and never written; `-` or piped input reads stdin
+- a BOM at offset 0 is kept by `fix` and not reported by `check` unless `--strip-bom` is given
+- plain Node 18+, no dependencies; exit code 2 for usage errors, missing paths and unreadable files
+- test: `tests/cli.test.js` runs the command against temp directories, including a throwaway git repo for `.gitignore`
+
 ## 1.2.0 — 2026-10-14
 
 Minor: new categories, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before. No API removals.

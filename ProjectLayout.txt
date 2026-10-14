@@ -4,11 +4,14 @@ text-sanctifier/
 │   ├── index.d.ts            type declarations
 │   ├── sanctifyText.js       core normalizer
 │   └── inspectText.js        diagnostics helper
+├── bin/
+│   └── text-sanctifier.js    command line (check / fix)
 ├── scripts/
 │   ├── build.js              esbuild minify pipeline
 │   └── buildc.js             closure-compiler advanced pass
 ├── tests/
 │   ├── sanctifyText.test.js
+│   ├── cli.test.js
 │   └── sanctifyText.test.min.js
 ├── dist/                     build output (gitignored; shipped to npm)
 │   └── text-sanctifier.min.js

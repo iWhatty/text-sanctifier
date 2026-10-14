@@ -1,6 +1,6 @@
 {
   "name": "text-sanctifier",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "description": "A brutal text normalizer and invisible trash scrubber for modern web projects.",
   "engines": {
@@ -9,8 +9,12 @@
   "main": "./src/index.js",
   "module": "./src/index.js",
   "browser": "./dist/text-sanctifier.min.js",
+  "bin": {
+    "text-sanctifier": "bin/text-sanctifier.js"
+  },
   "files": [
     "src",
+    "bin",
     "dist/text-sanctifier.min.js",
     "dist/types",
     "LICENSE",
@@ -34,7 +38,7 @@
     "build": "node scripts/buildc.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js",
+    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node tests/cli.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "ci": "npm run test && npm run build && npm run build:types && npm run test:types && npm run test-min"
   },
