@@ -134,7 +134,11 @@ var TrashFinding;
 *   bom: number,
 *   nul: number,
 *   c0_control: number,
-*   c1_control: number
+*   c1_control: number,
+*   invisible_format: number,
+*   hangul_filler: number,
+*   variation_selector: number,
+*   tag: number
 * }}
 */
 var TrashCounts;

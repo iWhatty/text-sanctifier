@@ -180,7 +180,7 @@ summonSanctifier.keyboardOnly = text => sanctifyText(
  * ⚠️ Note: This is plain-text normalization/filtering — not an HTML/XSS sanitizer.
  *
  * @param {string} text
- * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, etc.
+ * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
  * @param {boolean} [purgeEmojis=false] - Remove emoji characters entirely.
  * @param {boolean} [nukeControls=false] - Remove non-whitespace control characters.
  * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII + full emoji sequences only (drops other Unicode).
@@ -275,14 +275,18 @@ export function sanctifyText(
  * Purges invisible Unicode "trash" characters and removes them.
  * 
  * Targets:
- * - Non-breaking spaces (\u00A0)
- * - Zero-width spaces and miscellaneous Unicode spaces (\u2000–\u200D, \u202F, \u2060, \u3000, \uFEFF)
- * - Bidi controls: marks, embeddings/overrides and isolates (\u061C, \u200E, \u200F, \u202A–\u202E, \u2066–\u2069)
+ * - Non-breaking spaces ( )
+ * - Zero-width spaces and miscellaneous Unicode spaces ( –‍,  , ⁠, 　, ﻿)
+ * - Bidi controls: marks, embeddings/overrides and isolates (؜, ‎, ‏, ‪–‮, ⁦–⁩)
+ * - Invisible format characters: soft hyphen, CGJ, Mongolian vowel separator, invisible operators (­, ͏, ᠎, ⁡–⁤)
+ * - Hangul fillers (ᅟ, ᅠ, ㅤ, ﾠ)
+ * - Variation selectors (︀–️, \u{E0100}–\u{E01EF}), including VS16 in emoji
+ * - Tag characters (\u{E0000}–\u{E007F}), used for "ASCII smuggling"
  *
  * @param {string} text
  * @returns {string}
  */
-export const INVISIBLE_TRASH_REGEX = /[\u00A0\u2000-\u200D\u202F\u2060\u3000\uFEFF\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+/g;
+export const INVISIBLE_TRASH_REGEX = /[ ­͏؜ᅟᅠ᠎ -‏‪- ⁠-⁤⁦-⁩　ㅤ︀-️﻿ﾠ\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]+/gu;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
 }

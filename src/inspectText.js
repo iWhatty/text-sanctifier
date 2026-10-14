@@ -121,12 +121,13 @@ export function inspectText(text) {
 }
 
 /**
- * @typedef {'bidi_control'|'zero_width'|'nonbreaking_space'|'bom'|'nul'|'c0_control'|'c1_control'} TrashCategory
+ * @typedef {'bidi_control'|'zero_width'|'nonbreaking_space'|'bom'|'nul'|'c0_control'|'c1_control'|'invisible_format'|'hangul_filler'|'variation_selector'|'tag'} TrashCategory
  */
 
 /**
  * One located character.
- * - `offset`: 0-based UTF-16 index into the input (a JS string index).
+ * - `offset`: 0-based UTF-16 index into the input (a JS string index); for a code point
+ *   above U+FFFF, the index of its high surrogate.
  * - `line`: 1-based; lines end at LF, CR, or CRLF (counted once).
  * - `column`: 1-based, in UTF-16 code units from the start of the line.
  * - `atStart`: present on `bom` findings only; true at offset 0, where a BOM is legitimate.
@@ -149,6 +150,10 @@ export function inspectText(text) {
  * @property {number} nul
  * @property {number} c0_control
  * @property {number} c1_control
+ * @property {number} invisible_format
+ * @property {number} hangul_filler
+ * @property {number} variation_selector
+ * @property {number} tag
  */
 
 /**
@@ -167,8 +172,9 @@ export function inspectText(text) {
 const DEFAULT_MAX_FINDINGS = 100;
 
 /**
- * Category of one UTF-16 code unit, or null when it is not trash.
+ * Category of one BMP code point (one UTF-16 code unit), or null when it is not trash.
  * Tab, LF and CR are whitespace, not trash. DEL (U+007F) is counted with the C0 controls.
+ * Surrogates return null; the caller pairs them and uses classifyAstral.
  * @param {number} c
  * @returns {TrashCategory|null}
  */
@@ -180,7 +186,9 @@ function classifyCodeUnit(c) {
     }
     if (c <= 0x9F) return 'c1_control';
     if (c === 0xA0) return 'nonbreaking_space';
+    if (c === 0xAD || c === 0x034F || c === 0x180E) return 'invisible_format';
     if (c === 0x061C) return 'bidi_control';
+    if (c === 0x115F || c === 0x1160) return 'hangul_filler';
     if (c < 0x2000) return null;
     if (c <= 0x200A) return 'nonbreaking_space';
     if (c <= 0x200D) return 'zero_width';
@@ -188,11 +196,28 @@ function classifyCodeUnit(c) {
     if (c >= 0x202A && c <= 0x202E) return 'bidi_control';
     if (c === 0x202F) return 'nonbreaking_space';
     if (c === 0x2060) return 'zero_width';
+    if (c >= 0x2061 && c <= 0x2064) return 'invisible_format';
     if (c >= 0x2066 && c <= 0x2069) return 'bidi_control';
     if (c === 0x3000) return 'nonbreaking_space';
+    if (c === 0x3164 || c === 0xFFA0) return 'hangul_filler';
+    if (c >= 0xFE00 && c <= 0xFE0F) return 'variation_selector';
     if (c === 0xFEFF) return 'bom';
     return null;
 }
+
+/**
+ * Category of a code point above U+FFFF, or null when it is not trash.
+ * @param {number} cp
+ * @returns {TrashCategory|null}
+ */
+function classifyAstral(cp) {
+    if (cp >= 0xE0000 && cp <= 0xE007F) return 'tag';
+    if (cp >= 0xE0100 && cp <= 0xE01EF) return 'variation_selector';
+    return null;
+}
+
+/** High surrogate of U+E0000–U+E03FF, the only astral block with trash (tags, VS17–VS256). */
+const TRASH_HIGH_SURROGATE = 0xDB40;
 
 /**
  * Locates invisible and control characters, one finding per character.
@@ -205,7 +230,12 @@ function classifyCodeUnit(c) {
  * - `nul`: U+0000
  * - `c0_control`: U+0001–U+001F except tab, LF and CR; and U+007F
  * - `c1_control`: U+0080–U+009F
+ * - `invisible_format`: soft hyphen U+00AD, U+034F, U+180E, invisible operators U+2061–U+2064
+ * - `hangul_filler`: U+115F, U+1160, U+3164, U+FFA0 (letters that render blank)
+ * - `variation_selector`: U+FE00–U+FE0F, U+E0100–U+E01EF (including VS16 in emoji)
+ * - `tag`: U+E0000–U+E007F (tag characters, used for "ASCII smuggling")
  *
+ * `codePoint` is the full code point; `offset` and `column` count UTF-16 units.
  * Every occurrence is counted; only the first `maxFindings` are listed.
  * One pass over the string, no regex, no copy.
  *
@@ -233,6 +263,10 @@ export function inspectTextDetailed(text, options = {}) {
         nul: 0,
         c0_control: 0,
         c1_control: 0,
+        invisible_format: 0,
+        hangul_filler: 0,
+        variation_selector: 0,
+        tag: 0,
     };
     /** @type {TrashFinding[]} */
     const findings = [];
@@ -260,15 +294,26 @@ export function inspectTextDetailed(text, options = {}) {
             continue;
         }
 
-        const category = classifyCodeUnit(c);
+        const offset = i;
+        let codePoint = c;
+        let category;
+        if (c === TRASH_HIGH_SURROGATE) {
+            const low = text.charCodeAt(i + 1);
+            if (!(low >= 0xDC00 && low <= 0xDFFF)) continue; // lone surrogate
+            codePoint = 0x10000 + ((c - 0xD800) << 10) + (low - 0xDC00);
+            category = classifyAstral(codePoint);
+            i++; // the low surrogate is part of this code point
+        } else {
+            category = classifyCodeUnit(c);
+        }
         if (category === null) continue;
 
         counts[category]++;
         total++;
         if (findings.length < maxFindings) {
             /** @type {TrashFinding} */
-            const finding = { offset: i, line, column: i - lineStart + 1, codePoint: c, category };
-            if (category === 'bom') finding.atStart = i === 0;
+            const finding = { offset, line, column: offset - lineStart + 1, codePoint, category };
+            if (category === 'bom') finding.atStart = offset === 0;
             findings.push(finding);
         }
     }

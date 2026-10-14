@@ -2,6 +2,21 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## 1.2.0 — 2026-10-14
+
+Minor: new categories, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before. No API removals.
+
+- feat: `inspectTextDetailed` reads surrogate pairs, so it sees invisible characters above U+FFFF. `codePoint` is the full code point; `offset` and `column` stay in UTF-16 units (the high surrogate's index)
+- feat: new categories, each also detected by `inspectText` (`hasInvisibleChars`) and stripped by `purgeInvisibleChars`:
+  - `tag`: U+E0000–U+E007F, tag characters used for "ASCII smuggling" of instructions hidden from humans but read by LLMs
+  - `variation_selector`: U+FE00–U+FE0F, U+E0100–U+E01EF. Includes VS16 in emoji (✌️ → ✌ under `purgeInvisibleChars`); `keyboardOnlyEmoji` still keeps it
+  - `invisible_format`: U+00AD soft hyphen, U+034F, U+180E, U+2061–U+2064 invisible operators
+  - `hangul_filler`: U+115F, U+1160, U+3164, U+FFA0
+- `counts` gains `invisible_format`, `hangul_filler`, `variation_selector` and `tag` (added after `c1_control`); `TrashCategory` and the Closure externs list them
+- `INVISIBLE_TRASH_REGEX` now has the `u` flag
+- build: minified 4923 → 5457 bytes, gzipped 2217 → 2462
+- test: the categories == `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX` invariant is checked over all of U+0000–U+10FFFF, not just the BMP; the dist test checks astral findings and the new count fields survive Closure ADVANCED
+
 ## 1.1.1 — 2026-10-14
 
 Patch: type declarations only. No runtime changes; the browser build is byte-identical.

@@ -7,12 +7,13 @@
 [![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://img.shields.io/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.17 KB gzipped.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.40 KB gzipped.
 
 ## Features
 
 - Purges zero-width Unicode garbage
 - Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
+- Purges Unicode tag characters (U+E0000–U+E007F), the "ASCII smuggling" channel for hiding instructions from humans in text an LLM reads, plus variation selectors, Hangul fillers, soft hyphens and invisible operators
 - Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
 - Normalizes line endings (CRLF, CR, LF) to LF
 - Collapses unwanted spaces and paragraphs
@@ -154,7 +155,8 @@ findings: [
   { offset: 0, line: 1, column: 1, codePoint: 0xFEFF, category: 'bom', atStart: true },
   { offset: 42, line: 3, column: 7, codePoint: 0x2067, category: 'bidi_control' },
 ]
-counts: { bidi_control: 1, zero_width: 0, nonbreaking_space: 0, bom: 1, nul: 0, c0_control: 0, c1_control: 0 }
+counts: { bidi_control: 1, zero_width: 0, nonbreaking_space: 0, bom: 1, nul: 0, c0_control: 0, c1_control: 0,
+          invisible_format: 0, hangul_filler: 0, variation_selector: 0, tag: 0 }
 total: 2
 truncated: false
 */
@@ -169,10 +171,14 @@ truncated: false
 | `nul` | U+0000 |
 | `c0_control` | U+0001–U+001F except tab, LF and CR; U+007F |
 | `c1_control` | U+0080–U+009F |
+| `invisible_format` | U+00AD (soft hyphen), U+034F, U+180E, U+2061–U+2064 (invisible operators) |
+| `hangul_filler` | U+115F, U+1160, U+3164, U+FFA0 (letters that render blank) |
+| `variation_selector` | U+FE00–U+FE0F, U+E0100–U+E01EF |
+| `tag` | U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions) |
 
-`offset` is a 0-based UTF-16 index; `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
+`codePoint` is the full code point, so a tag character reports `0xE0041`, not a surrogate. `offset` is a 0-based UTF-16 index (for a code point above U+FFFF, that of its high surrogate); `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
 
-`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.)
+`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as ✌️ and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16.
 
 The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip.
 

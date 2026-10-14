@@ -1,9 +1,9 @@
 // ./tests/inspectTextDetailed.test.js
 //
-// Characters are built with String.fromCharCode so this file holds no raw
+// Characters are built with String.fromCodePoint so this file holds no raw
 // invisible characters and no escape sequences.
 
-import { inspectText, inspectTextDetailed } from '../src/index.js';
+import { inspectText, inspectTextDetailed, summonSanctifier } from '../src/index.js';
 import { getNewlineStats } from '../src/inspectText.js';
 import { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX } from '../src/sanctifyText.js';
 
@@ -21,7 +21,7 @@ function assertJson(actual, expected, message) {
   assertEqual(JSON.stringify(actual), JSON.stringify(expected), message);
 }
 
-const ch = (cp) => String.fromCharCode(cp);
+const ch = (cp) => String.fromCodePoint(cp);
 const hex = (cp) => 'U+' + cp.toString(16).toUpperCase().padStart(4, '0');
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, k) => from + k);
 const CR = ch(0x0D);
@@ -40,7 +40,12 @@ const CATEGORY_CODE_POINTS = {
   nul: [0x0000],
   c0_control: [...range(0x01, 0x08), 0x0B, 0x0C, ...range(0x0E, 0x1F), 0x7F],
   c1_control: range(0x80, 0x9F),
+  invisible_format: [0x00AD, 0x034F, 0x180E, ...range(0x2061, 0x2064)],
+  hangul_filler: [0x115F, 0x1160, 0x3164, 0xFFA0],
+  variation_selector: [...range(0xFE00, 0xFE0F), ...range(0xE0100, 0xE01EF)],
+  tag: range(0xE0000, 0xE007F),
 };
+const ZEROED_COUNTS = Object.fromEntries(Object.keys(CATEGORY_CODE_POINTS).map(k => [k, 0]));
 
 for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
   for (const cp of codePoints) {
@@ -62,10 +67,10 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
 }
 
 
-// 2. The categories cover exactly what the purge regexes match, across the BMP.
+// 2. The categories cover exactly what the purge regexes match, over every code point.
 {
   const mismatches = [];
-  for (let cp = 0; cp <= 0xFFFF; cp++) {
+  for (let cp = 0; cp <= 0x10FFFF; cp++) {
     if (cp >= 0xD800 && cp <= 0xDFFF) continue; // lone surrogates
     const s = ch(cp);
     CONTROL_CHARS_REGEX.lastIndex = 0;
@@ -74,7 +79,7 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
     const byDetailed = inspectTextDetailed(s).total === 1;
     if (byRegex !== byDetailed) mismatches.push(hex(cp));
   }
-  assertJson(mismatches, [], '2. detailed categories == CONTROL_CHARS_REGEX ∪ INVISIBLE_TRASH_REGEX over the BMP');
+  assertJson(mismatches, [], '2. detailed categories == CONTROL_CHARS_REGEX ∪ INVISIBLE_TRASH_REGEX over U+0000–U+10FFFF');
 }
 
 
@@ -82,11 +87,7 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
 {
   const r = inspectTextDetailed('a' + TAB + 'b' + LF + 'c' + CR + LF + 'd' + CR + 'e ' + ch(0xE9) + ch(0x2014) + '😊𝌆');
   assertEqual(r.total, 0, '3. tab, CR, LF, space, é, em dash and emoji are not findings');
-  assertJson(
-    r.counts,
-    { bidi_control: 0, zero_width: 0, nonbreaking_space: 0, bom: 0, nul: 0, c0_control: 0, c1_control: 0 },
-    '3. counts lists every category, zeroed, on clean text'
-  );
+  assertJson(r.counts, ZEROED_COUNTS, '3. counts lists every category, zeroed, on clean text');
   assertJson(r.findings, [], '3. no findings on clean text');
   assertEqual(r.truncated, false, '3. clean text is not truncated');
 }
@@ -118,6 +119,48 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
     ],
     '5. offset/line/column across LF, CRLF, CR and a surrogate pair'
   );
+}
+
+
+// 5b. Astral findings: full codePoint, UTF-16 offset/column, one finding per pair.
+{
+  const TAG_H = ch(0xE0048);
+  const TAG_I = ch(0xE0069);
+  const text = 'a' + TAG_H + TAG_I + LF + '😊' + ch(0xE0100) + ch(0x200B);
+  const r = inspectTextDetailed(text);
+  assertJson(
+    r.findings.map(f => [f.offset, f.line, f.column, f.codePoint, f.category]),
+    [
+      [1, 1, 2, 0xE0048, 'tag'],
+      [3, 1, 4, 0xE0069, 'tag'],
+      [8, 2, 3, 0xE0100, 'variation_selector'],
+      [10, 2, 5, 0x200B, 'zero_width'],
+    ],
+    '5b. tags and VS17 located by UTF-16 offset with full code points'
+  );
+  assertEqual(r.counts.tag, 2, '5b. each tag pair counted once');
+
+  // Lone and mismatched surrogates are not findings and do not swallow the next unit
+  const lone = inspectTextDetailed(ch(0xDB40) + ch(0x200B) + ch(0xDC41) + ch(0xDB40));
+  assertJson(
+    lone.findings.map(f => [f.offset, f.codePoint]),
+    [[1, 0x200B]],
+    '5b. lone U+DB40 / U+DC41 are skipped and the following ZWSP is still found'
+  );
+}
+
+
+// 5c. purgeInvisibleChars strips the new categories, including astral ones.
+{
+  const purge = summonSanctifier({ purgeInvisibleChars: true });
+  const hidden = range(0xE0020, 0xE007F).map(ch).join('');
+  assertEqual(purge('ok' + hidden + '!'), 'ok!', '5c. tag-character payload purged');
+  assertEqual(
+    purge('a' + [0x00AD, 0x034F, 0x115F, 0x3164, 0x2062, 0xFE0F, 0xE01EF, 0xFFA0].map(ch).join('') + 'b'),
+    'ab',
+    '5c. format, filler and variation-selector characters purged'
+  );
+  assertEqual(purge('x' + ch(0xDB40) + 'y'), 'x' + ch(0xDB40) + 'y', '5c. a lone surrogate is left alone');
 }
 
 
