@@ -4,12 +4,18 @@
 
 ## Unreleased
 
-No behavior change: same categories, same code points, same exported regexes and flags.
+Same category names. `invisible_format` and `variation_selector` now cover every remaining Default_Ignorable_Code_Point, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before.
 
+- fix: every Default_Ignorable_Code_Point is now categorized; about 3,700 were missing, mostly reserved plane-14 code points
+  - `variation_selector` gains the Mongolian free variation selectors U+180B–U+180D and U+180F. They are the same smuggling vector as the other variation selectors, but legitimate in Mongolian text, which `purgeInvisibleChars` can change
+  - `invisible_format` gains U+17B4–U+17B5 (Khmer inherent vowels), U+2065, U+206A–U+206F (deprecated format characters), U+FFF0–U+FFF8, U+1BCA0–U+1BCA3 (shorthand format controls), U+1D173–U+1D17A (musical formatting), and the reserved plane-14 ranges U+E0080–U+E00FF and U+E01F0–U+E0FFF. Those sit next to the tag block, so before this a check that only covered U+E0000–U+E007F could be bypassed
+- fix: `inspectTextDetailed` decodes every surrogate pair, not just those starting with U+DB40, so invisible characters in any plane are found. Lone surrogates are still skipped. Emoji-heavy text scans faster (4 M characters: 20.1 → 14.3 ms); other text is unchanged
+- test: a drift guard checks that every Default_Ignorable_Code_Point in the running Node's Unicode data (4,174 code points in Unicode 16.0) is categorized, so a Node upgrade that brings newer Unicode data fails until `scripts/categories.js` catches up; the dist test covers the new planes
+- build: the generator no longer requires astral ranges to share one high surrogate, and `TRASH_HIGH_SURROGATE` is gone from `src/categories.generated.js` (it was never exported from the package)
 - refactor: the categories and their code points are defined once, in `scripts/categories.js`. `npm run gen` generates `CONTROL_CHARS_REGEX`, `INVISIBLE_TRASH_REGEX` and the `inspectTextDetailed` classifier (`src/categories.generated.js`), plus the category list in its JSDoc and the README table; `npm run ci` fails while any of them is stale. Checked against the previous regexes and classifier over every code point U+0000–U+10FFFF
 - perf: the classifier is a generated binary search on numbers, split in two so V8 inlines it. On 4 M characters: CJK 19.6 → 13.3 ms, emoji 12.7 → 9.3 ms, Latin-1 unchanged, NBSP 17.0 → 18.6 ms (16 MB of NBSP: about 70 → 80 ms; README updated)
 - docs: the README category table has a "Removed by" column, and `c0_control` lists its ranges explicitly
-- build: minified 5542 → 5724 bytes, gzipped 2495 → 2531
+- build: minified 5542 → 5724 bytes (category table) → 6045 (new ranges), gzipped 2495 → 2531 → 2632
 
 ## 1.3.1 — 2026-10-14
 

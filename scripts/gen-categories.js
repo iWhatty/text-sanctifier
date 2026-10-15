@@ -67,15 +67,6 @@ for (let k = 1; k < allRanges.length; k++) {
     }
 }
 
-// inspectTextDetailed decodes a surrogate pair only for one high surrogate.
-const astral = allRanges.filter(r => r.lo > 0xFFFF);
-const highSurrogate = (cp) => 0xD800 + ((cp - 0x10000) >> 10);
-const TRASH_HIGH_SURROGATE = astral.length ? highSurrogate(astral[0].lo) : 0;
-for (const r of astral) {
-    if (highSurrogate(r.lo) !== TRASH_HIGH_SURROGATE || highSurrogate(r.hi) !== TRASH_HIGH_SURROGATE) {
-        fail(`astral ranges must share one high surrogate; inspectTextDetailed needs updating for ${hex(r.lo)}`);
-    }
-}
 
 // --- Helpers ---
 
@@ -190,9 +181,6 @@ function generatedModule() {
 /** @typedef {import('./inspectText.js').TrashCategory} TrashCategory */
 
 ${Object.keys(PURGE_REGEXES).map(regexDoc).join('\n\n')}
-
-/** High surrogate of every astral code point in a category (U+${hex(astral[0].lo)}-U+${hex(astral[astral.length - 1].hi)}). */
-export const TRASH_HIGH_SURROGATE = 0x${hex(TRASH_HIGH_SURROGATE)};
 
 /**
  * Category of one BMP code point (one UTF-16 code unit), or null when it is not trash.

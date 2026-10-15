@@ -72,9 +72,18 @@ export const CATEGORIES = [
         ranges: [
             [0x00AD, 0x00AD, 'soft hyphen'],
             [0x034F, 0x034F, 'combining grapheme joiner'],
+            [0x17B4, 0x17B5, 'Khmer inherent vowels'],
             [0x180E, 0x180E, 'Mongolian vowel separator'],
             [0x2061, 0x2064, 'invisible operators'],
+            [0x2065, 0x2065, 'reserved'],
+            [0x206A, 0x206F, 'deprecated format characters'],
+            [0xFFF0, 0xFFF8, 'reserved'],
+            [0x1BCA0, 0x1BCA3, 'shorthand format controls'],
+            [0x1D173, 0x1D17A, 'musical formatting'],
+            [0xE0080, 0xE00FF, 'reserved'],
+            [0xE01F0, 0xE0FFF, 'reserved'],
         ],
+        note: 'every other Default_Ignorable_Code_Point, which renderers draw as nothing',
     },
     {
         name: 'hangul_filler',
@@ -85,7 +94,12 @@ export const CATEGORIES = [
     {
         name: 'variation_selector',
         removedBy: ['INVISIBLE_TRASH_REGEX'],
-        ranges: [[0xFE00, 0xFE0F, 'VS1-VS16, including VS16 in emoji'], [0xE0100, 0xE01EF, 'VS17-VS256']],
+        ranges: [
+            [0x180B, 0x180D, 'Mongolian FVS1-FVS3'],
+            [0x180F, 0x180F, 'Mongolian FVS4'],
+            [0xFE00, 0xFE0F, 'VS1-VS16, including VS16 in emoji'],
+            [0xE0100, 0xE01EF, 'VS17-VS256'],
+        ],
     },
     {
         name: 'tag',

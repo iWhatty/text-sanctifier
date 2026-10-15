@@ -40,9 +40,13 @@ const CATEGORY_CODE_POINTS = {
   nul: [0x0000],
   c0_control: [...range(0x01, 0x08), 0x0B, 0x0C, ...range(0x0E, 0x1F), 0x7F],
   c1_control: range(0x80, 0x9F),
-  invisible_format: [0x00AD, 0x034F, 0x180E, ...range(0x2061, 0x2064)],
+  invisible_format: [
+    0x00AD, 0x034F, 0x17B4, 0x17B5, 0x180E, ...range(0x2061, 0x2065), ...range(0x206A, 0x206F),
+    ...range(0xFFF0, 0xFFF8), ...range(0x1BCA0, 0x1BCA3), ...range(0x1D173, 0x1D17A),
+    ...range(0xE0080, 0xE00FF), ...range(0xE01F0, 0xE0FFF),
+  ],
   hangul_filler: [0x115F, 0x1160, 0x3164, 0xFFA0],
-  variation_selector: [...range(0xFE00, 0xFE0F), ...range(0xE0100, 0xE01EF)],
+  variation_selector: [...range(0x180B, 0x180D), 0x180F, ...range(0xFE00, 0xFE0F), ...range(0xE0100, 0xE01EF)],
   tag: range(0xE0000, 0xE007F),
 };
 const ZEROED_COUNTS = Object.fromEntries(Object.keys(CATEGORY_CODE_POINTS).map(k => [k, 0]));
@@ -80,6 +84,28 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
     if (byRegex !== byDetailed) mismatches.push(hex(cp));
   }
   assertJson(mismatches, [], '2. detailed categories == CONTROL_CHARS_REGEX ∪ INVISIBLE_TRASH_REGEX over U+0000–U+10FFFF');
+}
+
+
+// 2b. Drift guard: every Default_Ignorable_Code_Point known to this Node's Unicode data
+//     is in some category. A newer Node with newer Unicode data fails here until the
+//     table in scripts/categories.js catches up.
+{
+  const ignorable = /^\p{Default_Ignorable_Code_Point}$/u;
+  const uncovered = [];
+  let checked = 0;
+  for (let cp = 0; cp <= 0x10FFFF; cp++) {
+    if (cp >= 0xD800 && cp <= 0xDFFF) continue;
+    const s = ch(cp);
+    if (!ignorable.test(s)) continue;
+    checked++;
+    if (inspectTextDetailed(s).total !== 1) uncovered.push(hex(cp));
+  }
+  assertJson(
+    uncovered,
+    [],
+    `2b. all ${checked} Default_Ignorable_Code_Point code points (Unicode ${process.versions.unicode}) are categorized`
+  );
 }
 
 

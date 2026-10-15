@@ -7,7 +7,7 @@ import {
     ASCII_KEYBOARD_SAFE_REGEX,
     normalizeTypographicJank,
 } from './sanctifyText.js';
-import { classifyCodeUnit, classifyAstral, TRASH_HIGH_SURROGATE } from './categories.generated.js';
+import { classifyCodeUnit, classifyAstral } from './categories.generated.js';
 
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
 
@@ -184,9 +184,9 @@ const DEFAULT_MAX_FINDINGS = 100;
  * - `nul`: U+0000
  * - `c0_control`: U+0001–U+0008, U+000B, U+000C, U+000E–U+001F, U+007F (tab, LF and CR are whitespace, not trash)
  * - `c1_control`: U+0080–U+009F
- * - `invisible_format`: U+00AD (soft hyphen), U+034F (combining grapheme joiner), U+180E (Mongolian vowel separator), U+2061–U+2064 (invisible operators)
+ * - `invisible_format`: U+00AD (soft hyphen), U+034F (combining grapheme joiner), U+17B4, U+17B5 (Khmer inherent vowels), U+180E (Mongolian vowel separator), U+2061–U+2064 (invisible operators), U+2065 (reserved), U+206A–U+206F (deprecated format characters), U+FFF0–U+FFF8 (reserved), U+1BCA0–U+1BCA3 (shorthand format controls), U+1D173–U+1D17A (musical formatting), U+E0080–U+E00FF (reserved), U+E01F0–U+E0FFF (reserved) (every other Default_Ignorable_Code_Point, which renderers draw as nothing)
  * - `hangul_filler`: U+115F, U+1160, U+3164, U+FFA0 (letters that render blank)
- * - `variation_selector`: U+FE00–U+FE0F (VS1-VS16, including VS16 in emoji), U+E0100–U+E01EF (VS17-VS256)
+ * - `variation_selector`: U+180B–U+180D (Mongolian FVS1-FVS3), U+180F (Mongolian FVS4), U+FE00–U+FE0F (VS1-VS16, including VS16 in emoji), U+E0100–U+E01EF (VS17-VS256)
  * - `tag`: U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions)
  *
  * `codePoint` is the full code point; `offset` and `column` count UTF-16 units.
@@ -251,7 +251,7 @@ export function inspectTextDetailed(text, options = {}) {
         const offset = i;
         let codePoint = c;
         let category;
-        if (c === TRASH_HIGH_SURROGATE) {
+        if (c >= 0xD800 && c <= 0xDBFF) {
             const low = text.charCodeAt(i + 1);
             if (!(low >= 0xDC00 && low <= 0xDFFF)) continue; // lone surrogate
             codePoint = 0x10000 + ((c - 0xD800) << 10) + (low - 0xDC00);

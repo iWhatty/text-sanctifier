@@ -17,10 +17,7 @@ export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007
  * Global: reset `lastIndex` before calling `.test()`.
  * @type {RegExp}
  */
-export const INVISIBLE_TRASH_REGEX = /[\u00A0\u00AD\u034F\u061C\u115F\u1160\u180E\u2000-\u200F\u202A-\u202F\u205F-\u2064\u2066-\u2069\u3000\u3164\uFE00-\uFE0F\uFEFF\uFFA0\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]+/gu;
-
-/** High surrogate of every astral code point in a category (U+E0000-U+E01EF). */
-export const TRASH_HIGH_SURROGATE = 0xDB40;
+export const INVISIBLE_TRASH_REGEX = /[\u00A0\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u2000-\u200F\u202A-\u202F\u205F-\u206F\u3000\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8\u{1BCA0}-\u{1BCA3}\u{1D173}-\u{1D17A}\u{E0000}-\u{E0FFF}]+/gu;
 
 /**
  * Category of one BMP code point (one UTF-16 code unit), or null when it is not trash.
@@ -29,85 +26,97 @@ export const TRASH_HIGH_SURROGATE = 0xDB40;
  * @returns {TrashCategory|null}
  */
 export function classifyCodeUnit(c) {
-    return c < 0x200B ? classifyBelow200B(c) : classifyFrom200B(c);
+    return c < 0x2000 ? classifyBelow2000(c) : classifyFrom2000(c);
 }
 
 // Two halves rather than one tree: V8 inlines a function only while its bytecode is
 // small (460 bytes by default), and the single pass is much faster when it does.
 
 /** @param {number} c @returns {TrashCategory|null} */
-function classifyBelow200B(c) {
-    if (c < 0x00AD) {
-        if (c < 0x000E) {
-            if (c < 0x0009) {
+function classifyBelow2000(c) {
+    if (c < 0x00AE) {
+        if (c < 0x0020) {
+            if (c < 0x000B) {
                 if (c < 0x0001) {
                     return 'nul';
                 }
-                return 'c0_control';
-            }
-            if (c < 0x000B) {
+                if (c < 0x0009) {
+                    return 'c0_control';
+                }
                 return null;
             }
             if (c < 0x000D) {
                 return 'c0_control';
             }
-            return null;
-        }
-        if (c < 0x0080) {
-            if (c < 0x0020) {
-                return 'c0_control';
-            }
-            if (c < 0x007F) {
+            if (c < 0x000E) {
                 return null;
             }
             return 'c0_control';
         }
         if (c < 0x00A0) {
+            if (c < 0x007F) {
+                return null;
+            }
+            if (c < 0x0080) {
+                return 'c0_control';
+            }
             return 'c1_control';
         }
         if (c < 0x00A1) {
             return 'nonbreaking_space';
         }
-        return null;
+        if (c < 0x00AD) {
+            return null;
+        }
+        return 'invisible_format';
     }
-    if (c < 0x061D) {
-        if (c < 0x034F) {
-            if (c < 0x00AE) {
+    if (c < 0x1161) {
+        if (c < 0x061C) {
+            if (c < 0x034F) {
+                return null;
+            }
+            if (c < 0x0350) {
                 return 'invisible_format';
             }
             return null;
         }
-        if (c < 0x0350) {
-            return 'invisible_format';
+        if (c < 0x061D) {
+            return 'bidi_control';
         }
-        if (c < 0x061C) {
-            return null;
-        }
-        return 'bidi_control';
-    }
-    if (c < 0x180E) {
         if (c < 0x115F) {
             return null;
         }
-        if (c < 0x1161) {
-            return 'hangul_filler';
+        return 'hangul_filler';
+    }
+    if (c < 0x180B) {
+        if (c < 0x17B4) {
+            return null;
+        }
+        if (c < 0x17B6) {
+            return 'invisible_format';
         }
         return null;
     }
     if (c < 0x180F) {
+        if (c < 0x180E) {
+            return 'variation_selector';
+        }
         return 'invisible_format';
     }
-    if (c < 0x2000) {
-        return null;
+    if (c < 0x1810) {
+        return 'variation_selector';
     }
-    return 'nonbreaking_space';
+    return null;
 }
 
 /** @param {number} c @returns {TrashCategory|null} */
-function classifyFrom200B(c) {
-    if (c < 0x206A) {
+function classifyFrom2000(c) {
+    if (c < 0x2070) {
         if (c < 0x2030) {
             if (c < 0x2010) {
+                if (c < 0x200B) {
+                    return 'nonbreaking_space';
+                }
                 if (c < 0x200E) {
                     return 'zero_width';
                 }
@@ -130,43 +139,49 @@ function classifyFrom200B(c) {
             }
             return 'zero_width';
         }
-        if (c < 0x2065) {
+        if (c < 0x2066) {
             return 'invisible_format';
         }
-        if (c < 0x2066) {
-            return null;
+        if (c < 0x206A) {
+            return 'bidi_control';
         }
-        return 'bidi_control';
+        return 'invisible_format';
     }
-    if (c < 0xFE00) {
-        if (c < 0x3001) {
+    if (c < 0xFE10) {
+        if (c < 0x3164) {
             if (c < 0x3000) {
                 return null;
             }
-            return 'nonbreaking_space';
-        }
-        if (c < 0x3164) {
+            if (c < 0x3001) {
+                return 'nonbreaking_space';
+            }
             return null;
         }
         if (c < 0x3165) {
             return 'hangul_filler';
         }
-        return null;
-    }
-    if (c < 0xFF00) {
-        if (c < 0xFE10) {
-            return 'variation_selector';
+        if (c < 0xFE00) {
+            return null;
         }
+        return 'variation_selector';
+    }
+    if (c < 0xFFA0) {
         if (c < 0xFEFF) {
             return null;
         }
-        return 'bom';
-    }
-    if (c < 0xFFA0) {
+        if (c < 0xFF00) {
+            return 'bom';
+        }
         return null;
     }
-    if (c < 0xFFA1) {
-        return 'hangul_filler';
+    if (c < 0xFFF0) {
+        if (c < 0xFFA1) {
+            return 'hangul_filler';
+        }
+        return null;
+    }
+    if (c < 0xFFF9) {
+        return 'invisible_format';
     }
     return null;
 }
@@ -177,17 +192,32 @@ function classifyFrom200B(c) {
  * @returns {TrashCategory|null}
  */
 export function classifyAstral(c) {
-    if (c < 0xE0080) {
-        if (c < 0xE0000) {
+    if (c < 0xE0000) {
+        if (c < 0x1BCA4) {
+            if (c < 0x1BCA0) {
+                return null;
+            }
+            return 'invisible_format';
+        }
+        if (c < 0x1D173) {
             return null;
         }
-        return 'tag';
+        if (c < 0x1D17B) {
+            return 'invisible_format';
+        }
+        return null;
     }
     if (c < 0xE0100) {
-        return null;
+        if (c < 0xE0080) {
+            return 'tag';
+        }
+        return 'invisible_format';
     }
     if (c < 0xE01F0) {
         return 'variation_selector';
+    }
+    if (c < 0xE1000) {
+        return 'invisible_format';
     }
     return null;
 }
