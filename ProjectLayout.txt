@@ -3,10 +3,13 @@ text-sanctifier/
 │   ├── index.js              entry point
 │   ├── index.d.ts            type declarations
 │   ├── sanctifyText.js       core normalizer
-│   └── inspectText.js        diagnostics helper
+│   ├── inspectText.js        diagnostics helper
+│   └── categories.generated.js  purge regexes + classifier (generated; do not edit)
 ├── bin/
 │   └── text-sanctifier.js    command line (check / fix)
 ├── scripts/
+│   ├── categories.js         the category table (single source of truth)
+│   ├── gen-categories.js     npm run gen / gen:check
 │   ├── build.js              esbuild minify pipeline
 │   └── buildc.js             closure-compiler advanced pass
 ├── tests/

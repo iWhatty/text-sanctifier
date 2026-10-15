@@ -2,6 +2,15 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## Unreleased
+
+No behavior change: same categories, same code points, same exported regexes and flags.
+
+- refactor: the categories and their code points are defined once, in `scripts/categories.js`. `npm run gen` generates `CONTROL_CHARS_REGEX`, `INVISIBLE_TRASH_REGEX` and the `inspectTextDetailed` classifier (`src/categories.generated.js`), plus the category list in its JSDoc and the README table; `npm run ci` fails while any of them is stale. Checked against the previous regexes and classifier over every code point U+0000–U+10FFFF
+- perf: the classifier is a generated binary search on numbers, split in two so V8 inlines it. On 4 M characters: CJK 19.6 → 13.3 ms, emoji 12.7 → 9.3 ms, Latin-1 unchanged, NBSP 17.0 → 18.6 ms (16 MB of NBSP: about 70 → 80 ms; README updated)
+- docs: the README category table has a "Removed by" column, and `c0_control` lists its ranges explicitly
+- build: minified 5542 → 5724 bytes, gzipped 2495 → 2531
+
 ## 1.3.1 — 2026-10-14
 
 Patch: feedback from a downstream consumer after integrating 1.3.0. No API removals.

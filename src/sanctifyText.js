@@ -1,5 +1,8 @@
 // src/sanctifyText.js
 
+import { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX } from './categories.generated.js';
+export { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX };
+
 
 /**
  * @typedef {Object} SanctifyOptions
@@ -272,21 +275,14 @@ export function sanctifyText(
 
 
 /**
- * Purges invisible Unicode "trash" characters and removes them.
- * 
- * Targets:
- * - Non-breaking spaces ( )
- * - Zero-width spaces and miscellaneous Unicode spaces ( –‍,  ,  , ⁠, 　, ﻿)
- * - Bidi controls: marks, embeddings/overrides and isolates (؜, ‎, ‏, ‪–‮, ⁦–⁩)
- * - Invisible format characters: soft hyphen, CGJ, Mongolian vowel separator, invisible operators (­, ͏, ᠎, ⁡–⁤)
- * - Hangul fillers (ᅟ, ᅠ, ㅤ, ﾠ)
- * - Variation selectors (︀–️, \u{E0100}–\u{E01EF}), including VS16 in emoji
- * - Tag characters (\u{E0000}–\u{E007F}), used for "ASCII smuggling"
+ * Removes the invisible Unicode characters in INVISIBLE_TRASH_REGEX: non-breaking and
+ * typographic spaces, zero-width characters, bidi controls, invisible format characters,
+ * Hangul fillers, variation selectors (including VS16 in emoji), the BOM and tag characters.
+ * The code points come from the table in scripts/categories.js.
  *
  * @param {string} text
  * @returns {string}
  */
-export const INVISIBLE_TRASH_REGEX = /[ ­͏؜ᅟᅠ᠎ -‏‪-  ⁠-⁤⁦-⁩　ㅤ︀-️﻿ﾠ\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]+/gu;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
 }
@@ -497,15 +493,14 @@ function collapseExtraSpaces(text) {
  * Nukes hidden control characters that are invisible and often dangerous.
  * (Excludes necessary whitespace like \n and \t.)
  * 
- * Control characters nuked: 
- *   - ASCII control range (0x00-0x1F, 0x7F)
- *   - Unicode control range (0x80-0x9F)
- *   - Bidi controls (U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069)
+ * Control characters nuked (the code points come from the table in scripts/categories.js):
+ *   - NUL and the C0 controls except tab, LF and CR; DEL (U+007F)
+ *   - C1 controls (U+0080-U+009F)
+ *   - Bidi controls
  * 
  * @param {string} text
  * @returns {string}
  */
-export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+/g;
 function purgeControlCharacters(text) {
     return text.replace(CONTROL_CHARS_REGEX, '');
 }

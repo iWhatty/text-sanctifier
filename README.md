@@ -163,23 +163,25 @@ truncated: false
 */
 ```
 
-| Category | Code points |
-| --- | --- |
-| `bidi_control` | U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069 |
-| `zero_width` | U+200B–U+200D, U+2060 |
-| `nonbreaking_space` | U+00A0, U+2000–U+200A, U+202F, U+205F, U+3000 (non-breaking and typographic spaces) |
-| `bom` | U+FEFF; `atStart` is true at offset 0, where a BOM is legitimate |
-| `nul` | U+0000 |
-| `c0_control` | U+0001–U+001F except tab, LF and CR; U+007F |
-| `c1_control` | U+0080–U+009F |
-| `invisible_format` | U+00AD (soft hyphen), U+034F, U+180E, U+2061–U+2064 (invisible operators) |
-| `hangul_filler` | U+115F, U+1160, U+3164, U+FFA0 (letters that render blank) |
-| `variation_selector` | U+FE00–U+FE0F, U+E0100–U+E01EF |
-| `tag` | U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions) |
+<!-- categories:start (generated from scripts/categories.js by `npm run gen`; do not edit) -->
+| Category | Code points | Removed by |
+| --- | --- | --- |
+| `bidi_control` | U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069 | `nukeControls`, `purgeInvisibleChars` |
+| `zero_width` | U+200B–U+200D, U+2060 | `purgeInvisibleChars` |
+| `nonbreaking_space` | U+00A0, U+2000–U+200A, U+202F, U+205F, U+3000 (non-breaking and typographic spaces) | `purgeInvisibleChars` |
+| `bom` | U+FEFF (`atStart` is true at offset 0, where a BOM is legitimate) | `purgeInvisibleChars` |
+| `nul` | U+0000 | `nukeControls` |
+| `c0_control` | U+0001–U+0008, U+000B, U+000C, U+000E–U+001F, U+007F (tab, LF and CR are whitespace, not trash) | `nukeControls` |
+| `c1_control` | U+0080–U+009F | `nukeControls` |
+| `invisible_format` | U+00AD (soft hyphen), U+034F (combining grapheme joiner), U+180E (Mongolian vowel separator), U+2061–U+2064 (invisible operators) | `purgeInvisibleChars` |
+| `hangul_filler` | U+115F, U+1160, U+3164, U+FFA0 (letters that render blank) | `purgeInvisibleChars` |
+| `variation_selector` | U+FE00–U+FE0F (VS1-VS16, including VS16 in emoji), U+E0100–U+E01EF (VS17-VS256) | `purgeInvisibleChars` |
+| `tag` | U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions) | `purgeInvisibleChars` |
+<!-- categories:end -->
 
 `codePoint` is the full code point, so a tag character reports `0xE0041`, not a surrogate. `offset` is a 0-based UTF-16 index (for a code point above U+FFFF, that of its high surrogate); `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
 
-**Choosing `maxFindings`:** the scan itself uses almost no memory, but every listed finding is an object, so the cost of `maxFindings` grows with the number of findings, not the size of the input. 16 MB of non-breaking spaces is 16.7 million findings. With a cap of 20, it scans in about 70 ms and uses 0.2 MB. With `Infinity`, expect roughly 100–200 bytes per finding: about 1.5 GB for 8 million. On untrusted input, keep a cap. Use `maxFindings: 0` for a counts-only report: it builds no finding objects, and `counts`, `total` and `truncated` stay exact.
+**Choosing `maxFindings`:** the scan itself uses almost no memory, but every listed finding is an object, so the cost of `maxFindings` grows with the number of findings, not the size of the input. 16 MB of non-breaking spaces is 16.7 million findings. With a cap of 20, it scans in about 80 ms and uses 0.2 MB. With `Infinity`, expect roughly 100–200 bytes per finding: about 1.5 GB for 8 million. On untrusted input, keep a cap. Use `maxFindings: 0` for a counts-only report: it builds no finding objects, and `counts`, `total` and `truncated` stay exact.
 
 ### `getNewlineStats(text: string): NewlineStats`
 

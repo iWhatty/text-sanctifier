@@ -71,7 +71,7 @@ The goal is for the web and server tracks to move forward together without drift
 
 ### Shared core (both tracks)
 
-- **One table of categories and code-point ranges, used everywhere.** Today the categories live in three places: the classifier in `inspectText.js`, the two purge regexes, and the README table. A test keeps them in step. Generating the regexes and the README table from one table would make that drift impossible instead of merely caught. This comes first, because it makes every later change safer.
+- **One table of categories and code-point ranges, used everywhere.** Done: `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
 - **Category changes planned once for both tracks.** This covers the open questions above: the emoji joiner, the two kinds of variation selector, and the `nonbreaking_space` name.
 - **One test corpus run against both builds**, so the source build and the browser build can never report differently.
 
@@ -95,7 +95,7 @@ Size over features.
 
 ### Order
 
-1. The single category table.
+1. The single category table (done).
 2. The CI size budget.
 3. The planned category changes, coordinated with consumers.
 4. The server entry point, once the first server-only feature needs a home.
@@ -110,6 +110,7 @@ Size over features.
 ## Working in this repo
 
 - `npm run ci` runs the tests, both builds, the type check and the dist tests. Run it before every commit.
+- To change a category's code points, edit `scripts/categories.js` and run `npm run gen`; never edit `src/categories.generated.js` or the generated README table by hand. The generated classifier is split in two so each half stays small enough for V8 to inline; the generator fails if the table outgrows that.
 - A new public field needs an `externs.js` entry, a type, and an assertion in `tests/sanctifyText.test.min.js`.
 - Tests build invisible characters with `String.fromCodePoint` and never contain them raw. Take the same care in scripts that edit source: shells and heredocs can turn an escaped `\uXXXX` into the raw character without warning. Check edits by printing lines as escaped ASCII.
 - This repository is public. Describe downstream consumers generically. Don't name private projects, link to them, or quote their internals in code, docs, commits or the CHANGELOG.

@@ -35,12 +35,14 @@
   "types": "./dist/types/index.d.ts",
   "sideEffects": false,
   "scripts": {
+    "gen": "node scripts/gen-categories.js",
+    "gen:check": "node scripts/gen-categories.js --check",
     "build": "node scripts/buildc.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",
     "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node tests/cli.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
-    "ci": "npm run test && npm run build && npm run build:types && npm run test:types && npm run test-min"
+    "ci": "npm run gen:check && npm run test && npm run build && npm run build:types && npm run test:types && npm run test-min"
   },
   "keywords": [
     "text",

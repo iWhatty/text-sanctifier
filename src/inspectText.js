@@ -7,6 +7,7 @@ import {
     ASCII_KEYBOARD_SAFE_REGEX,
     normalizeTypographicJank,
 } from './sanctifyText.js';
+import { classifyCodeUnit, classifyAstral, TRASH_HIGH_SURROGATE } from './categories.generated.js';
 
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
 
@@ -173,68 +174,20 @@ export function inspectText(text) {
 const DEFAULT_MAX_FINDINGS = 100;
 
 /**
- * Category of one BMP code point (one UTF-16 code unit), or null when it is not trash.
- * Tab, LF and CR are whitespace, not trash. DEL (U+007F) is counted with the C0 controls.
- * Surrogates return null; the caller pairs them and uses classifyAstral.
- * @param {number} c
- * @returns {TrashCategory|null}
- */
-function classifyCodeUnit(c) {
-    if (c < 0x80) {
-        if (c === 0) return 'nul';
-        if (c < 0x20) return c === 0x09 || c === 0x0A || c === 0x0D ? null : 'c0_control';
-        return c === 0x7F ? 'c0_control' : null;
-    }
-    if (c <= 0x9F) return 'c1_control';
-    if (c === 0xA0) return 'nonbreaking_space';
-    if (c === 0xAD || c === 0x034F || c === 0x180E) return 'invisible_format';
-    if (c === 0x061C) return 'bidi_control';
-    if (c === 0x115F || c === 0x1160) return 'hangul_filler';
-    if (c < 0x2000) return null;
-    if (c <= 0x200A) return 'nonbreaking_space';
-    if (c <= 0x200D) return 'zero_width';
-    if (c <= 0x200F) return 'bidi_control';
-    if (c >= 0x202A && c <= 0x202E) return 'bidi_control';
-    if (c === 0x202F || c === 0x205F) return 'nonbreaking_space';
-    if (c === 0x2060) return 'zero_width';
-    if (c >= 0x2061 && c <= 0x2064) return 'invisible_format';
-    if (c >= 0x2066 && c <= 0x2069) return 'bidi_control';
-    if (c === 0x3000) return 'nonbreaking_space';
-    if (c === 0x3164 || c === 0xFFA0) return 'hangul_filler';
-    if (c >= 0xFE00 && c <= 0xFE0F) return 'variation_selector';
-    if (c === 0xFEFF) return 'bom';
-    return null;
-}
-
-/**
- * Category of a code point above U+FFFF, or null when it is not trash.
- * @param {number} cp
- * @returns {TrashCategory|null}
- */
-function classifyAstral(cp) {
-    if (cp >= 0xE0000 && cp <= 0xE007F) return 'tag';
-    if (cp >= 0xE0100 && cp <= 0xE01EF) return 'variation_selector';
-    return null;
-}
-
-/** High surrogate of U+E0000–U+E03FF, the only astral block with trash (tags, VS17–VS256). */
-const TRASH_HIGH_SURROGATE = 0xDB40;
-
-/**
  * Locates invisible and control characters, one finding per character.
  *
- * Categories:
+ * Categories (generated from scripts/categories.js by `npm run gen`):
  * - `bidi_control`: U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069
  * - `zero_width`: U+200B–U+200D, U+2060
- * - `nonbreaking_space`: non-breaking and typographic spaces U+00A0, U+2000–U+200A, U+202F, U+205F, U+3000
- * - `bom`: U+FEFF (`atStart` says whether it sits at offset 0)
+ * - `nonbreaking_space`: U+00A0, U+2000–U+200A, U+202F, U+205F, U+3000 (non-breaking and typographic spaces)
+ * - `bom`: U+FEFF (`atStart` is true at offset 0, where a BOM is legitimate)
  * - `nul`: U+0000
- * - `c0_control`: U+0001–U+001F except tab, LF and CR; and U+007F
+ * - `c0_control`: U+0001–U+0008, U+000B, U+000C, U+000E–U+001F, U+007F (tab, LF and CR are whitespace, not trash)
  * - `c1_control`: U+0080–U+009F
- * - `invisible_format`: soft hyphen U+00AD, U+034F, U+180E, invisible operators U+2061–U+2064
+ * - `invisible_format`: U+00AD (soft hyphen), U+034F (combining grapheme joiner), U+180E (Mongolian vowel separator), U+2061–U+2064 (invisible operators)
  * - `hangul_filler`: U+115F, U+1160, U+3164, U+FFA0 (letters that render blank)
- * - `variation_selector`: U+FE00–U+FE0F, U+E0100–U+E01EF (including VS16 in emoji)
- * - `tag`: U+E0000–U+E007F (tag characters, used for "ASCII smuggling")
+ * - `variation_selector`: U+FE00–U+FE0F (VS1-VS16, including VS16 in emoji), U+E0100–U+E01EF (VS17-VS256)
+ * - `tag`: U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions)
  *
  * `codePoint` is the full code point; `offset` and `column` count UTF-16 units.
  * Every occurrence is counted; only the first `maxFindings` are listed.
