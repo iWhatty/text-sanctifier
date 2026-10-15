@@ -4,7 +4,7 @@ Read [DESIGN.md](DESIGN.md) first. It covers the two audiences (web and agents),
 
 Quick rules:
 
-- Run `npm run ci` before committing. It must exit 0.
+- Run `npm run ci` before committing. It must exit 0. It runs locally; don't add GitHub Actions or other cloud CI. New checks go in that script.
 - Releases bump only the patch number, and work done close together goes out as one release. A maintainer publishes, because npm needs two-factor credentials. Tag `vX.Y.Z` after the release appears on npm.
 - New public fields need `externs.js`, types and a dist-test assertion, or Closure ADVANCED will rename them.
 - Never put raw invisible characters in source or tests. Check script edits by printing the changed lines as escaped ASCII.

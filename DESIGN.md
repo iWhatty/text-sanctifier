@@ -89,14 +89,14 @@ Capability over size.
 
 Size over features.
 
-- **A gzipped size budget enforced in CI**: fail the build when the browser bundle grows past a set limit, for example 3 KB. It is about 2.4 KB today.
+- **A gzipped size budget enforced by `npm run ci`**: fail the build when the browser bundle grows past a set limit, for example 3 KB. It is about 2.4 KB today.
 - **Presets for cleaning form input.**
 - **Smaller builds where they pay off** (for example inspect-only), so a page includes only what it uses.
 
 ### Order
 
 1. The single category table (done).
-2. The CI size budget.
+2. The size budget in `npm run ci`.
 3. The planned category changes, coordinated with consumers.
 4. The server entry point, once the first server-only feature needs a home.
 
@@ -109,7 +109,8 @@ Size over features.
 
 ## Working in this repo
 
-- `npm run ci` runs the tests, both builds, the type check and the dist tests. Run it before every commit.
+- `npm run ci` runs the generated-file check, the tests, both builds, the type check and the dist tests. Run it before every commit.
+- CI here means the local `npm run ci` script. The repo deliberately has no cloud CI (GitHub Actions or similar), so checks cost nothing to run. Add new checks to the script, not to a workflow.
 - To change a category's code points, edit `scripts/categories.js` and run `npm run gen`; never edit `src/categories.generated.js` or the generated README table by hand. The generated classifier is split in two so each half stays small enough for V8 to inline; the generator fails if the table outgrows that.
 - A new public field needs an `externs.js` entry, a type, and an assertion in `tests/sanctifyText.test.min.js`.
 - Tests build invisible characters with `String.fromCodePoint` and never contain them raw. Take the same care in scripts that edit source: shells and heredocs can turn an escaped `\uXXXX` into the raw character without warning. Check edits by printing lines as escaped ASCII.
