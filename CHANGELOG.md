@@ -4,7 +4,7 @@
 
 ## 1.3.1 — 2026-10-14
 
-Patch: asks from PANES after integrating 1.3.0. No API removals.
+Patch: feedback from a downstream consumer after integrating 1.3.0. No API removals.
 
 - feat: `getNewlineStats` is exported from the package root and the browser build, with a `NewlineStats` type (`{ crlf, cr, lf, types, mixed }`); it was already used inside `inspectText` but could only be reached through `src/inspectText.js`
 - fix: U+205F (medium mathematical space) is in `nonbreaking_space`, alongside U+2000–U+200A and U+202F; `inspectText` now flags it and `purgeInvisibleChars` now strips it
