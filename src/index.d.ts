@@ -1,12 +1,14 @@
 import { inspectText } from './inspectText.js';
 import { inspectTextDetailed } from './inspectText.js';
+import { getNewlineStats } from './inspectText.js';
 import { getRecommendedSanctifierOptions } from './inspectText.js';
 import { summonSanctifier } from './sanctifyText.js';
-export { inspectText, inspectTextDetailed, getRecommendedSanctifierOptions, summonSanctifier };
+export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions, summonSanctifier };
 export type UnicodeTrashReport = import('./inspectText.js').UnicodeTrashReport;
 export type TrashCategory = import('./inspectText.js').TrashCategory;
 export type TrashFinding = import('./inspectText.js').TrashFinding;
 export type TrashCounts = import('./inspectText.js').TrashCounts;
 export type DetailedTrashReport = import('./inspectText.js').DetailedTrashReport;
 export type InspectDetailedOptions = import('./inspectText.js').InspectDetailedOptions;
+export type NewlineStats = import('./inspectText.js').NewlineStats;
 export type SanctifyOptions = import('./sanctifyText.js').SanctifyOptions;

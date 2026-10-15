@@ -3,8 +3,8 @@
 // Characters are built with String.fromCodePoint so this file holds no raw
 // invisible characters and no escape sequences.
 
-import { inspectText, inspectTextDetailed, summonSanctifier } from '../src/index.js';
-import { getNewlineStats } from '../src/inspectText.js';
+import { inspectText, inspectTextDetailed, getNewlineStats, summonSanctifier } from '../src/index.js';
+import { getNewlineStats as getNewlineStatsDirect } from '../src/inspectText.js';
 import { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX } from '../src/sanctifyText.js';
 
 
@@ -35,7 +35,7 @@ console.log('Running inspectTextDetailed tests...');
 const CATEGORY_CODE_POINTS = {
   bidi_control: [0x061C, 0x200E, 0x200F, ...range(0x202A, 0x202E), ...range(0x2066, 0x2069)],
   zero_width: [...range(0x200B, 0x200D), 0x2060],
-  nonbreaking_space: [0x00A0, ...range(0x2000, 0x200A), 0x202F, 0x3000],
+  nonbreaking_space: [0x00A0, ...range(0x2000, 0x200A), 0x202F, 0x205F, 0x3000],
   bom: [0xFEFF],
   nul: [0x0000],
   c0_control: [...range(0x01, 0x08), 0x0B, 0x0C, ...range(0x0E, 0x1F), 0x7F],
@@ -199,6 +199,22 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
 }
 
 
+// 6b. maxFindings: 0 is a counts-only mode: no finding objects are built, so memory stays flat
+//     however many findings there are. (Infinity costs memory per finding, not per input byte.)
+{
+  const dense = ch(0x00A0).repeat(16 * 1024 * 1024); // 16 MB, every character a finding
+  dense.charCodeAt(0); // flatten the repeat() rope now, so its 16 MB is not counted below
+  const before = process.memoryUsage().heapUsed;
+  const r = inspectTextDetailed(dense, { maxFindings: 0 });
+  const grewMb = (process.memoryUsage().heapUsed - before) / (1024 * 1024);
+  assertEqual(r.total, 16 * 1024 * 1024, '6b. maxFindings: 0 counts all 16 M findings');
+  assertEqual(r.counts.nonbreaking_space, 16 * 1024 * 1024, '6b. maxFindings: 0 counts per category');
+  assertEqual(r.findings.length, 0, '6b. maxFindings: 0 lists nothing');
+  assertEqual(r.truncated, true, '6b. maxFindings: 0 is truncated when anything was found');
+  assertEqual(grewMb < 4, true, `6b. maxFindings: 0 on 16 MB of NBSP keeps the heap flat (grew ${grewMb.toFixed(1)} MB, limit 4)`);
+}
+
+
 // 7. Input validation.
 {
   let threw = null;
@@ -257,6 +273,12 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
 
   const diverging = cases.filter(s => JSON.stringify(getNewlineStats(s)) !== JSON.stringify(regexNewlineStats(s)));
   assertEqual(diverging.length, 0, `9. getNewlineStats equals the regex version on ${cases.length} inputs`);
+  assertEqual(getNewlineStats, getNewlineStatsDirect, '9. getNewlineStats is exported from the package root');
+  assertJson(
+    getNewlineStats('a' + CR + LF + 'b' + LF),
+    { crlf: 1, cr: 0, lf: 1, types: ['CRLF', 'LF'], mixed: true },
+    '9. getNewlineStats result shape'
+  );
 }
 
 

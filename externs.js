@@ -116,6 +116,24 @@ function getRecommendedSanctifierOptions(report) { }
 
 /**
  * @typedef {{
+*   crlf: number,
+*   cr: number,
+*   lf: number,
+*   types: !Array<string>,
+*   mixed: boolean
+* }}
+*/
+var NewlineStats;
+
+/**
+* Count each newline style (CRLF, CR, LF) in one pass.
+* @param {string} text
+* @return {!NewlineStats}
+*/
+function getNewlineStats(text) { }
+
+/**
+ * @typedef {{
 *   offset: number,
 *   line: number,
 *   column: number,

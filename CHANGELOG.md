@@ -2,6 +2,16 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## 1.3.1 — 2026-10-14
+
+Patch: asks from PANES after integrating 1.3.0. No API removals.
+
+- feat: `getNewlineStats` is exported from the package root and the browser build, with a `NewlineStats` type (`{ crlf, cr, lf, types, mixed }`); it was already used inside `inspectText` but could only be reached through `src/inspectText.js`
+- fix: U+205F (medium mathematical space) is in `nonbreaking_space`, alongside U+2000–U+200A and U+202F; `inspectText` now flags it and `purgeInvisibleChars` now strips it
+- docs: the cost of `maxFindings` grows with the number of findings, not the input size (roughly 100–200 bytes per listed finding, so `Infinity` on 8 M findings is about 1.5 GB); `maxFindings: 0` is a counts-only mode that builds no finding objects
+- test: `maxFindings: 0` on 16 MB of NBSP (16.7 M findings) keeps exact counts and leaves the heap flat; the dist test checks that `getNewlineStats` and its fields survive Closure ADVANCED; the TypeScript consumer imports `getNewlineStats` and `NewlineStats`
+- build: minified 5457 → 5542 bytes, gzipped 2462 → 2495
+
 ## 1.3.0 — 2026-10-14
 
 Minor: adds a `text-sanctifier` command. The library API is unchanged.

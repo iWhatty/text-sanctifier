@@ -1,8 +1,8 @@
 // src/index.js
 
 
-import { inspectText, inspectTextDetailed, getRecommendedSanctifierOptions } from './inspectText.js';
-export { inspectText, inspectTextDetailed, getRecommendedSanctifierOptions };
+import { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions } from './inspectText.js';
+export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions };
 
 import { summonSanctifier } from './sanctifyText.js';
 export { summonSanctifier };
@@ -14,6 +14,7 @@ export { summonSanctifier };
 /** @typedef {import('./inspectText.js').TrashCounts} TrashCounts */
 /** @typedef {import('./inspectText.js').DetailedTrashReport} DetailedTrashReport */
 /** @typedef {import('./inspectText.js').InspectDetailedOptions} InspectDetailedOptions */
+/** @typedef {import('./inspectText.js').NewlineStats} NewlineStats */
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
 
 

@@ -167,6 +167,7 @@ export function inspectText(text) {
 /**
  * @typedef {Object} InspectDetailedOptions
  * @property {number} [maxFindings=100] - Cap on listed findings (non-negative integer or Infinity).
+ *   Each listed finding is an object, so memory grows with the number listed; 0 builds none (counts only).
  */
 
 const DEFAULT_MAX_FINDINGS = 100;
@@ -194,7 +195,7 @@ function classifyCodeUnit(c) {
     if (c <= 0x200D) return 'zero_width';
     if (c <= 0x200F) return 'bidi_control';
     if (c >= 0x202A && c <= 0x202E) return 'bidi_control';
-    if (c === 0x202F) return 'nonbreaking_space';
+    if (c === 0x202F || c === 0x205F) return 'nonbreaking_space';
     if (c === 0x2060) return 'zero_width';
     if (c >= 0x2061 && c <= 0x2064) return 'invisible_format';
     if (c >= 0x2066 && c <= 0x2069) return 'bidi_control';
@@ -225,7 +226,7 @@ const TRASH_HIGH_SURROGATE = 0xDB40;
  * Categories:
  * - `bidi_control`: U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069
  * - `zero_width`: U+200B–U+200D, U+2060
- * - `nonbreaking_space`: non-breaking and typographic spaces U+00A0, U+2000–U+200A, U+202F, U+3000
+ * - `nonbreaking_space`: non-breaking and typographic spaces U+00A0, U+2000–U+200A, U+202F, U+205F, U+3000
  * - `bom`: U+FEFF (`atStart` says whether it sits at offset 0)
  * - `nul`: U+0000
  * - `c0_control`: U+0001–U+001F except tab, LF and CR; and U+007F
@@ -322,15 +323,18 @@ export function inspectTextDetailed(text, options = {}) {
 }
 
 /**
- * Counts the number of different newline types in a string.
+ * @typedef {Object} NewlineStats
+ * @property {number} crlf - CR LF pairs.
+ * @property {number} cr - CRs not followed by LF.
+ * @property {number} lf - LFs not preceded by CR.
+ * @property {('CRLF'|'CR'|'LF')[]} types - Styles present, in the order CRLF, CR, LF.
+ * @property {boolean} mixed - True when more than one style is present.
+ */
+
+/**
+ * Counts each newline style in one pass, with no regex and no copy.
  * @param {string} text
- * @returns {{
- *   crlf: number,
- *   cr: number,
- *   lf: number,
- *   types: string[],
- *   mixed: boolean
- * }}
+ * @returns {NewlineStats}
  */
 export function getNewlineStats(text) {
     if (typeof text !== 'string') {

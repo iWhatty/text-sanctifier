@@ -5,6 +5,7 @@
 import {
   inspectText,
   inspectTextDetailed,
+  getNewlineStats,
   getRecommendedSanctifierOptions,
   summonSanctifier,
 } from 'text-sanctifier';
@@ -15,6 +16,7 @@ import type {
   TrashCounts,
   TrashCategory,
   InspectDetailedOptions,
+  NewlineStats,
   SanctifyOptions,
 } from 'text-sanctifier';
 import type {
@@ -42,7 +44,11 @@ const basic: UnicodeTrashReport = inspectText('x');
 const recommended: SanctifyOptions = getRecommendedSanctifierOptions(basic);
 const clean: string = summonSanctifier(recommended)('x');
 
+const newlines: NewlineStats = getNewlineStats('a' + '\r\n' + 'b');
+const newlineTypes: ('CRLF' | 'CR' | 'LF')[] = newlines.types;
+const mixed: boolean = newlines.mixed;
+
 // @ts-expect-error not a TrashCategory
 const bad: TrashCategory = 'not_a_category';
 
-export { total, category, browserOptions, browserCategory, browserCounts, clean, bad };
+export { total, category, browserOptions, browserCategory, browserCounts, clean, newlineTypes, mixed, bad };

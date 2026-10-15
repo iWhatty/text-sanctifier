@@ -276,7 +276,7 @@ export function sanctifyText(
  * 
  * Targets:
  * - Non-breaking spaces ( )
- * - Zero-width spaces and miscellaneous Unicode spaces ( –‍,  , ⁠, 　, ﻿)
+ * - Zero-width spaces and miscellaneous Unicode spaces ( –‍,  ,  , ⁠, 　, ﻿)
  * - Bidi controls: marks, embeddings/overrides and isolates (؜, ‎, ‏, ‪–‮, ⁦–⁩)
  * - Invisible format characters: soft hyphen, CGJ, Mongolian vowel separator, invisible operators (­, ͏, ᠎, ⁡–⁤)
  * - Hangul fillers (ᅟ, ᅠ, ㅤ, ﾠ)
@@ -286,7 +286,7 @@ export function sanctifyText(
  * @param {string} text
  * @returns {string}
  */
-export const INVISIBLE_TRASH_REGEX = /[ ­͏؜ᅟᅠ᠎ -‏‪- ⁠-⁤⁦-⁩　ㅤ︀-️﻿ﾠ\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]+/gu;
+export const INVISIBLE_TRASH_REGEX = /[ ­͏؜ᅟᅠ᠎ -‏‪-  ⁠-⁤⁦-⁩　ㅤ︀-️﻿ﾠ\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]+/gu;
 function purgeInvisibleTrash(text) {
     return text.replace(INVISIBLE_TRASH_REGEX, '');
 }
