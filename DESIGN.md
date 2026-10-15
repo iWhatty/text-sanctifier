@@ -102,8 +102,8 @@ The goal is for the web and server tracks to move forward together without drift
 Capability over size.
 
 - **A dedicated server entry point** (for example `text-sanctifier/server`) for features that don't belong in the browser bundle.
-- **A check for AI configuration files**: rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and tool descriptions. It flags runs of tag characters, variation selectors and invisible operators, and decodes what the hidden text says.
-- **Integration that runs locally:** SARIF output and a published pre-commit hook manifest. No cloud CI by default.
+- **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector are left out. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
+- **Done: integration that runs locally.** `check --format sarif` (SARIF 2.1.0, a level per category, set in the command line) and `.pre-commit-hooks.yaml` with two hooks. No cloud CI.
 - **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
 - **Context-aware findings**, using `Intl.Segmenter`, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones, and to leave the legitimate ones alone by default.
 - **A bidi balance check** for unterminated or overlapping bidi controls, the specific Trojan Source pattern.
@@ -128,7 +128,7 @@ Size over features.
 ### Order
 
 1. Done: the single category table, full default-ignorable coverage, and the size budget.
-2. The AI configuration file check, SARIF output and the pre-commit hook. These come first because the risk is current and the work is small.
+2. Done: the AI configuration file check, SARIF output and the pre-commit hook. These came first because the risk is current and the work is small.
 3. The planned category changes, coordinated with consumers and shipped together.
 4. Context-aware findings and the reveal helper.
 5. The server entry point, once the first server-only feature needs a home.

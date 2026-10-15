@@ -15,7 +15,8 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~
 - Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
 - Purges Unicode tag characters (U+E0000–U+E007F), the "ASCII smuggling" channel for hiding instructions from humans in text an LLM reads, plus variation selectors, Hangul fillers, soft hyphens and invisible operators
 - Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
-- `text-sanctifier check` / `fix` command line for CI and coding agents, with JSON output and exit codes
+- `text-sanctifier check` / `fix` command line for CI and coding agents, with JSON or SARIF output, exit codes and pre-commit hooks
+- `check --ai-config` finds and decodes hidden text in agent instruction files (`CLAUDE.md`, `AGENTS.md`, Cursor rules, `SKILL.md`, MCP configuration)
 - Normalizes line endings (CRLF, CR, LF) to LF
 - Collapses unwanted spaces and paragraphs
 - Nukes control characters (if enabled)
@@ -218,9 +219,61 @@ src/auth.js:40:3  U+202E  bidi_control
 2 findings in 2 of 31 files.
 ```
 
-- `--json`: one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
+- `--json` (or `--format json`): one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
+- `--format sarif`: a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) log for code-scanning viewers and editors. See [SARIF output](#sarif-output).
 - `--max-findings N`: findings listed per file (default 100; `all` for no cap). Counts always cover every occurrence.
 - `--strip-bom`: also report a BOM at offset 0, which is skipped by default.
+- `--ai-config`: check agent instruction files for hidden text. See [AI configuration files](#ai-configuration-files).
+
+### AI configuration files
+
+`check --ai-config` looks for hidden instructions in the files coding agents read: rules files, skill files and MCP configuration. Tag characters, variation selectors and invisible operators can carry text that people reviewing the file cannot see but a model reads.
+
+```sh
+npx text-sanctifier check --ai-config
+```
+
+```
+skills/review/SKILL.md:1:17  U+E0049  run of 15 tag characters spelling "Ignore the user"
+skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
+.cursor/rules/style.mdc:4:9  U+200B  zero_width
+19 findings (2 hidden runs) in 2 of 6 AI configuration files.
+```
+
+- With no paths it searches the current directory; directories you name are searched the same way, and files you name are checked whatever they are called. In a git work tree, files `.gitignore` excludes are skipped.
+- Files it looks for, matched case-insensitively: `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `AGENT.md`, `GEMINI.md` and `SKILL.md` at any depth; and at the top of the directory, `.claude/**`, `.cursorrules`, `.cursor/rules/**`, `.cursor/mcp.json`, `.windsurfrules`, `.windsurf/rules/**`, `.clinerules` (file or directory), `.roorules`, `.roo/rules/**`, `.github/copilot-instructions.md`, `.github/{instructions,prompts,chatmodes,agents}/**`, `.mcp.json`, `mcp.json` and `.vscode/mcp.json`.
+- Consecutive tag characters, variation selectors or invisible operators are reported once, as a run, at the first character. Tag runs are decoded: U+E0020–U+E007E become the ASCII they shadow, and other tags are shown as `<U+XXXX>`.
+- Every other invisible or control character is reported as in a plain `check`.
+- Two legitimate sequences are left out: the flags of England, Scotland and Wales (U+1F3F4, tag letters, U+E007F), and a single U+FE0E or U+FE0F after another character (text or emoji presentation). A plain `check` still reports both.
+- `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector` or `invisible_operator`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
+
+### SARIF output
+
+`check --format sarif` (with or without `--ai-config`) prints one SARIF 2.1.0 log with one result per listed finding:
+
+- `ruleId` is the category, and `tool.driver.rules` lists every category.
+- `level`: `error` for `bidi_control` and `tag`, `note` for `nonbreaking_space`, `warning` for the rest.
+- Each location has the file (relative to `%SRCROOT%`, the current directory), `startLine`, `startColumn` and `endColumn`. Columns count UTF-16 code units, as in `inspectTextDetailed` (`columnKind: "utf16CodeUnits"`).
+- With `--ai-config`, the message of the first result in a run describes the run and its decoded text.
+- `--max-findings` caps results per file as usual. `runs[0].properties` holds `total`, `filesScanned`, `filesWithFindings`, `truncated` (files with findings left out) and `skipped`.
+
+### pre-commit
+
+The repository publishes a [pre-commit](https://pre-commit.com) hook manifest, so the check runs locally on the files being committed:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/iWhatty/text-sanctifier
+    rev: v1.3.2  # a release tag
+    hooks:
+      - id: text-sanctifier            # every staged text file
+      - id: text-sanctifier-ai-config  # agent instruction files, with --ai-config
+```
+
+- `text-sanctifier` runs `text-sanctifier check` on staged text files. Use `exclude:` for files that legitimately contain these characters, or `args: [--strip-bom]` and the other `check` options.
+- `text-sanctifier-ai-config` runs `text-sanctifier check --ai-config` on staged files that match the `--ai-config` file list.
+- A hook fails the commit when it finds something (exit code 1). Neither hook changes files; run `text-sanctifier fix` yourself.
 
 ### `fix [paths...]`
 
@@ -232,7 +285,7 @@ Rewrites files in place and reports what it removed.
 - With none of the three, `fix` uses `--purge-invisible --nuke-controls`, which removes exactly what `check` reports.
 - `--strip-bom`: also remove a BOM at offset 0. It is kept by default.
 - `--dry-run`: write nothing; report what would change.
-- `--json`: `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, removed, removedTotal, newlinesNormalized }`.
+- `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, removed, removedTotal, newlinesNormalized }`.
 
 `fix` deletes characters; it does not replace them. A non-breaking space between two words joins them, and emoji lose their zero width joiners and variation selectors. Run `check` or `fix --dry-run` first on prose.
 

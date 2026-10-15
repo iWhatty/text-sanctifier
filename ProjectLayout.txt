@@ -4,6 +4,7 @@ text-sanctifier/
 │   ├── index.d.ts            type declarations
 │   ├── sanctifyText.js       core normalizer
 │   ├── inspectText.js        diagnostics helper
+│   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   └── categories.generated.js  purge regexes + classifier (generated; do not edit)
 ├── bin/
 │   └── text-sanctifier.js    command line (check / fix)
@@ -27,4 +28,5 @@ text-sanctifier/
 ├── externs.js                Google Closure Compiler externs
 ├── tsconfig.types.json
 ├── .npmignore
+├── .pre-commit-hooks.yaml    pre-commit hooks (check, check --ai-config)
 └── PublishChecklist.txt

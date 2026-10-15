@@ -1,0 +1,19 @@
+# Hooks for https://pre-commit.com. They run locally on the files being committed.
+#
+# The files pattern of text-sanctifier-ai-config mirrors AI_CONFIG_GLOBS in
+# bin/text-sanctifier.js; tests/cli.test.js checks that the two agree.
+
+- id: text-sanctifier
+  name: text-sanctifier (invisible and control characters)
+  description: Report invisible and control characters in staged text files.
+  entry: text-sanctifier check
+  language: node
+  types: [text]
+
+- id: text-sanctifier-ai-config
+  name: text-sanctifier (hidden text in AI configuration files)
+  description: Report tag characters, variation selectors, invisible operators and other hidden characters in agent instruction files, decoding hidden tag text.
+  entry: text-sanctifier check --ai-config
+  language: node
+  types: [text]
+  files: '(?i)((^|/)(claude(\.local)?|agents?|gemini|skill)\.md$|^\.claude/|^\.(cursorrules|windsurfrules|clinerules|roorules|mcp\.json)$|^mcp\.json$|^\.(cursor/rules|windsurf/rules|clinerules|roo/rules)/|^\.(cursor|vscode)/mcp\.json$|^\.github/copilot-instructions\.md$|^\.github/(instructions|prompts|chatmodes|agents)/)'
