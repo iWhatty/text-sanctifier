@@ -2,9 +2,9 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## Unreleased
+## 1.3.2 — 2026-10-15
 
-Same category names. `invisible_format` and `variation_selector` now cover every remaining Default_Ignorable_Code_Point, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before.
+Patch: full Default_Ignorable_Code_Point coverage, SARIF output, `check --ai-config` with decoding of hidden tag text, pre-commit hooks, one generated category table, and a browser-bundle size budget. No API removals and no category names changed. Behavior change: `invisible_format` and `variation_selector` now cover every remaining Default_Ignorable_Code_Point, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before, including the Mongolian free variation selectors.
 
 - feat(cli): `check --format sarif` prints a SARIF 2.1.0 log: one result per finding with file, line, column (UTF-16 units) and the category as `ruleId`. Levels: `error` for `bidi_control` and `tag`, `note` for `nonbreaking_space`, `warning` for the rest. The levels live in the command line only; categories are unchanged. `--format json` is the same as `--json`, which still works
 - feat(cli): `check --ai-config [paths]` searches for agent instruction files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `SKILL.md`, `.claude/`, Cursor, Windsurf, Cline and Roo rules, Copilot instructions and prompts, MCP config JSON) and reports runs of tag characters, variation selectors and invisible operators once each, decoding the ASCII hidden in tag runs. The England, Scotland and Wales flags and a single emoji or text presentation selector are left out; a plain `check` still reports them. `--json` adds `hiddenRuns` and `hiddenRunCount`
