@@ -47,6 +47,8 @@ So the agent-facing surface is held to these rules:
 These are tested. Keep them true.
 
 - **What inspection reports equals what purging removes.** The categories in `inspectTextDetailed` cover exactly `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX`, checked over every code point U+0000–U+10FFFF.
+- **Nothing a renderer hides goes unreported.** Every Default_Ignorable_Code_Point in the running Node's Unicode data is in a category.
+- **The browser bundle stays within its size budget** (`GZIP_BUDGET_BYTES` in `scripts/buildc.js`).
 - **One pass, no copies** for inspection and newline counting; performance claims in the docs are measured.
 - **Zero runtime dependencies.**
 - **Public field names survive the minifier.** Closure ADVANCED renames anything not declared in `externs.js`; the dist tests check every public field.
@@ -65,14 +67,34 @@ Known open questions:
 - Separating benign emoji variation selectors (U+FE00–FE0F) from the supplementary ones (U+E0100–E01EF), which can carry hidden data.
 - `nonbreaking_space` also holds U+2000–U+200A, most of which are breaking spaces, so the name misleads.
 
+## Where this sits among similar tools
+
+A survey of overlapping open-source tools in October 2026 found many that detect invisible characters and few that fix them:
+
+- **Detectors** such as anti-trojan-source (npm) and heckler (PyPI) report findings and integrate well (JSON or SARIF output, pre-commit hooks), but they don't remove anything.
+- **Linter rules** (ESLint's `no-irregular-whitespace`, eslint-plugin-security, rustc and Clippy lints, Go's bidichk) reach many projects but each covers a narrow set of characters.
+- **Fixers** such as out-of-character remove characters but report only an offset.
+- **LLM input filters** that stripped hidden text before it reached a model are largely archived, which leaves that job under-served.
+
+This library's place is doing both jobs in one tool: findings with exact positions and typed categories, plus presets that fix, in a small browser build and a command-line tool. Other tools are ahead on integration (SARIF, pre-commit hooks, editor plugins), on metadata per finding (severity, Unicode character names, the decoded text hidden in tag characters), and on context (leaving legitimate emoji and script sequences alone). The roadmap below closes those gaps without giving up the small core.
+
+The problems seen in practice, which this library should keep solving:
+
+- **Model output** that carries narrow non-breaking spaces and other look-alike spaces into code, Markdown and data. The right fix is to replace them with an ordinary space, not delete them.
+- **Coding agents** whose edits fail on characters they can't see in their own tool output.
+- **Hidden instructions** in rules files, agent skill files, tool descriptions and web content, using tag characters, variation selectors and invisible operators.
+- **Everyday data hygiene:** a BOM glued to the first CSV header, U+2028/U+2029 breaking JavaScript and JSON, mixed line endings.
+
 ## Roadmap: two tracks, one core
 
-The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point.
+The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of October 2026.
 
 ### Shared core (both tracks)
 
-- **One table of categories and code-point ranges, used everywhere.** Done: `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
-- **Category changes planned once for both tracks.** This covers the open questions above: the emoji joiner, the two kinds of variation selector, and the `nonbreaking_space` name.
+- **Done: one table of categories and code-point ranges, used everywhere.** `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
+- **Done: complete coverage of Default_Ignorable_Code_Point**, the Unicode property for characters renderers must draw as nothing. A test checks it against the running Node's Unicode data, so a Node upgrade with newer Unicode fails until the table catches up.
+- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the emoji joiner, the two kinds of variation selector, the `nonbreaking_space` name) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates, noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
+- **A reveal helper** that renders hidden characters visibly (for example `<ZWJ>` or `<U+E0041>`), as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output.
 - **One test corpus run against both builds**, so the source build and the browser build can never report differently.
 
 ### Server track (Node, agents, CI)
@@ -80,25 +102,36 @@ The goal is for the web and server tracks to move forward together without drift
 Capability over size.
 
 - **A dedicated server entry point** (for example `text-sanctifier/server`) for features that don't belong in the browser bundle.
-- **Emoji-aware findings**, using `Intl.Segmenter`, to tell an emoji joiner from a hidden one.
+- **A check for AI configuration files**: rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and tool descriptions. It flags runs of tag characters, variation selectors and invisible operators, and decodes what the hidden text says.
+- **Integration that runs locally:** SARIF output and a published pre-commit hook manifest. No cloud CI by default.
+- **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
+- **Context-aware findings**, using `Intl.Segmenter`, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones, and to leave the legitimate ones alone by default.
+- **A bidi balance check** for unterminated or overlapping bidi controls, the specific Trojan Source pattern.
+- **`fix` options and reports:** rewrite characters in source as escape sequences instead of deleting them, list each removal by its offset in the original text, and allow suppressions by code point or path.
 - **Streaming inspection** for very large files.
-- **`fix` reports that list each removal by its offset in the original text**, so a caller can verify or undo a change.
-- **A versioned JSON schema** for reports from both the library and the command-line tool.
 
 ### Web track (websites, browser extensions)
 
 Size over features.
 
-- **A gzipped size budget enforced by `npm run ci`**: fail the build when the browser bundle grows past a set limit, for example 3 KB. It is about 2.4 KB today.
+- **Done: a gzipped size budget enforced by `npm run ci`.** `GZIP_BUDGET_BYTES` in `scripts/buildc.js` is 3072 bytes; the bundle is 2632. Raising the budget is a deliberate decision made in the same commit as the growth.
+- **A preset for model output and pasted text**: look-alike spaces become ordinary spaces, zero-width characters are removed, quote and dash folding is optional, and it reports how many of each it changed.
 - **Presets for cleaning form input.**
 - **Smaller builds where they pay off** (for example inspect-only), so a page includes only what it uses.
 
+### Not planned here
+
+- **Confusable and homoglyph detection** (UTS #39 skeletons, mixed-script checks) needs large data tables and belongs in a separate layer or tool.
+- **Deciding what a finding means in code** (identifier, string or comment) needs a syntax tree and belongs in tools that parse the language.
+- **Running checks in cloud CI by default.** Checks run locally.
+
 ### Order
 
-1. The single category table (done).
-2. The size budget in `npm run ci`.
-3. The planned category changes, coordinated with consumers.
-4. The server entry point, once the first server-only feature needs a home.
+1. Done: the single category table, full default-ignorable coverage, and the size budget.
+2. The AI configuration file check, SARIF output and the pre-commit hook. These come first because the risk is current and the work is small.
+3. The planned category changes, coordinated with consumers and shipped together.
+4. Context-aware findings and the reveal helper.
+5. The server entry point, once the first server-only feature needs a home.
 
 ## Releases
 

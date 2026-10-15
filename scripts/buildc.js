@@ -12,6 +12,10 @@ const closureFile = resolve(distDir, 'text-sanctifier.min.js');
 const gzippedFile = closureFile + '.gz';
 const externsFile = resolve('externs.js');
 
+// Size budget for the browser bundle (web track, see DESIGN.md). Raising it is a
+// deliberate decision: change this number in the same commit as the growth, with a reason.
+const GZIP_BUDGET_BYTES = 3072;
+
 // Ensure dist folder exists
 mkdirSync(distDir, { recursive: true });
 
@@ -87,4 +91,12 @@ mkdirSync(distDir, { recursive: true });
     console.log(`✅ Done! Sizes:`);
     console.log(`- Minified: ${originalBytes} bytes (${originalSizeKB} KB)`);
     console.log(`- Gzipped : ${gzippedBytes} bytes (${gzippedSizeKB} KB)`);
+
+    const headroom = GZIP_BUDGET_BYTES - gzippedBytes;
+    if (headroom < 0) {
+        console.error(`❌ Gzipped bundle is ${-headroom} bytes over the ${GZIP_BUDGET_BYTES}-byte budget (GZIP_BUDGET_BYTES in scripts/buildc.js).`);
+        process.exitCode = 1;
+    } else {
+        console.log(`- Budget  : ${gzippedBytes} / ${GZIP_BUDGET_BYTES} bytes gzipped (${headroom} bytes headroom)`);
+    }
 })();
