@@ -65,6 +65,41 @@ Known open questions:
 - Separating benign emoji variation selectors (U+FE00–FE0F) from the supplementary ones (U+E0100–E01EF), which can carry hidden data.
 - `nonbreaking_space` also holds U+2000–U+200A, most of which are breaking spaces, so the name misleads.
 
+## Roadmap: two tracks, one core
+
+The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point.
+
+### Shared core (both tracks)
+
+- **One table of categories and code-point ranges, used everywhere.** Today the categories live in three places: the classifier in `inspectText.js`, the two purge regexes, and the README table. A test keeps them in step. Generating the regexes and the README table from one table would make that drift impossible instead of merely caught. This comes first, because it makes every later change safer.
+- **Category changes planned once for both tracks.** This covers the open questions above: the emoji joiner, the two kinds of variation selector, and the `nonbreaking_space` name.
+- **One test corpus run against both builds**, so the source build and the browser build can never report differently.
+
+### Server track (Node, agents, CI)
+
+Capability over size.
+
+- **A dedicated server entry point** (for example `text-sanctifier/server`) for features that don't belong in the browser bundle.
+- **Emoji-aware findings**, using `Intl.Segmenter`, to tell an emoji joiner from a hidden one.
+- **Streaming inspection** for very large files.
+- **`fix` reports that list each removal by its offset in the original text**, so a caller can verify or undo a change.
+- **A versioned JSON schema** for reports from both the library and the command-line tool.
+
+### Web track (websites, browser extensions)
+
+Size over features.
+
+- **A gzipped size budget enforced in CI**: fail the build when the browser bundle grows past a set limit, for example 3 KB. It is about 2.4 KB today.
+- **Presets for cleaning form input.**
+- **Smaller builds where they pay off** (for example inspect-only), so a page includes only what it uses.
+
+### Order
+
+1. The single category table.
+2. The CI size budget.
+3. The planned category changes, coordinated with consumers.
+4. The server entry point, once the first server-only feature needs a home.
+
 ## Releases
 
 - Bump the patch number only, even for new exports or behavior changes. Batch work done close together into one release. Changing the minor or major number is a deliberate decision. See `PublishChecklist.txt`.
