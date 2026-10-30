@@ -1,11 +1,11 @@
 # text-sanctifier
 
-[![npm](https://img.shields.io/npm/v/text-sanctifier?cacheSeconds=86400)](https://www.npmjs.com/package/text-sanctifier)
-[![downloads](https://img.shields.io/npm/dm/text-sanctifier?cacheSeconds=86400)](https://www.npmjs.com/package/text-sanctifier)
-[![bundle size](https://img.shields.io/bundlejs/size/text-sanctifier?cacheSeconds=86400)](https://bundlejs.com/?q=text-sanctifier)
-[![license](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20terms-blue)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
-[![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social&cacheSeconds=86400)](https://github.com/iWhatty/text-sanctifier)
-[![types](https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white)](https://www.npmjs.com/package/text-sanctifier)
+[![npm](https://badgen.net/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+[![downloads](https://badgen.net/npm/dm/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+[![bundle size](https://badgen.net/static/gzip/under%203%20kB/green)](https://bundlejs.com/?q=text-sanctifier)
+[![license](https://badgen.net/static/license/AGPL-3.0%20%2B%20terms/blue)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
+[![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
+[![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
 Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.57 KB gzipped.
 

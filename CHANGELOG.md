@@ -8,7 +8,7 @@ Patch: a new entry point. No API removals, no category changes, and the browser 
 
 - feat: `text-sanctifier/hidden` exports `findHiddenRuns` and `decodeTagText`, the run finder behind `check --ai-config`, with types. It has no Node APIs, so browser tools (extensions, page-to-Markdown converters) can use it on text bound for a model
 - test: `tests/cli.test.js` imports the entry point through the package's own `exports` map, and `tests/types/consumer.ts` compiles against its types
-- docs: README badges that survive GitHub and npm's image proxy timing out on shields.io. License and types badges are static, bundle size comes from bundlejs instead of rate-limited bundlephobia, and the live badges are cached for a day
+- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
 
 ## 1.3.2 — 2026-10-15
 
