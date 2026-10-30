@@ -2,10 +2,11 @@
 //
 // Finds runs of the characters used to hide instructions in text a model reads:
 // tag characters, variation selectors and invisible operators. Tag runs are decoded
-// to the ASCII they spell. Used by `text-sanctifier check --ai-config`.
+// to the ASCII they spell. Used by `text-sanctifier check --ai-config`, and exported
+// as `text-sanctifier/hidden`.
 //
-// Node and command-line only: src/index.js does not import this file, so it never
-// reaches the browser bundle.
+// Plain JavaScript with no Node APIs, so it also runs in a browser. src/index.js does
+// not import this file, so it stays out of the browser bundle and its size budget.
 
 /** @typedef {'tag' | 'variation_selector' | 'invisible_operator'} HiddenRunKind */
 

@@ -1,11 +1,11 @@
 # text-sanctifier
 
-[![npm](https://img.shields.io/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![downloads](https://img.shields.io/npm/dm/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/text-sanctifier)](https://bundlephobia.com/package/text-sanctifier)
-[![license](https://img.shields.io/npm/l/text-sanctifier)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
-[![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social)](https://github.com/iWhatty/text-sanctifier)
-[![types](https://img.shields.io/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
+[![npm](https://img.shields.io/npm/v/text-sanctifier?cacheSeconds=86400)](https://www.npmjs.com/package/text-sanctifier)
+[![downloads](https://img.shields.io/npm/dm/text-sanctifier?cacheSeconds=86400)](https://www.npmjs.com/package/text-sanctifier)
+[![bundle size](https://img.shields.io/bundlejs/size/text-sanctifier?cacheSeconds=86400)](https://bundlejs.com/?q=text-sanctifier)
+[![license](https://img.shields.io/badge/license-AGPL--3.0%20%2B%20terms-blue)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
+[![stars](https://img.shields.io/github/stars/iWhatty/text-sanctifier?style=social&cacheSeconds=86400)](https://github.com/iWhatty/text-sanctifier)
+[![types](https://img.shields.io/badge/types-included-blue?logo=typescript&logoColor=white)](https://www.npmjs.com/package/text-sanctifier)
 
 Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.57 KB gzipped.
 
@@ -197,6 +197,23 @@ getNewlineStats('a\r\nb\n'); // { crlf: 1, cr: 0, lf: 1, types: ['CRLF', 'LF'], 
 `zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as ✌️ and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16. The Mongolian free variation selectors (U+180B–U+180D, U+180F) are also `variation_selector`: they are legitimate in Mongolian text, which `purgeInvisibleChars` can change, so don't purge Mongolian text with it.
 
 The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip. Every code point with the Unicode property Default_Ignorable_Code_Point (characters renderers must draw as nothing) is in a category, and a test checks this against the running Node's Unicode data.
+
+### `text-sanctifier/hidden`: `findHiddenRuns(text)` and `decodeTagText(text)`
+
+The run finder behind [`check --ai-config`](#ai-configuration-files), for tools that read text on its way to a model. It has no Node APIs, so it works in a browser too, but it is a separate entry point and not part of the `text-sanctifier/browser` bundle.
+
+```js
+import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
+
+const { runs, benign } = findHiddenRuns(text);
+// runs:   [{ kind: 'tag', offset, end, count, decoded: 'Ignore the user' }, ...]
+// benign: [[offset, end], ...]  England/Scotland/Wales flags, a lone U+FE0E/U+FE0F after a character
+```
+
+- `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F) or `invisible_operator` (U+2061–U+2064). Consecutive characters of one kind form one run.
+- `offset` and `end` are UTF-16 indexes, `[offset, end)`; `count` is in code points. Only tag runs have `decoded`.
+- `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
+- Zero-width, bidi and other invisible characters are not runs; use `inspectTextDetailed` for those.
 
 ---
 

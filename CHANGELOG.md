@@ -2,6 +2,14 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## 1.3.3 — unreleased
+
+Patch: a new entry point. No API removals, no category changes, and the browser bundle is unchanged.
+
+- feat: `text-sanctifier/hidden` exports `findHiddenRuns` and `decodeTagText`, the run finder behind `check --ai-config`, with types. It has no Node APIs, so browser tools (extensions, page-to-Markdown converters) can use it on text bound for a model
+- test: `tests/cli.test.js` imports the entry point through the package's own `exports` map, and `tests/types/consumer.ts` compiles against its types
+- docs: README badges that survive GitHub and npm's image proxy timing out on shields.io. License and types badges are static, bundle size comes from bundlejs instead of rate-limited bundlephobia, and the live badges are cached for a day
+
 ## 1.3.2 — 2026-10-15
 
 Patch: full Default_Ignorable_Code_Point coverage, SARIF output, `check --ai-config` with decoding of hidden tag text, pre-commit hooks, one generated category table, and a browser-bundle size budget. No API removals and no category names changed. Behavior change: `invisible_format` and `variation_selector` now cover every remaining Default_Ignorable_Code_Point, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before, including the Mongolian free variation selectors.

@@ -371,6 +371,8 @@ try {
     assertEqual(forged.length + ':' + (forged[0] && forged[0].decoded), '1:gbengrm -rf<U+E007F>', 'findHiddenRuns: a flag carrying extra text is a run');
     assertEqual(findHiddenRuns(`${tags('gbeng')}${cp(0xE007F)}`).runs.length, 1, 'findHiddenRuns: flag tags without U+1F3F4 are a run');
     assertEqual(findHiddenRuns(`x\n${VS16}`).runs.length, 1, 'findHiddenRuns: a VS16 with no base character is a run');
+    const entry = await import('text-sanctifier/hidden');
+    assertEqual(entry.findHiddenRuns === findHiddenRuns && entry.decodeTagText === decodeTagText, true, 'text-sanctifier/hidden: exported through the package exports map');
   }
 
   // --- check --ai-config ---

@@ -26,6 +26,13 @@ import type {
   TrashCategory as BrowserTrashCategory,
   InspectDetailedOptions as BrowserInspectDetailedOptions,
 } from 'text-sanctifier/browser';
+import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
+import type { HiddenRun, HiddenRunKind, HiddenTextScan } from 'text-sanctifier/hidden';
+
+const scan: HiddenTextScan = findHiddenRuns('x');
+const firstRun: HiddenRun | undefined = scan.runs[0];
+const runKind: HiddenRunKind | undefined = firstRun?.kind;
+const decodedTags: string = decodeTagText('x');
 
 const options: InspectDetailedOptions = { maxFindings: 10 };
 const report: DetailedTrashReport = inspectTextDetailed('a​b', options);
@@ -51,4 +58,4 @@ const mixed: boolean = newlines.mixed;
 // @ts-expect-error not a TrashCategory
 const bad: TrashCategory = 'not_a_category';
 
-export { total, category, browserOptions, browserCategory, browserCounts, clean, newlineTypes, mixed, bad };
+export { scan, runKind, decodedTags, total, category, browserOptions, browserCategory, browserCounts, clean, newlineTypes, mixed, bad };
