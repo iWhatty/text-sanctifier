@@ -2,13 +2,17 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## 1.3.3 — unreleased
+## Unreleased
+
+- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request, so the badges published with 1.3.3 still show as broken images on npm. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
+
+## 1.3.3 — 2026-10-29
 
 Patch: a new entry point. No API removals, no category changes, and the browser bundle is unchanged.
 
 - feat: `text-sanctifier/hidden` exports `findHiddenRuns` and `decodeTagText`, the run finder behind `check --ai-config`, with types. It has no Node APIs, so browser tools (extensions, page-to-Markdown converters) can use it on text bound for a model
 - test: `tests/cli.test.js` imports the entry point through the package's own `exports` map, and `tests/types/consumer.ts` compiles against its types
-- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
+- docs: README badges on shields.io with a one-day cache; license and types badges static, bundle size from bundlejs instead of rate-limited bundlephobia
 
 ## 1.3.2 — 2026-10-15
 
