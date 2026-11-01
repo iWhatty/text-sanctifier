@@ -11,8 +11,8 @@ text-sanctifier/
 ├── scripts/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check
-│   ├── build.js              esbuild minify pipeline
-│   └── buildc.js             closure-compiler advanced pass
+│   ├── build.js              esbuild build of dist/text-sanctifier.min.js
+│   └── check-size.js         per-import size budgets and leak checks
 ├── tests/
 │   ├── sanctifyText.test.js
 │   ├── cli.test.js
@@ -25,7 +25,6 @@ text-sanctifier/
 ├── LICENSE                   AGPL-3.0 + WATT3D preamble (see ADDITIONAL_TERMS.md)
 ├── ADDITIONAL_TERMS.md       AI Training Rider (AGPL §7 additional terms)
 ├── robots.txt                AI-bot scraping policy (aligned with rider)
-├── externs.js                Google Closure Compiler externs
 ├── tsconfig.types.json
 ├── .npmignore
 ├── .pre-commit-hooks.yaml    pre-commit hooks (check, check --ai-config)

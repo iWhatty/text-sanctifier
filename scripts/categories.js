@@ -11,8 +11,7 @@
 // Category names are API (see DESIGN.md): consumers switch on them and read every key
 // of `counts`. Adding code points to a category is a CHANGELOG entry; adding, renaming
 // or splitting a category is a breaking change, and also needs the TrashCategory and
-// TrashCounts typedefs, the `counts` initializer in src/inspectText.js, externs.js and
-// the dist test.
+// TrashCounts typedefs, the `counts` initializer in src/inspectText.js and the dist test.
 
 /**
  * The purge regexes. Each category lists the ones that remove it, so what

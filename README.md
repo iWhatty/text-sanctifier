@@ -7,7 +7,7 @@
 [![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.80 KB gzipped.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.87 KB gzipped.
 
 ## Features
 
@@ -386,8 +386,8 @@ Requires a modern JavaScript runtime with ES2020+ support:
 - **Source (`src/`):** ES2020+ ESM modules with JSDoc
 - **ESM only:** no CommonJS build; `require('text-sanctifier')` works only on Node versions with `require(esm)` support (20.19+, 22.12+)
 - **Types:** TypeScript declarations ship in `dist/types`
-- **Browser build (`dist/`):** Minified ESM bundle for `<script type="module">`
-- **Tree-shake friendly:** ships `sideEffects: false`
+- **Browser build (`dist/`):** one minified ESM file with every export, for pages with no build step (`<script type="module">` from a CDN). It is imported as `text-sanctifier/browser`. With a bundler, import `text-sanctifier` instead: the source tree-shakes, and the prebuilt file does not
+- **Tree-shake friendly:** ships `sideEffects: false`; `npm run ci` checks the bundled size of each export on its own (for example `inspectTextDetailed` is under 1 KB gzipped)
 - **Zero transpilation:** no built-in polyfills or runtime overhead
 - **Bundler ready:** works with Vite, Rollup, Webpack, Parcel, esbuild
 

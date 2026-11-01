@@ -48,10 +48,10 @@ These are tested. Keep them true.
 
 - **What inspection reports equals what purging removes.** The categories in `inspectTextDetailed` cover exactly `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX`, checked over every code point U+0000–U+10FFFF.
 - **Nothing a renderer hides goes unreported.** Every Default_Ignorable_Code_Point in the running Node's Unicode data is in a category.
-- **The browser bundle stays within its size budget** (`GZIP_BUDGET_BYTES` in `scripts/buildc.js`).
+- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`).
 - **One pass, no copies** for inspection and newline counting; performance claims in the docs are measured.
 - **Zero runtime dependencies.**
-- **Public field names survive the minifier.** Closure ADVANCED renames anything not declared in `externs.js`; the dist tests check every public field.
+- **Public field names survive the minifier.** The browser file is built with esbuild, which does not rename properties; the dist tests check every public field.
 - **Types match the runtime.** A strict TypeScript consumer compiles against `dist/types` through the package `exports` map.
 
 ## Categories are API
@@ -114,10 +114,11 @@ Capability over size.
 
 Size over features.
 
-- **Done: a gzipped size budget enforced by `npm run ci`.** `GZIP_BUDGET_BYTES` in `scripts/buildc.js` is 3072 bytes; the bundle is 2864. Raising the budget is a deliberate decision made in the same commit as the growth.
+- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js` (for example about 1 KB for `inspectTextDetailed`), plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`); it is 2942. Raising the budget is a deliberate decision made in the same commit as the growth.
 - **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
-- **Smaller builds where they pay off** (for example inspect-only), so a page includes only what it uses.
+- **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
+- **Next: make the sanitizer tree-shakeable.** Presets are attached as properties (`summonSanctifier.strict = ...`) and the emoji regex is built at load time, so any import from `sanctifyText.js` keeps the whole sanitizer and every preset. Standalone preset exports and a side-effect-free emoji regex would let `inspectText` drop the sanitizer (measured: about 1.9 KB to 1.1 KB gzipped) and a single preset drop the others, while `summonSanctifier.strict` and the rest keep working.
 
 ### Not planned here
 
@@ -145,6 +146,6 @@ Size over features.
 - `npm run ci` runs the generated-file check, the tests, both builds, the type check and the dist tests. Run it before every commit.
 - CI here means the local `npm run ci` script. The repo deliberately has no cloud CI (GitHub Actions or similar), so checks cost nothing to run. Add new checks to the script, not to a workflow.
 - To change a category's code points, edit `scripts/categories.js` and run `npm run gen`; never edit `src/categories.generated.js` or the generated README table by hand. The generated classifier is split in two so each half stays small enough for V8 to inline; the generator fails if the table outgrows that.
-- A new public field needs an `externs.js` entry, a type, and an assertion in `tests/sanctifyText.test.min.js`.
+- A new export needs a type, an assertion in `tests/sanctifyText.test.min.js`, and a size probe with a budget in `scripts/check-size.js`.
 - Tests build invisible characters with `String.fromCodePoint` and never contain them raw. Take the same care in scripts that edit source: shells and heredocs can turn an escaped `\uXXXX` into the raw character without warning. Check edits by printing lines as escaped ASCII.
 - This repository is public. Describe downstream consumers generically. Don't name private projects, link to them, or quote their internals in code, docs, commits or the CHANGELOG.
