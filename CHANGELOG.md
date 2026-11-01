@@ -4,8 +4,9 @@
 
 ## Unreleased
 
-No category changes and no changes to existing results. New exports: one per preset, `VERSION`, and options, positions and counts on `findHiddenRuns`.
+No category changes and no changes to existing results. New exports: one per preset, `VERSION`, and options, positions and counts on `findHiddenRuns`. New run kind: `reserved_tag_plane`.
 
+- feat: `findHiddenRuns` and `check --ai-config` report runs of the reserved code points of the tag plane, U+E0080–U+E00FF and U+E01F0–U+E0FFF, as the new run kind `reserved_tag_plane` ("reserved plane-14 code points" in text output). They were already in the `invisible_format` category, so inspection and purging are unchanged; the category list is unchanged. Together with `tag` and `variation_selector`, every code point from U+E0000 to U+E0FFF is now a run, which a test checks. A TypeScript `switch` that handles every `HiddenRunKind` needs the new case
 - feat: `VERSION`, the installed version, exported from the package root and `text-sanctifier/hidden`. It is generated from `package.json` by `npm run gen` (`scripts/gen-version.js`), so it needs no JSON import and works in the browser file; `npm run ci` fails while it is stale
 - feat: `findHiddenRuns(text, { maxRuns, maxDecodedLength })`. `maxRuns` caps the listed runs and, separately, the listed benign spans; the new `counts` (per run kind), `total`, `benignTotal` and `truncated` count everything, as `maxFindings` does for `inspectTextDetailed`. `maxDecodedLength` caps each tag run's `decoded` text without cutting a `<U+XXXX>` marker, and the new `decodedTruncated` says when it did. Both default to no cap, and invalid values mean no cap, so results are the same as before apart from the new fields. On inputs of 16 M UTF-16 units, 32 MB (8 M short runs, one 8 M-tag run, 8 M benign spans), the heap grew 629, 154 and 726 MB before; with `maxRuns: 100` and `maxDecodedLength: 1000` it stays under 1 MB, and tests check it stays under 4
 - feat: each hidden run has `line` and `column`, counted exactly as `inspectTextDetailed` counts them; a test compares them over generated text with every newline style and astral characters

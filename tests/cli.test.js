@@ -411,6 +411,17 @@ try {
     assertEqual(entry.findHiddenRuns === findHiddenRuns && entry.decodeTagText === decodeTagText, true, 'text-sanctifier/hidden: exported through the package exports map');
   }
 
+  // --- reserved plane-14 code points in --ai-config ---
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'AGENTS.md'), `ok${cp(0xE0080)}${cp(0xE0081)}
+`);
+    const text = run(['check', '--ai-config', 'AGENTS.md'], { cwd });
+    assertEqual(text.code + ':' + /run of 2 reserved plane-14 code points/.test(text.stdout), '1:true', 'ai-config: reserved plane-14 code points are reported as a run');
+    const json = JSON.parse(run(['check', '--ai-config', '--json', 'AGENTS.md'], { cwd }).stdout);
+    assertEqual(json.files[0].hiddenRuns.map((r) => r.kind).join(','), 'reserved_tag_plane', 'ai-config --json: kind reserved_tag_plane');
+  }
+
   // --- check --ai-config ---
   {
     const cwd = tempDir();

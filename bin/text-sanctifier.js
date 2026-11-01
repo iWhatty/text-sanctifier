@@ -443,7 +443,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // --- check --ai-config ---
 
 const MAX_DECODED = 1000;
-const RUN_NOUNS = { tag: 'tag character', variation_selector: 'variation selector', invisible_operator: 'invisible operator' };
+const RUN_NOUNS = { tag: 'tag character', variation_selector: 'variation selector', invisible_operator: 'invisible operator', reserved_tag_plane: 'reserved plane-14 code point' };
 
 /**
  * inspect() for agent instruction files: drops findings that belong to legitimate

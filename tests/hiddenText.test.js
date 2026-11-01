@@ -47,7 +47,7 @@ function heapGrowthMb(fn) {
   const text = `a${OP}b${OP}${OP}c${tags('x')}d${OP}e${OP}f`;
   const all = findHiddenRuns(text);
   assertEqual(all.runs.length, 5, '2. no options: every run is listed');
-  assertEqual(JSON.stringify(all.counts), '{"tag":1,"variation_selector":0,"invisible_operator":4}', '2. counts per run kind');
+  assertEqual(JSON.stringify(all.counts), '{"tag":1,"variation_selector":0,"invisible_operator":4,"reserved_tag_plane":0}', '2. counts per run kind');
   assertEqual(all.total, 5, '2. total is the sum of counts');
   assertEqual(all.truncated, false, '2. not truncated when everything is listed');
 
@@ -148,6 +148,28 @@ function heapGrowthMb(fn) {
   const c = heapGrowthMb(() => findHiddenRuns(manyBenign, { maxRuns: 100 }));
   assertEqual(c.result.benignTotal + ':' + c.result.benign.length, `${M}:100`, '5. 8 M benign spans counted, 100 listed');
   assertEqual(c.grew < 4, true, `5. 16 M units of benign spans, maxRuns: 100 (heap grew ${c.grew.toFixed(1)} MB, limit 4)`);
+}
+
+
+// 6. reserved_tag_plane: the unassigned plane-14 code points outside tags and selectors
+{
+  const kindAt = (n) => { const r = findHiddenRuns('x' + cp(n) + 'x').runs; return r.length === 1 ? r[0].kind : 'none'; };
+  assertEqual([0xE0080, 0xE00FF, 0xE01F0, 0xE0FFF].map(kindAt).join(','), 'reserved_tag_plane,reserved_tag_plane,reserved_tag_plane,reserved_tag_plane', '6. U+E0080, U+E00FF, U+E01F0 and U+E0FFF are reserved_tag_plane runs');
+  assertEqual([0xE007F, 0xE0100, 0xE01EF, 0xE1000].map(kindAt).join(','), 'tag,variation_selector,variation_selector,none', '6. neighbours keep their kinds; U+E1000 is not a run');
+
+  // Every plane-14 code point up to U+E0FFF is a run, and each kind covers exactly its ranges.
+  const wrong = [];
+  for (let n = 0xE0000; n <= 0xE0FFF; n++) {
+    const expected = n <= 0xE007F ? 'tag' : n >= 0xE0100 && n <= 0xE01EF ? 'variation_selector' : 'reserved_tag_plane';
+    if (kindAt(n) !== expected) wrong.push(n.toString(16));
+  }
+  assertEqual(wrong.join(','), '', '6. U+E0000-U+E0FFF split exactly into tag, variation_selector and reserved_tag_plane');
+
+  const scan = findHiddenRuns(`a${cp(0xE0080)}${cp(0xE0FFF)}b${tags('x')}${cp(0xE00A0)}`);
+  assertEqual(scan.runs.map((r) => `${r.kind}:${r.count}`).join(','), 'reserved_tag_plane:2,tag:1,reserved_tag_plane:1', '6. consecutive reserved code points form one run; a kind change starts a new one');
+  assertEqual(scan.counts.reserved_tag_plane + ':' + scan.total, '2:3', '6. counts.reserved_tag_plane');
+  assertEqual('decoded' in scan.runs[0], false, '6. reserved_tag_plane runs are not decoded');
+  assertEqual(findHiddenRuns('plain').counts.reserved_tag_plane, 0, '6. counts has a reserved_tag_plane key');
 }
 
 

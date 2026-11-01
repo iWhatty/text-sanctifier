@@ -256,10 +256,10 @@ import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
 const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRuns: 100, maxDecodedLength: 1000 });
 // runs:   [{ kind: 'tag', offset, end, line, column, count, decoded: 'Ignore the user', decodedTruncated: false }, ...]
 // benign: [[offset, end], ...]  England/Scotland/Wales flags, a lone U+FE0E/U+FE0F after a character
-// counts: { tag, variation_selector, invisible_operator }, every run listed or not; total is their sum
+// counts: { tag, variation_selector, invisible_operator, reserved_tag_plane }, every run listed or not; total is their sum
 ```
 
-- `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F) or `invisible_operator` (U+2061–U+2064). Consecutive characters of one kind form one run.
+- `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F) `invisible_operator` (U+2061–U+2064) or `reserved_tag_plane` (U+E0080–U+E00FF, U+E01F0–U+E0FFF: unassigned, default ignorable, so they render as nothing and can carry data). Consecutive characters of one kind form one run.
 - `offset` and `end` are UTF-16 indexes, `[offset, end)`; `count` is in code points. `line` and `column` are counted exactly as in `inspectTextDetailed` (1-based, columns in UTF-16 units, CRLF is one line break). Only tag runs have `decoded` and `decodedTruncated`.
 - `maxRuns` caps the `runs` list and, separately, the `benign` list; `counts`, `total` and `benignTotal` count everything, and `truncated` is true when either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units and never cuts a `<U+XXXX>` marker. Both default to no cap, and an invalid value (negative, fractional, a string) also means no cap, so set them explicitly for untrusted input. With both set, memory stays flat on any input: on 16 M characters (32 MB) of hidden text the heap grows by under 1 MB, against hundreds of MB with no caps.
 - `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
@@ -314,7 +314,7 @@ skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
 - Consecutive tag characters, variation selectors or invisible operators are reported once, as a run, at the first character. Tag runs are decoded: U+E0020–U+E007E become the ASCII they shadow, and other tags are shown as `<U+XXXX>`.
 - Every other invisible or control character is reported as in a plain `check`.
 - Two legitimate sequences are left out: the flags of England, Scotland and Wales (U+1F3F4, tag letters, U+E007F), and a single U+FE0E or U+FE0F after another character (text or emoji presentation). A plain `check` still reports both.
-- `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector` or `invisible_operator`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
+- `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector`, `invisible_operator` or `reserved_tag_plane`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
 
 ### SARIF output
 

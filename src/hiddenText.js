@@ -1,7 +1,8 @@
 // src/hiddenText.js
 //
 // Finds runs of the characters used to hide instructions in text a model reads:
-// tag characters, variation selectors and invisible operators. Tag runs are decoded
+// tag characters, variation selectors, invisible operators and the reserved code points
+// of the tag plane. Tag runs are decoded
 // to the ASCII they spell. Used by `text-sanctifier check --ai-config`, and exported
 // as `text-sanctifier/hidden`.
 //
@@ -10,7 +11,7 @@
 
 export { VERSION } from './version.generated.js';
 
-/** @typedef {'tag' | 'variation_selector' | 'invisible_operator'} HiddenRunKind */
+/** @typedef {'tag' | 'variation_selector' | 'invisible_operator' | 'reserved_tag_plane'} HiddenRunKind */
 
 /**
  * @typedef {Object} HiddenRun
@@ -30,6 +31,7 @@ export { VERSION } from './version.generated.js';
  * @property {number} tag
  * @property {number} variation_selector
  * @property {number} invisible_operator
+ * @property {number} reserved_tag_plane
  */
 
 /**
@@ -68,6 +70,8 @@ function kindOf(cp) {
     if ((cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0xE0100 && cp <= 0xE01EF) ||
         (cp >= 0x180B && cp <= 0x180D) || cp === 0x180F) return 'variation_selector';
     if (cp >= 0x2061 && cp <= 0x2064) return 'invisible_operator';
+    // Unassigned and default ignorable: U+E0080-U+E00FF and U+E01F0-U+E0FFF
+    if (cp >= 0xE0080 && cp <= 0xE0FFF) return 'reserved_tag_plane';
     return null;
 }
 
@@ -133,7 +137,8 @@ function cap(value) {
 }
 
 /**
- * Finds runs of tag characters, variation selectors and invisible operators.
+ * Finds runs of tag characters, variation selectors, invisible operators and reserved
+ * tag-plane code points (U+E0080–U+E00FF, U+E01F0–U+E0FFF).
  * Consecutive characters of the same kind form one run. Two kinds of sequence are
  * legitimate and listed under `benign` instead of `runs`:
  *  - the subdivision flags of England, Scotland and Wales: U+1F3F4 followed by the
@@ -158,7 +163,7 @@ export function findHiddenRuns(text, options = {}) {
     /** @type {Array<[number, number]>} */
     const benign = [];
     /** @type {HiddenRunCounts} */
-    const counts = { tag: 0, variation_selector: 0, invisible_operator: 0 };
+    const counts = { tag: 0, variation_selector: 0, invisible_operator: 0, reserved_tag_plane: 0 };
     let total = 0;
     let benignTotal = 0;
     let line = 1;
