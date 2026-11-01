@@ -246,22 +246,25 @@ getNewlineStats('a\r\nb\n'); // { crlf: 1, cr: 0, lf: 1, types: ['CRLF', 'LF'], 
 
 The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip. Every code point with the Unicode property Default_Ignorable_Code_Point (characters renderers must draw as nothing) is in a category, and a test checks this against the running Node's Unicode data.
 
-### `text-sanctifier/hidden`: `findHiddenRuns(text)` and `decodeTagText(text)`
+### `text-sanctifier/hidden`: `findHiddenRuns(text, options?)` and `decodeTagText(text)`
 
 The run finder behind [`check --ai-config`](#ai-configuration-files), for tools that read text on its way to a model. It has no Node APIs, so it works in a browser too, but it is a separate entry point and not part of the `text-sanctifier/browser` bundle.
 
 ```js
 import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
 
-const { runs, benign } = findHiddenRuns(text);
-// runs:   [{ kind: 'tag', offset, end, count, decoded: 'Ignore the user' }, ...]
+const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRuns: 100, maxDecodedLength: 1000 });
+// runs:   [{ kind: 'tag', offset, end, line, column, count, decoded: 'Ignore the user', decodedTruncated: false }, ...]
 // benign: [[offset, end], ...]  England/Scotland/Wales flags, a lone U+FE0E/U+FE0F after a character
+// counts: { tag, variation_selector, invisible_operator }, every run listed or not; total is their sum
 ```
 
 - `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F) or `invisible_operator` (U+2061–U+2064). Consecutive characters of one kind form one run.
-- `offset` and `end` are UTF-16 indexes, `[offset, end)`; `count` is in code points. Only tag runs have `decoded`.
+- `offset` and `end` are UTF-16 indexes, `[offset, end)`; `count` is in code points. `line` and `column` are counted exactly as in `inspectTextDetailed` (1-based, columns in UTF-16 units, CRLF is one line break). Only tag runs have `decoded` and `decodedTruncated`.
+- `maxRuns` caps the `runs` list and, separately, the `benign` list; `counts`, `total` and `benignTotal` count everything, and `truncated` is true when either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units and never cuts a `<U+XXXX>` marker. Both default to no cap, and an invalid value (negative, fractional, a string) also means no cap, so set them explicitly for untrusted input. With both set, memory stays flat on any input: on 16 M characters (32 MB) of hidden text the heap grows by under 1 MB, against hundreds of MB with no caps.
 - `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
 - Zero-width, bidi and other invisible characters are not runs; use `inspectTextDetailed` for those.
+- `VERSION` is exported here and from the package root: the installed version, as in `package.json`.
 
 ---
 

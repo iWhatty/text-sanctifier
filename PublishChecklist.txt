@@ -1,6 +1,7 @@
 # text-sanctifier Publish Checklist
 
 - [ ] Bump the patch number only (1.3.0 -> 1.3.1), even for new features or exports. Batch work done close together into one release. Changing the minor or major number is a deliberate decision, not a semver default.
+- [ ] Run `npm run gen` after the bump, so `src/version.generated.js` (the `VERSION` export) matches; `npm run ci` fails until it does.
 - [ ] Pass `node tests/sanctifyText.test.js`
 - [ ] Run `npm pack` and check contents
 - [ ] Final check of README, LICENSE, CREDITS

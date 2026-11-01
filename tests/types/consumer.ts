@@ -14,6 +14,7 @@ import {
   sanctifyKeyboardOnly,
   sanctifyPasted,
   revealInvisible,
+  VERSION,
 } from 'text-sanctifier';
 import type {
   UnicodeTrashReport,
@@ -33,11 +34,16 @@ import type {
   TrashCategory as BrowserTrashCategory,
   InspectDetailedOptions as BrowserInspectDetailedOptions,
 } from 'text-sanctifier/browser';
-import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
-import type { HiddenRun, HiddenRunKind, HiddenTextScan } from 'text-sanctifier/hidden';
+import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-sanctifier/hidden';
+import type { HiddenRun, HiddenRunKind, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
 
 const scan: HiddenTextScan = findHiddenRuns('x');
 const firstRun: HiddenRun | undefined = scan.runs[0];
+const scanOptions: HiddenScanOptions = { maxRuns: 100, maxDecodedLength: 1000 };
+const capped: HiddenTextScan = findHiddenRuns('x', scanOptions);
+const runCounts: HiddenRunCounts = capped.counts;
+const runSummary: string = `${capped.total} ${capped.benignTotal} ${capped.truncated} ${firstRun?.line}:${firstRun?.column} ${firstRun?.decodedTruncated}`;
+const versions: string = VERSION + HIDDEN_VERSION;
 const runKind: HiddenRunKind | undefined = firstRun?.kind;
 const decodedTags: string = decodeTagText('x');
 

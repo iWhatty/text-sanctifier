@@ -10,6 +10,9 @@ export { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEm
 import { revealInvisible } from './reveal.js';
 export { revealInvisible };
 
+import { VERSION } from './version.generated.js';
+export { VERSION };
+
 // Type-only re-exports so TypeScript consumers can name these from the package root.
 /** @typedef {import('./inspectText.js').UnicodeTrashReport} UnicodeTrashReport */
 /** @typedef {import('./inspectText.js').TrashCategory} TrashCategory */

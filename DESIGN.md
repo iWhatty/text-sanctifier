@@ -120,6 +120,7 @@ Size over features.
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
 - **Done: `inspectText` no longer pulls in the sanitizer.** The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) live in `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `inspectText` went from 1882 to 1106 bytes gzipped, and its size probe now fails if the sanitizer leaks back in.
 - **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about 1.1 KB gzipped instead of 1.45 KB. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file (3016 of 3072 bytes), which leaves that budget 56 bytes of headroom: the next addition to the browser file needs a decision about its budget or what it includes.
+- **Done: bounded hidden-run scans.** `findHiddenRuns` takes `maxRuns` and `maxDecodedLength`, keeps `counts`, `total` and `benignTotal` exact, and gives each run `line` and `column` counted as `inspectTextDetailed` counts them, so callers no longer need their own scan limit or position code. With both caps set, 16 M characters (32 MB) of hidden text grow the heap by under 1 MB. `VERSION` is exported (generated from `package.json`), costing 19 bytes in the browser file, which is now 3035 of 3072. Still open: `check --ai-config` takes run positions from an uncapped `inspectTextDetailed` call and could use the run fields instead.
 
 ### Not planned here
 
@@ -140,6 +141,7 @@ Size over features.
 - Bump the patch number only, even for new exports or behavior changes. Batch work done close together into one release. Changing the minor or major number is a deliberate decision. See `PublishChecklist.txt`.
 - Describe behavior changes in `CHANGELOG.md` instead of signalling them through the version number.
 - Tag releases `vX.Y.Z` on the commit that was published.
+- After bumping `package.json`, run `npm run gen`: the `VERSION` export is generated from it, and `npm run ci` fails while it is stale.
 - Publishing needs the maintainer's npm two-factor credentials. Agents prepare and verify releases; a maintainer publishes.
 
 ## Working in this repo
