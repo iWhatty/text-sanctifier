@@ -2,9 +2,11 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## Unreleased
+## 1.3.6 — 2026-11-01
 
-No category changes and no changes to existing results. New exports: one per preset, `VERSION`, and options, positions and counts on `findHiddenRuns`. New run kind: `reserved_tag_plane`.
+Patch: standalone preset exports, a `VERSION` export, and bounded, positioned hidden-run scans in `text-sanctifier/hidden` (`maxRuns`, `maxDecodedLength`, exact counts, line and column, the `reserved_tag_plane` run kind). `inspectText` no longer pulls in the sanitizer when bundled. No API removals and no category changes. Behavior change: `findHiddenRuns` and `check --ai-config` now report the reserved code points of the tag plane as runs of their own; before, `findHiddenRuns` skipped them and `check --ai-config` listed them only as single findings.
+
+- docs: the README pre-commit example uses `rev: v1.3.6`
 
 - feat: `findHiddenRuns` and `check --ai-config` report runs of the reserved code points of the tag plane, U+E0080–U+E00FF and U+E01F0–U+E0FFF, as the new run kind `reserved_tag_plane` ("reserved plane-14 code points" in text output). They were already in the `invisible_format` category, so inspection and purging are unchanged; the category list is unchanged. Together with `tag` and `variation_selector`, every code point from U+E0000 to U+E0FFF is now a run, which a test checks. A TypeScript `switch` that handles every `HiddenRunKind` needs the new case
 - feat: `VERSION`, the installed version, exported from the package root and `text-sanctifier/hidden`. It is generated from `package.json` by `npm run gen` (`scripts/gen-version.js`), so it needs no JSON import and works in the browser file; `npm run ci` fails while it is stale
