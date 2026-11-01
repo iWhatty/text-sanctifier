@@ -2,8 +2,13 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## Unreleased
+## 1.3.4 — 2026-11-01
 
+Patch: docs only. No code, API or category changes; the browser bundle is unchanged.
+
+- docs: CHANGELOG headings match the published releases. The section seeded as "Unreleased — 2026-03-02" is split into 1.0.18, 1.0.19 and 1.0.20 (1.0.20 was missing), and "0.0.16" is corrected to 1.0.16
+- the pre-commit hooks were checked with pre-commit 4.7.0 (`pre-commit try-repo`): both pass on clean files, and both fail with the expected findings on a zero-width space and on hidden tag text, with `--ai-config` decoding the text and checking only agent instruction files
+- docs: the README pre-commit example uses `rev: v1.3.4`
 - docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request, so the badges published with 1.3.3 still show as broken images on npm. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
 
 ## 1.3.3 — 2026-10-29
@@ -89,10 +94,14 @@ Minor: adds the `inspectTextDetailed` export. No breaking API changes. `purgeInv
 - perf: `getNewlineStats` counts in one pass with no regex or copy (16 MB of CRLF: ~81 ms / 64 MB heap → ~25 ms / 0.2 MB)
 - build: the Closure export rewrite fails loudly instead of shipping a bundle without exports; minified 3786 → 4923 bytes, gzipped 1701 → 2217
 
-## Unreleased — 2026-03-02
+## 1.0.20 — 2026-05-26
 
-- feat!: add input length guard, improve emoji handling, and generate types  `d76f13a`
-- updated pkg size in readme, min + gzip  `198c644`
+- chore(pkg): declare engines.node >=18  `29dab80`
+- chore(docs): seed initial CHANGELOG.md from git log  `4818afa`
+- chore(pkg): wire types into ./browser export  `5a33bc8`
+
+## 1.0.19 — 2026-05-20
+
 - chore: normalize README shields row  `7ecc74c`
 - chore: rebrand author to WATT3D, interim license  `4300e0b`
 - feat: relicense to AGPL-3.0 + WATT3D AI Training Rider  `10a7c99`
@@ -105,12 +114,17 @@ Minor: adds the `inspectTextDetailed` export. No breaking API changes. `purgeInv
 - chore(license): finalize AGPL-3.0 + WATT3D Additional Terms metadata  `e99d436`
 - chore: patch version bump to ship license metadata update  `5d7d37b`
 
+## 1.0.18 — 2026-03-02
+
+- feat!: add input length guard, improve emoji handling, and generate types  `d76f13a`
+- updated pkg size in readme, min + gzip  `198c644`
+
 ## 1.0.17 — 2026-03-02
 
 - cleaned up credit wording and do_not_train file  `623fd71`
 - fix(unicode): eliminate global RegExp state bugs and preserve full emoji sequences  `08bb1d0`
 
-## 0.0.16 — 2025-05-28
+## 1.0.16 — 2025-05-28
 
 - Added helper getRecommendedSanctifierOptions.  `7069cf1`
 - Enhanced the  EMOJI_REGEX and fallback  `6d8439f`

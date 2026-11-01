@@ -282,7 +282,7 @@ The repository publishes a [pre-commit](https://pre-commit.com) hook manifest, s
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/iWhatty/text-sanctifier
-    rev: v1.3.2  # a release tag
+    rev: v1.3.4  # a release tag
     hooks:
       - id: text-sanctifier            # every staged text file
       - id: text-sanctifier-ai-config  # agent instruction files, with --ai-config
