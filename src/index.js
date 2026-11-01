@@ -4,8 +4,8 @@
 import { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions } from './inspectText.js';
 export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions };
 
-import { summonSanctifier } from './sanctifyText.js';
-export { summonSanctifier };
+import { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEmoji, sanctifyKeyboardOnly, sanctifyPasted } from './sanctifyText.js';
+export { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEmoji, sanctifyKeyboardOnly, sanctifyPasted };
 
 import { revealInvisible } from './reveal.js';
 export { revealInvisible };

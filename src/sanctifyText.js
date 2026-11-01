@@ -47,7 +47,7 @@ export { ASCII_KEYBOARD_SAFE_REGEX, EMOJI_REGEX, normalizeTypographicJank };
  * @param {boolean} [defaultOptions.purgeZeroWidthSpaces]
  * @returns {(text: string) => string}
  */
-export function summonSanctifier(defaultOptions = {}) {
+function createSanctifier(defaultOptions = {}) {
     const normalizeSpaces = !!defaultOptions.normalizeSpaces;
     const purgeZeroWidthSpaces = !!defaultOptions.purgeZeroWidthSpaces;
     const purgeInvisibleChars = !!defaultOptions.purgeInvisibleChars;
@@ -93,7 +93,10 @@ export function summonSanctifier(defaultOptions = {}) {
         );
 }
 
-// --- Added Presets ---
+// --- Presets ---
+//
+// Each preset is its own export, so a bundle that imports one preset leaves out the
+// others. summonSanctifier.strict and the rest are the same functions.
 
 /**
  * Strict sanitizer:
@@ -101,21 +104,24 @@ export function summonSanctifier(defaultOptions = {}) {
  * - Collapse all newlines
  * - Collapse spaces
  * - Nuke control characters
+ * @param {string} text
+ * @returns {string}
  */
-/** @param {string} text @returns {string} */
-summonSanctifier.strict = text => sanctifyText(
-    text,
-    true,   // purgeInvisibleChars
-    true,   // purgeEmojis
-    true,   // nukeControls
-    false,  // keyboardOnlyFilter
-    true,   // normalizeNewlines
-    true,   // trimSpacesAroundNewlines
-    true,   // collapseNewLines
-    false,  // preserveParagraphs
-    true,   // collapseSpaces
-    true    // finalTrim
-);
+export function sanctifyStrict(text) {
+    return sanctifyText(
+        text,
+        true,   // purgeInvisibleChars
+        true,   // purgeEmojis
+        true,   // nukeControls
+        false,  // keyboardOnlyFilter
+        true,   // normalizeNewlines
+        true,   // trimSpacesAroundNewlines
+        true,   // collapseNewLines
+        false,  // preserveParagraphs
+        true,   // collapseSpaces
+        true    // finalTrim
+    );
+}
 
 
 /**
@@ -123,21 +129,24 @@ summonSanctifier.strict = text => sanctifyText(
  * - Collapse spaces
  * - Preserve paragraphs
  * - Normalize newlines
+ * @param {string} text
+ * @returns {string}
  */
-/** @param {string} text @returns {string} */
-summonSanctifier.loose = text => sanctifyText(
-    text,
-    false,  // purgeInvisibleChars
-    false,  // purgeEmojis
-    false,  // nukeControls
-    false,  // keyboardOnlyFilter
-    true,   // normalizeNewlines
-    true,   // trimSpacesAroundNewlines
-    true,   // collapseNewLines
-    true,   // preserveParagraphs
-    true,   // collapseSpaces
-    true    // finalTrim
-);
+export function sanctifyLoose(text) {
+    return sanctifyText(
+        text,
+        false,  // purgeInvisibleChars
+        false,  // purgeEmojis
+        false,  // nukeControls
+        false,  // keyboardOnlyFilter
+        true,   // normalizeNewlines
+        true,   // trimSpacesAroundNewlines
+        true,   // collapseNewLines
+        true,   // preserveParagraphs
+        true,   // collapseSpaces
+        true    // finalTrim
+    );
+}
 
 
 /**
@@ -145,21 +154,24 @@ summonSanctifier.loose = text => sanctifyText(
  * - Keeps emojis and printable ASCII
  * - Strips non-standard characters
  * - Normalizes typographic trash
+ * @param {string} text
+ * @returns {string}
  */
-/** @param {string} text @returns {string} */
-summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
-    text,
-    false,  // purgeInvisibleChars
-    false,  // purgeEmojis
-    false,  // nukeControls
-    true,   // keyboardOnlyFilter
-    true,   // normalizeNewlines
-    true,   // trimSpacesAroundNewlines
-    false,  // collapseNewLines
-    false,  // preserveParagraphs
-    false,  // collapseSpaces
-    true    // finalTrim
-);
+export function sanctifyKeyboardOnlyEmoji(text) {
+    return sanctifyText(
+        text,
+        false,  // purgeInvisibleChars
+        false,  // purgeEmojis
+        false,  // nukeControls
+        true,   // keyboardOnlyFilter
+        true,   // normalizeNewlines
+        true,   // trimSpacesAroundNewlines
+        false,  // collapseNewLines
+        false,  // preserveParagraphs
+        false,  // collapseSpaces
+        true    // finalTrim
+    );
+}
 
 
 /**
@@ -167,21 +179,24 @@ summonSanctifier.keyboardOnlyEmoji = text => sanctifyText(
  * - Removes emojis
  * - Collapses all whitespace
  * - Restricts to printable ASCII only
+ * @param {string} text
+ * @returns {string}
  */
-/** @param {string} text @returns {string} */
-summonSanctifier.keyboardOnly = text => sanctifyText(
-    text,
-    true,   // purgeInvisibleChars
-    true,   // purgeEmojis
-    true,   // nukeControls
-    true,   // keyboardOnlyFilter
-    true,   // normalizeNewlines
-    true,   // trimSpacesAroundNewlines
-    true,   // collapseNewLines
-    false,  // preserveParagraphs
-    true,   // collapseSpaces
-    true    // finalTrim
-);
+export function sanctifyKeyboardOnly(text) {
+    return sanctifyText(
+        text,
+        true,   // purgeInvisibleChars
+        true,   // purgeEmojis
+        true,   // nukeControls
+        true,   // keyboardOnlyFilter
+        true,   // normalizeNewlines
+        true,   // trimSpacesAroundNewlines
+        true,   // collapseNewLines
+        false,  // preserveParagraphs
+        true,   // collapseSpaces
+        true    // finalTrim
+    );
+}
 
 
 /**
@@ -191,25 +206,70 @@ summonSanctifier.keyboardOnly = text => sanctifyText(
  * - Zero-width spaces, word joiners and BOMs are removed
  * - Newlines are normalized to `\n`
  * Keeps emoji joiners, variation selectors, bidi marks, indentation and line breaks.
+ * @param {string} text
+ * @returns {string}
  */
-/** @param {string} text @returns {string} */
-summonSanctifier.pasted = text => sanctifyText(
-    text,
-    false,  // purgeInvisibleChars
-    false,  // purgeEmojis
-    false,  // nukeControls
-    false,  // keyboardOnlyFilter
-    true,   // normalizeNewlines
-    false,  // trimSpacesAroundNewlines
-    false,  // collapseNewLines
-    false,  // preserveParagraphs
-    false,  // collapseSpaces
-    false,  // finalTrim
-    Infinity, // maxLength
-    'throw',  // onMaxLength
-    true,   // normalizeSpaces
-    true    // purgeZeroWidthSpaces
-);
+export function sanctifyPasted(text) {
+    return sanctifyText(
+        text,
+        false,  // purgeInvisibleChars
+        false,  // purgeEmojis
+        false,  // nukeControls
+        false,  // keyboardOnlyFilter
+        true,   // normalizeNewlines
+        false,  // trimSpacesAroundNewlines
+        false,  // collapseNewLines
+        false,  // preserveParagraphs
+        false,  // collapseSpaces
+        false,  // finalTrim
+        Infinity, // maxLength
+        'throw',  // onMaxLength
+        true,   // normalizeSpaces
+        true    // purgeZeroWidthSpaces
+    );
+}
+
+
+/**
+ * Summons a customized sanctifier function with pre-bound booleans.
+ *
+ * Accepts full flag names and returns a text-cleaning function.
+ *
+ * @param {Object} [defaultOptions={}]
+ * @param {boolean} [defaultOptions.purgeInvisibleChars]
+ * @param {boolean} [defaultOptions.purgeEmojis]
+ * @param {boolean} [defaultOptions.nukeControls]
+ * @param {boolean} [defaultOptions.keyboardOnlyFilter]
+ * @param {boolean} [defaultOptions.normalizeNewlines]
+ * @param {boolean} [defaultOptions.trimSpacesAroundNewlines]
+ * @param {boolean} [defaultOptions.collapseNewLines]
+ * @param {boolean} [defaultOptions.preserveParagraphs]
+ * @param {boolean} [defaultOptions.collapseSpaces]
+ * @param {boolean} [defaultOptions.finalTrim]
+ * @param {number} [defaultOptions.maxLength=Infinity] - Hard input length cap (UTF-16 code units).
+ * @param {'throw' | 'truncate' | 'noop'} [defaultOptions.onMaxLength='throw'] - Behavior when input exceeds maxLength.
+ * @param {boolean} [defaultOptions.normalizeSpaces]
+ * @param {boolean} [defaultOptions.purgeZeroWidthSpaces]
+ * @returns {(text: string) => string}
+ *
+ * The presets are attached as properties (`summonSanctifier.strict`, `.loose`,
+ * `.keyboardOnlyEmoji`, `.keyboardOnly`, `.pasted`) and are also standalone exports.
+ * Built in a call marked pure, so a bundle that imports only a preset leaves it out.
+ * @type {typeof createSanctifier & {
+ *   strict: typeof sanctifyStrict,
+ *   loose: typeof sanctifyLoose,
+ *   keyboardOnlyEmoji: typeof sanctifyKeyboardOnlyEmoji,
+ *   keyboardOnly: typeof sanctifyKeyboardOnly,
+ *   pasted: typeof sanctifyPasted,
+ * }}
+ */
+export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, {
+    strict: sanctifyStrict,
+    loose: sanctifyLoose,
+    keyboardOnlyEmoji: sanctifyKeyboardOnlyEmoji,
+    keyboardOnly: sanctifyKeyboardOnly,
+    pasted: sanctifyPasted,
+});
 
 
 /**

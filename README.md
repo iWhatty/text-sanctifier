@@ -119,6 +119,16 @@ Two options handle spaces and zero-width characters gently, and both run before 
 - `normalizeSpaces`: replace look-alike spaces with an ordinary space. These are U+00A0, U+2000–U+200A, U+202F and U+205F: the `nonbreaking_space` category except U+3000, the ordinary space of CJK text. With `purgeInvisibleChars` alone, a non-breaking space between two words is deleted and the words run together; with `normalizeSpaces` as well, they stay apart.
 - `purgeZeroWidthSpaces`: remove the zero width space U+200B, the word joiner U+2060 and U+FEFF, and nothing else. Emoji joiners, ZWNJ, variation selectors and bidi marks are kept.
 
+### Presets as standalone imports
+
+Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about 1.1 KB gzipped instead of 1.45 KB).
+
+```js
+import { sanctifyPasted } from 'text-sanctifier';
+
+const output = sanctifyPasted(clipboardText);
+```
+
 ### `summonSanctifier.strict`
 
 Aggressively purges: emojis, control characters, extra spacing, and newlines.

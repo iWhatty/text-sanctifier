@@ -8,6 +8,11 @@ import {
   getNewlineStats,
   getRecommendedSanctifierOptions,
   summonSanctifier,
+  sanctifyStrict,
+  sanctifyLoose,
+  sanctifyKeyboardOnlyEmoji,
+  sanctifyKeyboardOnly,
+  sanctifyPasted,
   revealInvisible,
 } from 'text-sanctifier';
 import type {
@@ -53,6 +58,7 @@ const basic: UnicodeTrashReport = inspectText('x');
 const recommended: SanctifyOptions = getRecommendedSanctifierOptions(basic);
 const clean: string = summonSanctifier(recommended)('x');
 const pastedClean: string = summonSanctifier.pasted('x');
+const presetClean: string = sanctifyStrict('x') + sanctifyLoose('x') + sanctifyKeyboardOnlyEmoji('x') + sanctifyKeyboardOnly('x') + sanctifyPasted('x');
 const spacing: SanctifyOptions = { normalizeSpaces: true, purgeZeroWidthSpaces: true };
 const revealOptions: RevealOptions = { format: (codePoint: number, c: TrashCategory) => `[${c}:${codePoint}]` };
 const revealed: string = revealInvisible('x', revealOptions) + revealInvisible('y');

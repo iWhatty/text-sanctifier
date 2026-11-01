@@ -4,8 +4,10 @@
 
 ## Unreleased
 
-No API, behavior or category changes.
+No behavior or category changes. New exports: one per preset.
 
+- feat: each preset is its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`, the same functions as `summonSanctifier.strict` and the rest, with types. Importing one preset bundles to about 1.1 KB gzipped instead of 1.45 KB. `summonSanctifier` is now a `const` built with `Object.assign` in a call marked pure, instead of a function declaration with presets assigned at module load; it is called and typed the same way, and its `name` is now `createSanctifier`
+- build: the prebuilt browser file is 3016 bytes gzipped (budget 3072), 73 more for the new export names. `npm run size` adds probes for `sanctifyPasted` and `sanctifyStrict`
 - build: `inspectText` no longer pulls in the sanitizer when bundled: 1882 → 1106 bytes gzipped. The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) moved to `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `npm run size` now fails if `inspectText` contains the sanitizer, and its budget drops from 2100 to 1250 bytes
 
 ## 1.3.5 — 2026-11-01

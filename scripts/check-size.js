@@ -33,6 +33,8 @@ const PROBES = [
     { name: 'inspectText', code: "import { inspectText } from './src/index.js'; inspectText('');", budget: 1250, mustNotContain: [SANITIZER] },
     { name: 'summonSanctifier', code: "import { summonSanctifier } from './src/index.js'; summonSanctifier({})('');", budget: 1600 },
     { name: 'summonSanctifier.pasted', code: "import { summonSanctifier } from './src/index.js'; summonSanctifier.pasted('');", budget: 1600 },
+    { name: 'sanctifyPasted', code: "import { sanctifyPasted } from './src/index.js'; sanctifyPasted('');", budget: 1250 },
+    { name: 'sanctifyStrict', code: "import { sanctifyStrict } from './src/index.js'; sanctifyStrict('');", budget: 1250 },
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 700, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'everything', code: "export * from './src/index.js';", budget: 3072 },
 ];

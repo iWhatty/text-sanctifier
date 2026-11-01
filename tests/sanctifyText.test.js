@@ -1,7 +1,7 @@
 // ./tests/sanctifyText.test.js
 
 
-import { summonSanctifier } from '../src/index.js';
+import { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEmoji, sanctifyKeyboardOnly, sanctifyPasted } from '../src/index.js';
 import { inspectText, inspectTextDetailed, revealInvisible } from '../src/index.js';
 import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
 
@@ -343,6 +343,18 @@ assertEqual(
   let threw = false;
   try { revealInvisible(42); } catch (e) { threw = e instanceof TypeError; }
   assertEqual(threw, true, '28. revealInvisible: non-string throws TypeError');
+}
+
+
+// 29. Standalone preset exports are the same functions as the summonSanctifier properties
+{
+  assertEqual(summonSanctifier.strict === sanctifyStrict, true, '29. summonSanctifier.strict is sanctifyStrict');
+  assertEqual(summonSanctifier.loose === sanctifyLoose, true, '29. summonSanctifier.loose is sanctifyLoose');
+  assertEqual(summonSanctifier.keyboardOnlyEmoji === sanctifyKeyboardOnlyEmoji, true, '29. summonSanctifier.keyboardOnlyEmoji is sanctifyKeyboardOnlyEmoji');
+  assertEqual(summonSanctifier.keyboardOnly === sanctifyKeyboardOnly, true, '29. summonSanctifier.keyboardOnly is sanctifyKeyboardOnly');
+  assertEqual(summonSanctifier.pasted === sanctifyPasted, true, '29. summonSanctifier.pasted is sanctifyPasted');
+  assertEqual(sanctifyPasted('a' + String.fromCharCode(0xA0) + 'b'), 'a b', '29. sanctifyPasted cleans text');
+  assertEqual(typeof summonSanctifier({}), 'function', '29. summonSanctifier still builds a sanctifier');
 }
 
 
