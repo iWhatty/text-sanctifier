@@ -3,7 +3,8 @@ import { inspectTextDetailed } from './inspectText.js';
 import { getNewlineStats } from './inspectText.js';
 import { getRecommendedSanctifierOptions } from './inspectText.js';
 import { summonSanctifier } from './sanctifyText.js';
-export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions, summonSanctifier };
+import { revealInvisible } from './reveal.js';
+export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSanctifierOptions, summonSanctifier, revealInvisible };
 export type UnicodeTrashReport = import('./inspectText.js').UnicodeTrashReport;
 export type TrashCategory = import('./inspectText.js').TrashCategory;
 export type TrashFinding = import('./inspectText.js').TrashFinding;
@@ -12,3 +13,4 @@ export type DetailedTrashReport = import('./inspectText.js').DetailedTrashReport
 export type InspectDetailedOptions = import('./inspectText.js').InspectDetailedOptions;
 export type NewlineStats = import('./inspectText.js').NewlineStats;
 export type SanctifyOptions = import('./sanctifyText.js').SanctifyOptions;
+export type RevealOptions = import('./reveal.js').RevealOptions;

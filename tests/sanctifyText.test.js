@@ -2,7 +2,8 @@
 
 
 import { summonSanctifier } from '../src/index.js';
-import { inspectText } from '../src/index.js';
+import { inspectText, inspectTextDetailed, revealInvisible } from '../src/index.js';
+import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
 
 
 function assertEqual(actual, expected, message) {
@@ -288,6 +289,60 @@ assertEqual(
     assertEqual(nukeControlsOnly(input), 'AB', `25. nukeControls purges ${hex}`);
     assertEqual(purgeInvisibleOnly(input), 'AB', `25. purgeInvisibleChars purges ${hex}`);
   }
+}
+
+
+// 26. Look-alike spaces, zero-width spaces and the pasted preset
+{
+  const c = (cp) => String.fromCodePoint(cp);
+  const NBSP = c(0xA0), NNBSP = c(0x202F), ZWSP = c(0x200B), WJ = c(0x2060), BOM = c(0xFEFF);
+  const ZWJ = c(0x200D), ZWNJ = c(0x200C), VS16 = c(0xFE0F), RLM = c(0x200F), IDEO = c(0x3000);
+  const family = c(0x1F468) + ZWJ + c(0x1F469);
+
+  const pasted = summonSanctifier.pasted(`Hello${NBSP}world${NNBSP}!${ZWSP}${WJ}${BOM}\r\n  indented\r\nend`);
+  assertEqual(pasted, 'Hello world !\n  indented\nend', '26. pasted: look-alike spaces become spaces, zero-width spaces go, CRLF becomes LF, indentation kept');
+  assertEqual(
+    summonSanctifier.pasted(`${family} ✌${VS16} a${ZWNJ}b ${RLM}x${IDEO}y`),
+    `${family} ✌${VS16} a${ZWNJ}b ${RLM}x${IDEO}y`,
+    '26. pasted: keeps emoji joiners, VS16, ZWNJ, bidi marks and the ideographic space'
+  );
+
+  const purgeOnly = summonSanctifier({ purgeInvisibleChars: true });
+  const spaced = summonSanctifier({ purgeInvisibleChars: true, normalizeSpaces: true });
+  assertEqual(purgeOnly(`a${NBSP}b`), 'ab', '26. purgeInvisibleChars alone still deletes a NBSP');
+  assertEqual(spaced(`a${NBSP}b${ZWSP}c`), 'a bc', '26. normalizeSpaces runs first, so purging keeps the words apart');
+  assertEqual(summonSanctifier({ purgeZeroWidthSpaces: true })(`a${ZWSP}b${ZWJ}c${NBSP}`), `ab${ZWJ}c${NBSP}`, '26. purgeZeroWidthSpaces removes only ZWSP, WJ and BOM');
+}
+
+// 27. SPACE_LOOKALIKES_REGEX is exactly the nonbreaking_space category minus U+3000
+{
+  const mismatches = [];
+  for (let cp = 0; cp <= 0x10FFFF; cp++) {
+    if (cp >= 0xD800 && cp <= 0xDFFF) continue;
+    const s = String.fromCodePoint(cp);
+    SPACE_LOOKALIKES_REGEX.lastIndex = 0;
+    const byRegex = SPACE_LOOKALIKES_REGEX.test(s);
+    const f = inspectTextDetailed(s).findings[0];
+    const byCategory = !!f && f.category === 'nonbreaking_space' && cp !== 0x3000;
+    if (byRegex !== byCategory) mismatches.push(cp.toString(16));
+  }
+  assertEqual(JSON.stringify(mismatches), '[]', '27. SPACE_LOOKALIKES_REGEX == nonbreaking_space minus U+3000');
+}
+
+// 28. revealInvisible
+{
+  const c = (cp) => String.fromCodePoint(cp);
+  const text = `a${c(0x200B)}b\tc\r\n${c(0xE0041)}x${c(0x1F600)}${c(0x1D173)}`;
+  assertEqual(revealInvisible(text), 'a<U+200B>b\tc\r\n<U+E0041>x' + c(0x1F600) + '<U+1D173>', '28. revealInvisible: markers for hidden characters, everything else kept');
+  assertEqual(revealInvisible('plain text'), 'plain text', '28. revealInvisible: clean text unchanged');
+  assertEqual(revealInvisible(''), '', '28. revealInvisible: empty string');
+  assertEqual(revealInvisible(c(0xFEFF) + 'x'), '<U+FEFF>x', '28. revealInvisible: a leading BOM is shown');
+  assertEqual(revealInvisible(`a${c(0x202E)}b`, { format: (cp, category) => `{${category}:${cp.toString(16)}}` }), 'a{bidi_control:202e}b', '28. revealInvisible: custom format gets code point and category');
+  const many = c(0x200B).repeat(250);
+  assertEqual(revealInvisible(many), '<U+200B>'.repeat(250), '28. revealInvisible: no maxFindings cap');
+  let threw = false;
+  try { revealInvisible(42); } catch (e) { threw = e instanceof TypeError; }
+  assertEqual(threw, true, '28. revealInvisible: non-string throws TypeError');
 }
 
 

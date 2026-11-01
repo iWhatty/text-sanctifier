@@ -18,6 +18,8 @@ export { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX };
  * @property {boolean} [finalTrim]
  * @property {number} [maxLength]
  * @property {'throw'|'truncate'|'noop'} [onMaxLength]
+ * @property {boolean} [normalizeSpaces] - Replace look-alike spaces with an ordinary space (runs first).
+ * @property {boolean} [purgeZeroWidthSpaces] - Remove U+200B, U+2060 and U+FEFF only, keeping joiners and selectors.
  */
 
 
@@ -39,9 +41,13 @@ export { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX };
  * @param {boolean} [defaultOptions.finalTrim]
  * @param {number} [defaultOptions.maxLength=Infinity] - Hard input length cap (UTF-16 code units).
  * @param {'throw' | 'truncate' | 'noop'} [defaultOptions.onMaxLength='throw'] - Behavior when input exceeds maxLength.
+ * @param {boolean} [defaultOptions.normalizeSpaces]
+ * @param {boolean} [defaultOptions.purgeZeroWidthSpaces]
  * @returns {(text: string) => string}
  */
 export function summonSanctifier(defaultOptions = {}) {
+    const normalizeSpaces = !!defaultOptions.normalizeSpaces;
+    const purgeZeroWidthSpaces = !!defaultOptions.purgeZeroWidthSpaces;
     const purgeInvisibleChars = !!defaultOptions.purgeInvisibleChars;
     const purgeEmojis = !!defaultOptions.purgeEmojis;
     const nukeControls = !!defaultOptions.nukeControls;
@@ -79,7 +85,9 @@ export function summonSanctifier(defaultOptions = {}) {
             collapseSpaces,
             finalTrim,
             maxLength,
-            onMaxLength
+            onMaxLength,
+            normalizeSpaces,
+            purgeZeroWidthSpaces
         );
 }
 
@@ -175,6 +183,34 @@ summonSanctifier.keyboardOnly = text => sanctifyText(
 
 
 /**
+ * Pasted text and model output:
+ * - Look-alike spaces (NBSP, narrow NBSP, typographic spaces) become ordinary spaces,
+ *   so words never run together
+ * - Zero-width spaces, word joiners and BOMs are removed
+ * - Newlines are normalized to `\n`
+ * Keeps emoji joiners, variation selectors, bidi marks, indentation and line breaks.
+ */
+/** @param {string} text @returns {string} */
+summonSanctifier.pasted = text => sanctifyText(
+    text,
+    false,  // purgeInvisibleChars
+    false,  // purgeEmojis
+    false,  // nukeControls
+    false,  // keyboardOnlyFilter
+    true,   // normalizeNewlines
+    false,  // trimSpacesAroundNewlines
+    false,  // collapseNewLines
+    false,  // preserveParagraphs
+    false,  // collapseSpaces
+    false,  // finalTrim
+    Infinity, // maxLength
+    'throw',  // onMaxLength
+    true,   // normalizeSpaces
+    true    // purgeZeroWidthSpaces
+);
+
+
+/**
  * Text Sanctifier
  *
  * Brutal text normalizer and invisible trash scrubber,
@@ -198,6 +234,9 @@ summonSanctifier.keyboardOnly = text => sanctifyText(
  *   - `'throw'`: throw a `RangeError`
  *   - `'truncate'`: slice to `maxLength` before processing
  *   - `'noop'`: return the original input unchanged (skips processing)
+ * @param {boolean} [normalizeSpaces=false] - Replace look-alike spaces with an ordinary space. Runs first,
+ *   so `purgeInvisibleChars` no longer joins the words around them.
+ * @param {boolean} [purgeZeroWidthSpaces=false] - Remove zero-width spaces, word joiners and BOMs only.
  * @returns {string}
  * @throws {TypeError} If `text` is not a string.
  * @throws {RangeError} If input exceeds `maxLength` and `onMaxLength` is `'throw'`.
@@ -215,7 +254,9 @@ export function sanctifyText(
     collapseSpaces = false,
     finalTrim = false,
     maxLength = Infinity,
-    onMaxLength = 'throw'
+    onMaxLength = 'throw',
+    normalizeSpaces = false,
+    purgeZeroWidthSpaces = false
 ) {
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
@@ -241,6 +282,12 @@ export function sanctifyText(
     }
 
     let cleaned = text;
+
+    // Look-alike spaces become ordinary spaces, before anything can delete them
+    if (normalizeSpaces) cleaned = cleaned.replace(SPACE_LOOKALIKES_REGEX, ' ');
+
+    // Zero-width spaces, word joiners and BOMs (not joiners or selectors)
+    if (purgeZeroWidthSpaces) cleaned = cleaned.replace(ZERO_WIDTH_SPACES_REGEX, '');
 
     //  Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
     if (purgeInvisibleChars) cleaned = purgeInvisibleTrash(cleaned);
@@ -272,6 +319,16 @@ export function sanctifyText(
 
 
 // --- Micro helpers ---
+
+
+/**
+ * Look-alike spaces: the `nonbreaking_space` category except U+3000, the ordinary
+ * space of CJK text. A test checks this against the category table.
+ */
+export const SPACE_LOOKALIKES_REGEX = /[\u00A0\u2000-\u200A\u202F\u205F]/g;
+
+/** Zero-width space, word joiner and BOM: invisible and never needed in plain text. */
+export const ZERO_WIDTH_SPACES_REGEX = /[\u200B\u2060\uFEFF]/g;
 
 
 /**

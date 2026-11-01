@@ -41,7 +41,7 @@ mkdirSync(distDir, { recursive: true });
     // Step 2: Inject globalThis hack ONLY for Closure
     // bundleCode += '\nif (typeof globalThis !== "undefined") { globalThis.summonSanctifier = summonSanctifier, globalThis.inspectText = inspectText; }';
 
-    bundleCode += '\nif (typeof globalThis !== "undefined") { globalThis.summonSanctifier = summonSanctifier, globalThis.inspectText = inspectText, globalThis.getRecommendedSanctifierOptions = getRecommendedSanctifierOptions, globalThis.inspectTextDetailed = inspectTextDetailed, globalThis.getNewlineStats = getNewlineStats; }';
+    bundleCode += '\nif (typeof globalThis !== "undefined") { globalThis.summonSanctifier = summonSanctifier, globalThis.inspectText = inspectText, globalThis.getRecommendedSanctifierOptions = getRecommendedSanctifierOptions, globalThis.inspectTextDetailed = inspectTextDetailed, globalThis.getNewlineStats = getNewlineStats, globalThis.revealInvisible = revealInvisible; }';
 
 
     // Step 3: Write back modified bundle
@@ -63,8 +63,8 @@ mkdirSync(distDir, { recursive: true });
     // Replace globalThis.summonSanctifier assignment with ESM export
 
     const fixedCode = closureCode.replace(
-        /"undefined"!==typeof globalThis&&\(\s*globalThis\.summonSanctifier=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.inspectText=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.getRecommendedSanctifierOptions=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.inspectTextDetailed=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.getNewlineStats=([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\);/,
-        'export { $1 as summonSanctifier, $2 as inspectText, $3 as getRecommendedSanctifierOptions, $4 as inspectTextDetailed, $5 as getNewlineStats };'
+        /"undefined"!==typeof globalThis&&\(\s*globalThis\.summonSanctifier=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.inspectText=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.getRecommendedSanctifierOptions=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.inspectTextDetailed=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.getNewlineStats=([a-zA-Z_$][0-9a-zA-Z_$]*),\s*globalThis\.revealInvisible=([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\);/,
+        'export { $1 as summonSanctifier, $2 as inspectText, $3 as getRecommendedSanctifierOptions, $4 as inspectTextDetailed, $5 as getNewlineStats, $6 as revealInvisible };'
     );
     if (fixedCode === closureCode) {
         throw new Error('Closure output did not match the globalThis export pattern; no ESM export was written.');

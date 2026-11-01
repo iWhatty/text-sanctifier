@@ -5,6 +5,7 @@
 //   text-sanctifier check [paths...]   report invisible and control characters
 //   text-sanctifier check --ai-config  report hidden text in agent instruction files
 //   text-sanctifier fix [paths...]     remove them in place
+//   text-sanctifier reveal [paths...]  print the text with hidden characters shown as <U+XXXX>
 //
 // Plain Node (>=18), no dependencies. Exit codes: 0 clean, 1 findings (check,
 // or fix --dry-run with changes pending), 2 usage or I/O error.
@@ -13,8 +14,9 @@ import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from '
 import { resolve, join, sep, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { inspectTextDetailed, summonSanctifier } from '../src/index.js';
+import { inspectTextDetailed, summonSanctifier, revealInvisible } from '../src/index.js';
 import { getNewlineStats } from '../src/inspectText.js';
+import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
 import { findHiddenRuns } from '../src/hiddenText.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
@@ -24,6 +26,7 @@ const USAGE = `text-sanctifier ${VERSION}
 Usage:
   text-sanctifier check [options] [paths...]
   text-sanctifier fix [options] [paths...]
+  text-sanctifier reveal [paths...]
 
 Paths may be files, directories or globs (quote globs so the shell leaves them
 alone). "-", or no paths with piped input, reads stdin. Directories and globs
@@ -40,6 +43,8 @@ check options:
                        for those files, and tag text is decoded
 
 fix options:
+  --normalize-spaces   replace look-alike spaces (NBSP, narrow NBSP, typographic
+                       spaces) with an ordinary space instead of removing them
   --purge-invisible    remove zero-width, non-breaking space, bidi and BOM characters
   --nuke-controls      remove C0/C1 control characters and bidi controls
   --normalize-newlines convert CRLF and CR to LF
@@ -47,8 +52,14 @@ fix options:
   --dry-run            report what would change; write nothing
   --format F           text (default) or json
   --json               same as --format json
-  With no cleaning flag, fix uses --purge-invisible --nuke-controls.
+  With no cleaning flag, fix uses --normalize-spaces --purge-invisible --nuke-controls.
   stdin is cleaned to stdout; the report then goes to stderr.
+
+reveal:
+  Prints each input with every character check would report replaced by a
+  marker such as <U+200B>; everything else, including newlines, is unchanged.
+  Several inputs are printed one after another under "==> path <==" headers.
+  Takes no options. Exit code 0 unless an input can't be read.
 
 Other:
   -h, --help           show this help
@@ -73,12 +84,13 @@ class UsageError extends Error {}
 const BOOLEAN_FLAGS = {
     '--ai-config': 'aiConfig',
     '--strip-bom': 'stripBom',
+    '--normalize-spaces': 'normalizeSpaces',
     '--purge-invisible': 'purgeInvisible',
     '--nuke-controls': 'nukeControls',
     '--normalize-newlines': 'normalizeNewlines',
     '--dry-run': 'dryRun',
 };
-const FIX_ONLY_FLAGS = new Set(['purgeInvisible', 'nukeControls', 'normalizeNewlines', 'dryRun']);
+const FIX_ONLY_FLAGS = new Set(['normalizeSpaces', 'purgeInvisible', 'nukeControls', 'normalizeNewlines', 'dryRun']);
 const CHECK_ONLY_FLAGS = new Set(['aiConfig']);
 const FORMATS = new Set(['text', 'json', 'sarif']);
 
@@ -92,6 +104,7 @@ function parseArgs(argv) {
         format: null,
         aiConfig: false,
         stripBom: false,
+        normalizeSpaces: false,
         purgeInvisible: false,
         nukeControls: false,
         normalizeNewlines: false,
@@ -137,8 +150,16 @@ function parseArgs(argv) {
     }
 
     if (opts.help || opts.version) return opts;
-    if (opts.command !== 'check' && opts.command !== 'fix') {
+    if (opts.command !== 'check' && opts.command !== 'fix' && opts.command !== 'reveal') {
         throw new UsageError(opts.command === null ? 'Missing command.' : `Unknown command: ${opts.command}`);
+    }
+    if (opts.command === 'reveal') {
+        for (const [flag, key] of Object.entries(BOOLEAN_FLAGS)) {
+            if (opts[key]) throw new UsageError(`${flag} does not apply to reveal.`);
+        }
+        if (opts.format !== null) throw new UsageError('--format does not apply to reveal.');
+        if (opts.maxFindings !== 100) throw new UsageError('--max-findings does not apply to reveal.');
+        return opts;
     }
     for (const [flag, key] of Object.entries(BOOLEAN_FLAGS)) {
         if (opts.command === 'check' && FIX_ONLY_FLAGS.has(key) && opts[key]) throw new UsageError(`${flag} only applies to fix.`);
@@ -146,7 +167,8 @@ function parseArgs(argv) {
     }
     if (opts.format === null) opts.format = 'text';
     if (opts.command === 'fix' && opts.format === 'sarif') throw new UsageError('--format sarif only applies to check.');
-    if (opts.command === 'fix' && !opts.purgeInvisible && !opts.nukeControls && !opts.normalizeNewlines) {
+    if (opts.command === 'fix' && !opts.normalizeSpaces && !opts.purgeInvisible && !opts.nukeControls && !opts.normalizeNewlines) {
+        opts.normalizeSpaces = true;
         opts.purgeInvisible = true;
         opts.nukeControls = true;
     }
@@ -683,8 +705,22 @@ async function main(argv) {
         return errors > 0 ? 2 : total > 0 ? 1 : 0;
     }
 
+    if (opts.command === 'reveal') {
+        const many = inputs.length > 1;
+        let first = true;
+        await forEachText((label, text) => {
+            if (many) {
+                process.stdout.write(`${first ? '' : '\n'}==> ${label} <==\n`);
+                first = false;
+            }
+            process.stdout.write(revealInvisible(text));
+        });
+        return errors > 0 ? 2 : 0;
+    }
+
     // fix
     const clean = summonSanctifier({
+        normalizeSpaces: opts.normalizeSpaces,
         purgeInvisibleChars: opts.purgeInvisible,
         nukeControls: opts.nukeControls,
         normalizeNewlines: opts.normalizeNewlines,
@@ -706,6 +742,10 @@ async function main(argv) {
 
         const before = inspectTextDetailed(text, { maxFindings: 0 }).counts;
         const after = inspectTextDetailed(cleaned, { maxFindings: 0 }).counts;
+        // Look-alike spaces that became ordinary spaces were replaced, not removed
+        SPACE_LOOKALIKES_REGEX.lastIndex = 0;
+        const spacesReplaced = opts.normalizeSpaces ? (text.match(SPACE_LOOKALIKES_REGEX) || []).length : 0;
+        before.nonbreaking_space -= spacesReplaced;
         const removed = {};
         let removedTotal = 0;
         for (const k of Object.keys(before)) {
@@ -724,7 +764,7 @@ async function main(argv) {
                 return;
             }
         }
-        files.push({ path: label, removed, removedTotal, newlinesNormalized });
+        files.push({ path: label, spacesReplaced, removed, removedTotal, newlinesNormalized });
     });
 
     if (opts.format === 'json') {
@@ -733,6 +773,7 @@ async function main(argv) {
         const verb = opts.dryRun ? 'would fix' : 'fixed';
         for (const f of files) {
             const parts = [];
+            if (f.spacesReplaced > 0) parts.push(`replaced ${plural(f.spacesReplaced, 'look-alike space')}`);
             if (f.removedTotal > 0) parts.push(`removed ${f.removedTotal} (${formatCounts(f.removed)})`);
             if (f.newlinesNormalized) parts.push('normalized newlines');
             report(`${verb} ${f.path}: ${parts.join('; ')}`);

@@ -14,7 +14,11 @@
 *   collapseNewLines: (boolean|undefined),
 *   preserveParagraphs: (boolean|undefined),
 *   collapseSpaces: (boolean|undefined),
-*   finalTrim: (boolean|undefined)
+*   finalTrim: (boolean|undefined),
+*   maxLength: (number|undefined),
+*   onMaxLength: (string|undefined),
+*   normalizeSpaces: (boolean|undefined),
+*   purgeZeroWidthSpaces: (boolean|undefined)
 * }}
 */
 var SanctifyOptions;
@@ -50,6 +54,28 @@ summonSanctifier.keyboardOnlyEmoji;
 * @type {function(string): string}
 */
 summonSanctifier.keyboardOnly;
+
+/**
+* Sanitizer for pasted text and model output: look-alike spaces become spaces,
+* zero-width spaces are removed, newlines are normalized.
+* @type {function(string): string}
+*/
+summonSanctifier.pasted;
+
+/**
+ * @typedef {{
+*   format: ((function(number, string): string)|undefined)
+* }}
+*/
+var RevealOptions;
+
+/**
+* Replace each hidden character with a visible marker such as <U+200B>.
+* @param {string} text
+* @param {RevealOptions=} options
+* @return {string}
+*/
+function revealInvisible(text, options) { }
 
 /**
 * Brutally normalizes and cleans a string of text.

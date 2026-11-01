@@ -2,6 +2,18 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## Unreleased
+
+No category changes. Behavior change: `text-sanctifier fix` with no cleaning flag now replaces look-alike spaces with ordinary spaces instead of deleting them, so words next to a non-breaking space no longer run together.
+
+- feat: `revealInvisible(text, { format })` replaces every character `inspectTextDetailed` would report with a visible marker (default `<U+XXXX>`) and keeps everything else, including tabs, newlines and emoji. Exported from the package root and the browser build, with a `RevealOptions` type
+- feat: `summonSanctifier.pasted`, a preset for pasted text and model output: look-alike spaces (U+00A0, U+2000–U+200A, U+202F, U+205F) become ordinary spaces, U+200B, U+2060 and U+FEFF are removed, and newlines are normalized. It keeps emoji joiners, variation selectors, ZWNJ, bidi marks, U+3000 and all indentation and blank lines
+- feat: two `SanctifyOptions`, both applied before the others: `normalizeSpaces` (the look-alike spaces above become ordinary spaces) and `purgeZeroWidthSpaces` (only U+200B, U+2060 and U+FEFF are removed)
+- feat(cli): `text-sanctifier reveal [paths...]` prints inputs with hidden characters shown as markers and never changes files. `fix --normalize-spaces` exposes `normalizeSpaces`, and is now part of the default `fix`. `fix` reports replaced spaces apart from removed characters, and its JSON gains `spacesReplaced` per file
+- fix: in the browser build, `onMaxLength` was ignored, so `truncate` and `noop` behaved like `throw`. Closure ADVANCED renamed the option because `externs.js` did not declare it; `maxLength` and `onMaxLength` are now declared and the dist test covers them
+- test: `SPACE_LOOKALIKES_REGEX` is checked over every code point to equal the `nonbreaking_space` category minus U+3000; the dist test covers the preset, both options, `revealInvisible` and its `format` option; the TypeScript consumer compiles against the new exports and types, and no longer contains a raw zero-width space
+- build: gzipped browser bundle 2632 → 2864 bytes (budget 3072)
+
 ## 1.3.4 — 2026-11-01
 
 Patch: docs only. No code, API or category changes; the browser bundle is unchanged.

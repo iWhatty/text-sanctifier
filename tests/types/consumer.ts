@@ -8,6 +8,7 @@ import {
   getNewlineStats,
   getRecommendedSanctifierOptions,
   summonSanctifier,
+  revealInvisible,
 } from 'text-sanctifier';
 import type {
   UnicodeTrashReport,
@@ -18,6 +19,7 @@ import type {
   InspectDetailedOptions,
   NewlineStats,
   SanctifyOptions,
+  RevealOptions,
 } from 'text-sanctifier';
 import type {
   DetailedTrashReport as BrowserDetailedTrashReport,
@@ -35,7 +37,7 @@ const runKind: HiddenRunKind | undefined = firstRun?.kind;
 const decodedTags: string = decodeTagText('x');
 
 const options: InspectDetailedOptions = { maxFindings: 10 };
-const report: DetailedTrashReport = inspectTextDetailed('a​b', options);
+const report: DetailedTrashReport = inspectTextDetailed('a\u200Bb', options);
 const finding: TrashFinding | undefined = report.findings[0];
 const category: TrashCategory | undefined = finding?.category;
 const counts: TrashCounts = report.counts;
@@ -50,6 +52,10 @@ const browserCounts: BrowserTrashCounts = browserReport.counts;
 const basic: UnicodeTrashReport = inspectText('x');
 const recommended: SanctifyOptions = getRecommendedSanctifierOptions(basic);
 const clean: string = summonSanctifier(recommended)('x');
+const pastedClean: string = summonSanctifier.pasted('x');
+const spacing: SanctifyOptions = { normalizeSpaces: true, purgeZeroWidthSpaces: true };
+const revealOptions: RevealOptions = { format: (codePoint: number, c: TrashCategory) => `[${c}:${codePoint}]` };
+const revealed: string = revealInvisible('x', revealOptions) + revealInvisible('y');
 
 const newlines: NewlineStats = getNewlineStats('a' + '\r\n' + 'b');
 const newlineTypes: ('CRLF' | 'CR' | 'LF')[] = newlines.types;
@@ -58,4 +64,4 @@ const mixed: boolean = newlines.mixed;
 // @ts-expect-error not a TrashCategory
 const bad: TrashCategory = 'not_a_category';
 
-export { scan, runKind, decodedTags, total, category, browserOptions, browserCategory, browserCounts, clean, newlineTypes, mixed, bad };
+export { scan, runKind, decodedTags, total, category, browserOptions, browserCategory, browserCounts, clean, pastedClean, spacing, revealed, newlineTypes, mixed, bad };

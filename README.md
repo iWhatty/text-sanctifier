@@ -7,7 +7,7 @@
 [![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.57 KB gzipped.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.80 KB gzipped.
 
 ## Features
 
@@ -15,6 +15,8 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~
 - Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
 - Purges Unicode tag characters (U+E0000–U+E007F), the "ASCII smuggling" channel for hiding instructions from humans in text an LLM reads, plus variation selectors, Hangul fillers, soft hyphens and invisible operators
 - Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
+- Shows hidden characters as visible markers such as `<U+200B>` (`revealInvisible`, `text-sanctifier reveal`)
+- Cleans pasted text and model output without gluing words together: look-alike spaces such as the narrow no-break space (U+202F) become ordinary spaces (`summonSanctifier.pasted`)
 - `text-sanctifier check` / `fix` command line for CI and coding agents, with JSON or SARIF output, exit codes and pre-commit hooks
 - `check --ai-config` finds and decodes hidden text in agent instruction files (`CLAUDE.md`, `AGENTS.md`, Cursor rules, `SKILL.md`, MCP configuration)
 - Normalizes line endings (CRLF, CR, LF) to LF
@@ -81,6 +83,20 @@ const output = summonSanctifier.keyboardOnly(userInput);
 const output = summonSanctifier.keyboardOnlyEmoji(commentText);
 ```
 
+**Pasted text and model output:**
+
+```js
+const output = summonSanctifier.pasted(clipboardText);
+```
+
+**Show what is hidden:**
+
+```js
+import { revealInvisible } from 'text-sanctifier';
+
+revealInvisible(text); // 'Hello<U+200B>world'
+```
+
 ---
 
 ## Security notes
@@ -98,6 +114,11 @@ const output = summonSanctifier.keyboardOnlyEmoji(commentText);
 
 Creates a reusable sanitizer from an option object.
 
+Two options handle spaces and zero-width characters gently, and both run before the others:
+
+- `normalizeSpaces`: replace look-alike spaces with an ordinary space. These are U+00A0, U+2000–U+200A, U+202F and U+205F: the `nonbreaking_space` category except U+3000, the ordinary space of CJK text. With `purgeInvisibleChars` alone, a non-breaking space between two words is deleted and the words run together; with `normalizeSpaces` as well, they stay apart.
+- `purgeZeroWidthSpaces`: remove the zero width space U+200B, the word joiner U+2060 and U+FEFF, and nothing else. Emoji joiners, ZWNJ, variation selectors and bidi marks are kept.
+
 ### `summonSanctifier.strict`
 
 Aggressively purges: emojis, control characters, extra spacing, and newlines.
@@ -113,6 +134,23 @@ Restricts to printable ASCII only (removes emojis).
 ### `summonSanctifier.keyboardOnlyEmoji`
 
 Restricts to printable ASCII + full emoji sequences. Preserves ZWJ emoji clusters and emoji presentation variants.
+
+### `summonSanctifier.pasted`
+
+For text pasted from documents, chat apps and PDFs, and for model output. Some models put narrow no-break spaces (U+202F) and other look-alike spaces into their answers. This preset uses `normalizeSpaces`, `purgeZeroWidthSpaces` and `normalizeNewlines`: look-alike spaces become ordinary spaces, zero-width spaces and word joiners are removed, and CRLF and CR become LF. It keeps emoji joiners, variation selectors, bidi marks, indentation, blank lines and leading and trailing whitespace, so it is safe on code and Markdown.
+
+### `revealInvisible(text: string, options?: RevealOptions): string`
+
+Replaces every character `inspectTextDetailed` would report with a visible marker and leaves everything else alone, including tabs, newlines and emoji. Use it to show hidden text in logs, diffs, review tools and agent tool output. Also in the browser build.
+
+```js
+import { revealInvisible } from 'text-sanctifier';
+
+revealInvisible('a\u200Bb\u{E0041}');                    // 'a<U+200B>b<U+E0041>'
+revealInvisible('a\u202Eb', { format: (codePoint, category) => `[${category}]` }); // 'a[bidi_control]b'
+```
+
+The default marker is `<U+XXXX>` with at least four uppercase hex digits. Every hidden character is replaced, with no cap like `maxFindings`. A literal `<U+200B>` already in the text looks the same as a marker; pass `format` to choose markers that can't occur in your input.
 
 ### `inspectText(text: string): UnicodeTrashReport`
 
@@ -224,6 +262,7 @@ The package ships a `text-sanctifier` command for CI and coding agents, which ca
 ```sh
 npx text-sanctifier check src docs "**/*.md"
 npx text-sanctifier fix --dry-run src
+npx text-sanctifier reveal notes.md
 ```
 
 ### `check [paths...]`
@@ -294,17 +333,27 @@ repos:
 
 ### `fix [paths...]`
 
-Rewrites files in place and reports what it removed.
+Rewrites files in place and reports what it replaced and removed.
 
+- `--normalize-spaces`: `normalizeSpaces` (look-alike spaces become ordinary spaces)
 - `--purge-invisible`: `purgeInvisibleChars`
 - `--nuke-controls`: `nukeControls`
 - `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
-- With none of the three, `fix` uses `--purge-invisible --nuke-controls`, which removes exactly what `check` reports.
+- With none of these, `fix` uses `--normalize-spaces --purge-invisible --nuke-controls`: look-alike spaces become ordinary spaces, and everything else `check` reports is removed.
 - `--strip-bom`: also remove a BOM at offset 0. It is kept by default.
 - `--dry-run`: write nothing; report what would change.
-- `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, removed, removedTotal, newlinesNormalized }`.
+- `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, spacesReplaced, removed, removedTotal, newlinesNormalized }`.
 
-`fix` deletes characters; it does not replace them. A non-breaking space between two words joins them, and emoji lose their zero width joiners and variation selectors. Run `check` or `fix --dry-run` first on prose.
+Apart from look-alike spaces, `fix` deletes characters. Emoji lose their zero width joiners and variation selectors, and so does Mongolian text. Run `check` or `fix --dry-run` first on prose. To make hidden characters visible without changing a file, use `reveal`.
+
+### `reveal [paths...]`
+
+Prints each input with every character `check` would report replaced by a marker such as `<U+200B>` (see `revealInvisible`). Everything else, including newlines, is printed as it is, and files are never changed. Several inputs are printed one after another under `==> path <==` headers. `reveal` takes no options and exits 0 unless an input can't be read.
+
+```sh
+npx text-sanctifier reveal AGENTS.md
+git diff | npx text-sanctifier reveal
+```
 
 ### Inputs
 
@@ -315,11 +364,11 @@ Rewrites files in place and reports what it removed.
 
 ### Exit codes
 
-| Code | `check` | `fix` |
-| --- | --- | --- |
-| 0 | nothing found | done (or nothing to do) |
-| 1 | findings | `--dry-run` with changes pending |
-| 2 | usage error, missing path or unreadable file | same |
+| Code | `check` | `fix` | `reveal` |
+| --- | --- | --- | --- |
+| 0 | nothing found | done (or nothing to do) | done |
+| 1 | findings | `--dry-run` with changes pending | not used |
+| 2 | usage error, missing path or unreadable file | same | same |
 
 ---
 

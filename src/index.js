@@ -7,6 +7,9 @@ export { inspectText, inspectTextDetailed, getNewlineStats, getRecommendedSancti
 import { summonSanctifier } from './sanctifyText.js';
 export { summonSanctifier };
 
+import { revealInvisible } from './reveal.js';
+export { revealInvisible };
+
 // Type-only re-exports so TypeScript consumers can name these from the package root.
 /** @typedef {import('./inspectText.js').UnicodeTrashReport} UnicodeTrashReport */
 /** @typedef {import('./inspectText.js').TrashCategory} TrashCategory */
@@ -16,6 +19,7 @@ export { summonSanctifier };
 /** @typedef {import('./inspectText.js').InspectDetailedOptions} InspectDetailedOptions */
 /** @typedef {import('./inspectText.js').NewlineStats} NewlineStats */
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
+/** @typedef {import('./reveal.js').RevealOptions} RevealOptions */
 
 
 // In Future: export helpers for power users

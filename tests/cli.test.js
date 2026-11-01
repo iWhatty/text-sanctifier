@@ -273,9 +273,45 @@ try {
     assertEqual(read(cwd, 'g.txt'), 'ab\n', 'fix --strip-bom: leading BOM removed');
     assertEqual(
       JSON.stringify(json.files[0]),
-      JSON.stringify({ path: 'g.txt', removed: { zero_width: 1, bom: 1 }, removedTotal: 2, newlinesNormalized: false }),
+      JSON.stringify({ path: 'g.txt', spacesReplaced: 0, removed: { zero_width: 1, bom: 1 }, removedTotal: 2, newlinesNormalized: false }),
       'fix --json: per-file removed counts'
     );
+
+    // Look-alike spaces become ordinary spaces by default, so words don't run together
+    const NBSP = ch(0xA0);
+    const NNBSP = ch(0x202F);
+    writeFileSync(join(cwd, 's.txt'), `Hello${NBSP}world${NNBSP}!${ZWSP}\n`);
+    const spaced = run(['fix', 's.txt'], { cwd });
+    assertEqual(read(cwd, 's.txt'), 'Hello world !\n', 'fix: default replaces look-alike spaces instead of deleting them');
+    assertEqual(
+      lines(spaced.stdout)[0],
+      'fixed s.txt: replaced 2 look-alike spaces; removed 1 (zero_width 1)',
+      'fix: report counts replaced spaces apart from removals'
+    );
+    writeFileSync(join(cwd, 's2.txt'), `a${NBSP}b\n`);
+    run(['fix', '--purge-invisible', 's2.txt'], { cwd });
+    assertEqual(read(cwd, 's2.txt'), 'ab\n', 'fix --purge-invisible alone still deletes look-alike spaces');
+    writeFileSync(join(cwd, 's3.txt'), `a${NBSP}b${ZWSP}\n`);
+    run(['fix', '--normalize-spaces', 's3.txt'], { cwd });
+    assertEqual(read(cwd, 's3.txt'), `a b${ZWSP}\n`, 'fix --normalize-spaces alone only replaces spaces');
+    assertEqual(run(['check', '--normalize-spaces', 's3.txt'], { cwd }).code, 2, '--normalize-spaces on check exits 2');
+  }
+
+  // --- reveal ---
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'r.txt'), `a${ZWSP}b\tc${CRLF}${tags('hi')}${cp(0x1F600)}\n`);
+    writeFileSync(join(cwd, 'clean.txt'), 'plain\n');
+    const one = run(['reveal', 'r.txt'], { cwd });
+    assertEqual(one.code, 0, 'reveal: exit 0');
+    assertEqual(one.stdout, `a<U+200B>b\tc${CRLF}<U+E0068><U+E0069>${cp(0x1F600)}\n`, 'reveal: markers in place, tabs, CRLF and emoji kept');
+    const two = run(['reveal', 'r.txt', 'clean.txt'], { cwd });
+    assertEqual(two.stdout.startsWith('==> r.txt <==\na<U+200B>b'), true, 'reveal: several inputs get headers');
+    assertEqual(two.stdout.includes('\n==> clean.txt <==\nplain\n'), true, 'reveal: second input after its header');
+    assertEqual(run(['reveal', '-'], { cwd, input: `x${RLO}y` }).stdout, 'x<U+202E>y', 'reveal -: stdin');
+    assertEqual(run(['reveal', '--json', 'r.txt'], { cwd }).code, 2, 'reveal --json exits 2');
+    assertEqual(run(['reveal', '--purge-invisible', 'r.txt'], { cwd }).code, 2, 'reveal with a fix flag exits 2');
+    assertEqual(run(['reveal', 'missing.txt'], { cwd }).code, 2, 'reveal: missing path exits 2');
   }
 
   // --- globs outside git ---

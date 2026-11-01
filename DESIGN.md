@@ -94,7 +94,7 @@ The goal is for the web and server tracks to move forward together without drift
 - **Done: one table of categories and code-point ranges, used everywhere.** `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
 - **Done: complete coverage of Default_Ignorable_Code_Point**, the Unicode property for characters renderers must draw as nothing. A test checks it against the running Node's Unicode data, so a Node upgrade with newer Unicode fails until the table catches up.
 - **Next: one planned set of category changes** for both tracks. It covers the open questions above (the emoji joiner, the two kinds of variation selector, the `nonbreaking_space` name) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates, noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
-- **A reveal helper** that renders hidden characters visibly (for example `<ZWJ>` or `<U+E0041>`), as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output.
+- **Done: a reveal helper.** `revealInvisible` and `text-sanctifier reveal` render hidden characters visibly as `<U+XXXX>` markers, as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output. Unicode character names in markers would need a name table, so they belong in the server track.
 - **One test corpus run against both builds**, so the source build and the browser build can never report differently.
 
 ### Server track (Node, agents, CI)
@@ -114,8 +114,8 @@ Capability over size.
 
 Size over features.
 
-- **Done: a gzipped size budget enforced by `npm run ci`.** `GZIP_BUDGET_BYTES` in `scripts/buildc.js` is 3072 bytes; the bundle is 2632. Raising the budget is a deliberate decision made in the same commit as the growth.
-- **A preset for model output and pasted text**: look-alike spaces become ordinary spaces, zero-width characters are removed, quote and dash folding is optional, and it reports how many of each it changed.
+- **Done: a gzipped size budget enforced by `npm run ci`.** `GZIP_BUDGET_BYTES` in `scripts/buildc.js` is 3072 bytes; the bundle is 2864. Raising the budget is a deliberate decision made in the same commit as the growth.
+- **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
 - **Smaller builds where they pay off** (for example inspect-only), so a page includes only what it uses.
 
@@ -130,7 +130,7 @@ Size over features.
 1. Done: the single category table, full default-ignorable coverage, and the size budget.
 2. Done: the AI configuration file check, SARIF output and the pre-commit hook. These came first because the risk is current and the work is small.
 3. The planned category changes, coordinated with consumers and shipped together.
-4. Context-aware findings and the reveal helper.
+4. Context-aware findings (the reveal helper and the pasted-text preset are done).
 5. The server entry point, once the first server-only feature needs a home.
 
 ## Releases
