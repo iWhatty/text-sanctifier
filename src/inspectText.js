@@ -1,13 +1,7 @@
 // ./src/inspectText.js
 
-import {
-    CONTROL_CHARS_REGEX,
-    INVISIBLE_TRASH_REGEX,
-    EMOJI_REGEX,
-    ASCII_KEYBOARD_SAFE_REGEX,
-    normalizeTypographicJank,
-} from './sanctifyText.js';
-import { classifyCodeUnit, classifyAstral } from './categories.generated.js';
+import { CONTROL_CHARS_REGEX, INVISIBLE_TRASH_REGEX, classifyCodeUnit, classifyAstral } from './categories.generated.js';
+import { EMOJI_REGEX, ASCII_KEYBOARD_SAFE_REGEX, normalizeTypographicJank } from './textPatterns.js';
 
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
 

@@ -4,6 +4,7 @@ text-sanctifier/
 │   ├── index.d.ts            type declarations
 │   ├── sanctifyText.js       core normalizer
 │   ├── inspectText.js        diagnostics helper
+│   ├── textPatterns.js       emoji, keyboard and typographic patterns shared by both
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   └── categories.generated.js  purge regexes + classifier (generated; do not edit)
 ├── bin/

@@ -19,7 +19,8 @@ import { resolve } from 'path';
 const ROOT = resolve('.');
 
 // Strings that mark the sanitizer engine and the emoji tables: detection-only imports
-// must not contain them.
+// must not contain them. inspectText reports emoji, so it may contain the emoji table,
+// but not the sanitizer.
 const SANITIZER = 'sanctifyText expects';
 const EMOJI_TABLE = 'Extended_Pictographic';
 
@@ -29,7 +30,7 @@ const PROBES = [
     { name: 'revealInvisible', code: "import { revealInvisible } from './src/index.js'; revealInvisible('');", budget: 1250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'getNewlineStats', code: "import { getNewlineStats } from './src/index.js'; getNewlineStats('');", budget: 350, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'getRecommendedSanctifierOptions', code: "import { getRecommendedSanctifierOptions } from './src/index.js'; getRecommendedSanctifierOptions({});", budget: 250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
-    { name: 'inspectText', code: "import { inspectText } from './src/index.js'; inspectText('');", budget: 2100 },
+    { name: 'inspectText', code: "import { inspectText } from './src/index.js'; inspectText('');", budget: 1250, mustNotContain: [SANITIZER] },
     { name: 'summonSanctifier', code: "import { summonSanctifier } from './src/index.js'; summonSanctifier({})('');", budget: 1600 },
     { name: 'summonSanctifier.pasted', code: "import { summonSanctifier } from './src/index.js'; summonSanctifier.pasted('');", budget: 1600 },
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 700, mustNotContain: [SANITIZER, EMOJI_TABLE] },

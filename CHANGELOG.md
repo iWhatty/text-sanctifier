@@ -2,6 +2,12 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## Unreleased
+
+No API, behavior or category changes.
+
+- build: `inspectText` no longer pulls in the sanitizer when bundled: 1882 → 1106 bytes gzipped. The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) moved to `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `npm run size` now fails if `inspectText` contains the sanitizer, and its budget drops from 2100 to 1250 bytes
+
 ## 1.3.5 — 2026-11-01
 
 Patch: `revealInvisible`, the `pasted` preset and a `reveal` command; a fix for `onMaxLength` in the browser build; the browser file built with esbuild, and size budgets per import. No API removals and no category changes.

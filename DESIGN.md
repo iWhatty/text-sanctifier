@@ -48,7 +48,7 @@ These are tested. Keep them true.
 
 - **What inspection reports equals what purging removes.** The categories in `inspectTextDetailed` cover exactly `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX`, checked over every code point U+0000–U+10FFFF.
 - **Nothing a renderer hides goes unreported.** Every Default_Ignorable_Code_Point in the running Node's Unicode data is in a category.
-- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`).
+- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables, and `inspectText`, which reports emoji, must not contain the sanitizer. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`).
 - **One pass, no copies** for inspection and newline counting; performance claims in the docs are measured.
 - **Zero runtime dependencies.**
 - **Public field names survive the minifier.** The browser file is built with esbuild, which does not rename properties; the dist tests check every public field.
@@ -118,7 +118,8 @@ Size over features.
 - **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
-- **Next: make the sanitizer tree-shakeable.** Presets are attached as properties (`summonSanctifier.strict = ...`) and the emoji regex is built at load time, so any import from `sanctifyText.js` keeps the whole sanitizer and every preset. Standalone preset exports and a side-effect-free emoji regex would let `inspectText` drop the sanitizer (measured: about 1.9 KB to 1.1 KB gzipped) and a single preset drop the others, while `summonSanctifier.strict` and the rest keep working.
+- **Done: `inspectText` no longer pulls in the sanitizer.** The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) live in `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `inspectText` went from 1882 to 1106 bytes gzipped, and its size probe now fails if the sanitizer leaks back in.
+- **Open decision: standalone preset exports.** Presets are attached as properties (`summonSanctifier.strict = ...`), which bundlers keep as side effects, so any preset import carries the engine plus every preset. A standalone export per preset would take one preset from 1416 to 1116 bytes gzipped (measured); dropping the presets from `summonSanctifier` itself saves only about 70 bytes. It adds public names, which are API, so it waits for a decision; `summonSanctifier.strict` and the rest would keep working.
 
 ### Not planned here
 
