@@ -105,7 +105,7 @@ Capability over size.
 - **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector are left out. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
 - **Done: integration that runs locally.** `check --format sarif` (SARIF 2.1.0, a level per category, set in the command line) and `.pre-commit-hooks.yaml` with two hooks. No cloud CI.
 - **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
-- **Context-aware findings**, using `Intl.Segmenter`, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones, and to leave the legitimate ones alone by default.
+- **Context-aware findings**, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones. Proposed design below, not built yet.
 - **A bidi balance check** for unterminated or overlapping bidi controls, the specific Trojan Source pattern.
 - **`fix` options and reports:** rewrite characters in source as escape sequences instead of deleting them, list each removal by its offset in the original text, and allow suppressions by code point or path.
 - **Streaming inspection** for very large files.
@@ -135,6 +135,41 @@ Size over features.
 3. The planned category changes, coordinated with consumers and shipped together.
 4. Context-aware findings (the reveal helper and the pasted-text preset are done).
 5. The server entry point, once the first server-only feature needs a home.
+
+## Proposal: context-aware findings (not built)
+
+Status: proposed 2026-11-01, waiting for a decision on the names. Nothing here is API yet.
+
+**Problem.** `zero_width` counts U+200D inside emoji such as a family emoji, and `variation_selector` counts VS16 in emoji and the ideographic selectors (U+E0100–U+E01EF) in CJK names. A consumer that warns from `counts` can't tell those from a joiner or selector used to hide text. The listed findings carry the code point, which separates U+200D from U+200B, but not whether a U+200D sits inside an emoji.
+
+**Not a category split.** New categories would add `counts` keys and change `TrashCategory`, a breaking change for every consumer that reads `counts`. The categories stay as they are; context is reported next to them.
+
+**Shape.** A separate entry point, `text-sanctifier/context`, so the core and the browser file don't pay for the Unicode property tables:
+
+```js
+import { inspectTextInContext } from 'text-sanctifier/context';
+
+const report = inspectTextInContext(text, { maxFindings: 20 });
+// everything inspectTextDetailed returns: findings, counts, total, truncated
+// plus benignCounts: the same keys as counts, exact whether or not a finding is listed
+// and benign: true on each listed finding that is part of a legitimate sequence
+```
+
+`counts` is unchanged, so `counts[c] - benignCounts[c]` is the number of suspicious characters in category `c`. Exact benign counts are the point: a consumer that warns from counts beyond the listed findings can't use a flag on listed findings alone.
+
+**Rules** (conservative: when in doubt, not benign):
+- U+200D between two `Extended_Pictographic` code points, allowing a skin-tone modifier or VS16 after the first: an emoji ZWJ sequence.
+- U+FE0E or U+FE0F directly after a code point that has an emoji presentation (`Extended_Pictographic`, or a keycap base followed by U+20E3).
+- U+E0100–U+E01EF, one selector directly after an `Ideographic` code point: an ideographic variation sequence.
+- U+180B–U+180D, U+180F directly after a Mongolian letter.
+- Tag characters forming the England, Scotland or Wales flag, as `findHiddenRuns` already decides.
+- Never benign: U+200B, U+2060, U+FEFF (a BOM at offset 0 already has `atStart`), bidi controls, other tags, everything else. ZWNJ and ZWJ in scripts that need them (Persian, Indic) are left for a later rule, so they count as not benign for now.
+
+**Implementation.** The same single pass as `inspectTextDetailed`, checking only the neighbours of each finding with sticky regexes (`/\p{Extended_Pictographic}/yu` at an index), so nothing is allocated per character and memory stays flat with `maxFindings` set. Neighbour checks match the rules above exactly and need no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster and decide nothing these rules don't. It needs Unicode property escapes in regexes (ES2018: Node 10+, every current browser).
+
+**Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; names to decide.
+
+**Size and tests.** Its own size probe and budget; core probes unchanged. Tests: every rule with positive and negative cases, `benignCounts` equal to the benign listed findings when nothing is truncated, `benignCounts[c] <= counts[c]`, and the 16 M-unit heap check.
 
 ## Releases
 
