@@ -2,12 +2,12 @@
 
 [![npm](https://badgen.net/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 [![downloads](https://badgen.net/npm/dm/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![bundle size](https://badgen.net/static/gzip/under%203%20kB/green)](https://bundlejs.com/?q=text-sanctifier)
+[![bundle size](https://badgen.net/static/gzip/under%203%20KiB/green)](https://bundlejs.com/?q=text-sanctifier)
 [![license](https://badgen.net/static/license/AGPL-3.0%20%2B%20terms/blue)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
 [![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. ~2.87 KB gzipped.
+Brutal text normalizer and invisible Unicode scrubber for modern web projects. The prebuilt browser file stays under 3 KiB gzipped, a budget `npm run ci` enforces; with a bundler you pay only for what you import.
 
 ## Features
 

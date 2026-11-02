@@ -10,6 +10,7 @@ Patch: `inspectTextInContext` marks joiners in Indic and Arabic-script text as b
 - feat: `inspectTextInContext` returns `benignSupplementarySelectorCount`, the benign U+E0100–U+E01EF, so `findHiddenRuns(text).supplementarySelectorCount` minus it is the exact number of suspicious supplementary selectors
 - build: `scripts/gen-virama.js` derives the 69 viramas from Node's normalization data into `src/virama.generated.js`; `npm run gen:check` fails when Node's Unicode data changes the set
 - build: size budget: `text-sanctifier/context` 2074 bytes gzipped (budget 1850 -> 2250), most of it the virama table
+- docs: the README states the browser file's size as its enforced budget, under 3 KiB gzipped, instead of a measured figure that had gone stale (~2.87 KB; it is 3035 bytes). The bundle-size badge says "under 3 KiB": 3035 bytes is over 3 kB
 
 ## 1.3.7 — 2026-11-01
 
@@ -59,7 +60,7 @@ Patch: docs only. No code, API or category changes; the browser bundle is unchan
 - docs: CHANGELOG headings match the published releases. The section seeded as "Unreleased — 2026-03-02" is split into 1.0.18, 1.0.19 and 1.0.20 (1.0.20 was missing), and "0.0.16" is corrected to 1.0.16
 - the pre-commit hooks were checked with pre-commit 4.7.0 (`pre-commit try-repo`): both pass on clean files, and both fail with the expected findings on a zero-width space and on hidden tag text, with `--ai-config` decoding the text and checking only agent instruction files
 - docs: the README pre-commit example uses `rev: v1.3.4`
-- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request, so the badges published with 1.3.3 still show as broken images on npm. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
+- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request; the badges published with 1.3.3 showed as broken images on npm until this release. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
 
 ## 1.3.3 — 2026-10-29
 
