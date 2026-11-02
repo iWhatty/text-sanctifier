@@ -43,8 +43,8 @@
   "types": "./dist/types/index.d.ts",
   "sideEffects": false,
   "scripts": {
-    "gen": "node scripts/gen-categories.js && node scripts/gen-version.js",
-    "gen:check": "node scripts/gen-categories.js --check && node scripts/gen-version.js --check",
+    "gen": "node scripts/gen-categories.js && node scripts/gen-version.js && node scripts/gen-virama.js",
+    "gen:check": "node scripts/gen-categories.js --check && node scripts/gen-version.js --check && node scripts/gen-virama.js --check",
     "build": "node scripts/build.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",

@@ -52,6 +52,7 @@ const inContext: ContextReport = inspectTextInContext('x', { maxFindings: 20 });
 const contextFinding: ContextFinding | undefined = inContext.findings[0];
 const benignFlag: boolean | undefined = contextFinding?.benign;
 const suspiciousZeroWidth: number = inContext.counts.zero_width - inContext.benignCounts.zero_width + inContext.benignTotal;
+const benignSupplementary: number = inContext.benignSupplementarySelectorCount;
 const runKind: HiddenRunKind | undefined = firstRun?.kind;
 const decodedTags: string = decodeTagText('x');
 

@@ -7,12 +7,14 @@ text-sanctifier/
 │   ├── textPatterns.js       emoji, keyboard and typographic patterns shared by both
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   ├── context.js            inspectTextInContext: benign findings (text-sanctifier/context)
-│   └── categories.generated.js  purge regexes + classifier (generated; do not edit)
+│   ├── categories.generated.js  purge regexes + classifier (generated; do not edit)
+│   └── virama.generated.js   combining class 9 code points for context.js (generated; do not edit)
 ├── bin/
 │   └── text-sanctifier.js    command line (check / fix)
 ├── scripts/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check
+│   ├── gen-virama.js         npm run gen / gen:check: the virama table from Node's Unicode data
 │   ├── build.js              esbuild build of dist/text-sanctifier.min.js
 │   └── check-size.js         per-import size budgets and leak checks
 ├── tests/

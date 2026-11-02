@@ -138,7 +138,7 @@ Size over features.
 
 ## Context-aware findings
 
-Status: built as proposed (2026-11-01), unreleased. The names below are API.
+Status: built as proposed and released in 1.3.7; script joiners added after it (see below). The names below are API.
 
 **Problem.** `zero_width` counts U+200D inside emoji such as a family emoji, and `variation_selector` counts VS16 in emoji and the ideographic selectors (U+E0100–U+E01EF) in CJK names. A consumer that warns from `counts` can't tell those from a joiner or selector used to hide text. The listed findings carry the code point, which separates U+200D from U+200B, but not whether a U+200D sits inside an emoji.
 
@@ -163,9 +163,17 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 - U+E0100–U+E01EF, one selector directly after an `Ideographic` code point: an ideographic variation sequence.
 - U+180B–U+180D, U+180F directly after a Mongolian letter.
 - Tag characters forming the England, Scotland or Wales flag, as `findHiddenRuns` already decides.
-- Never benign: U+200B, U+2060, U+FEFF (a BOM at offset 0 already has `atStart`), bidi controls, other tags, everything else. ZWNJ and ZWJ in scripts that need them (Persian, Indic) are left for a later rule, so they count as not benign for now.
+- U+200C or U+200D directly after a virama, and U+200C between two Arabic-script letters: see "Script joiners" below.
+- Never benign: U+200B, U+2060, U+FEFF (a BOM at offset 0 already has `atStart`), bidi controls, other tags, everything else.
 
 **Implementation.** The same single pass as `inspectTextDetailed`, checking only the neighbours of each finding with sticky regexes (`/\p{Extended_Pictographic}/yu` at an index), so nothing is allocated per character and memory stays flat with `maxFindings` set. Neighbour checks match the rules above exactly and need no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster and decide nothing these rules don't. It needs Unicode property escapes in regexes (ES2018: Node 10+, every current browser).
+
+**Script joiners.** Persian needs ZWNJ between letters, and Indic scripts need ZWJ and ZWNJ after a virama to choose conjunct, half and explicit-virama forms. The rules follow IDNA ContextJ (RFC 5892, appendix A.1 and A.2), the established standard for where joiners are legitimate:
+- U+200C or U+200D directly after a code point with Canonical_Combining_Class 9 (Virama). JavaScript regexes have no property for combining classes, so `scripts/gen-virama.js` derives the 69 viramas from Node's own normalization data (canonical reordering puts a class 9 mark after class 8 and before class 10) and writes `src/virama.generated.js`. `npm run gen:check` fails when Node's Unicode data changes the set. Exact.
+- U+200C between two Arabic-script letters (`(?=\p{Script=Arabic})\p{L}`), skipping nonspacing marks (`\p{Mn}`) on both sides. The RFC asks for Joining_Type L or D before and R or D after, with transparent marks between; Joining_Type is not a regex property, and shipping ArabicShaping.txt as a table would cost bytes and could not be checked against Node. So this rule is approximate: it also accepts a ZWNJ after a right-joining or non-joining Arabic letter, and it accepts none in the other joining scripts (Syriac, N'Ko, Mongolian, Adlam and others).
+- ZWJ between Arabic letters is not benign; the RFC allows ZWJ only after a virama.
+
+**Supplementary selectors, exactly.** `benignSupplementarySelectorCount` counts the benign U+E0100–U+E01EF, part of `benignCounts.variation_selector`. `findHiddenRuns(text).supplementarySelectorCount` counts every one of them (it never marks them benign), so the difference is the exact number of suspicious ones, which `benignCounts.variation_selector` alone can't give because it also counts emoji selectors.
 
 **Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; built as proposed.
 

@@ -182,4 +182,59 @@ function heapGrowthMb(fn) {
 }
 
 
+// 10. Joiners in scripts that need them: IDNA ContextJ (RFC 5892, appendix A.1 and A.2)
+{
+  const ZWNJ = cp(0x200C);
+  const KA = cp(0x0915), SSA = cp(0x0937), VIRAMA = cp(0x094D), NUKTA = cp(0x093C);
+  assertEqual(flags(KA + VIRAMA + ZWJ + SSA), '1', '10. Devanagari: ZWJ after a virama is benign');
+  assertEqual(flags(KA + VIRAMA + ZWNJ + SSA), '1', '10. Devanagari: ZWNJ after a virama is benign');
+  assertEqual(flags(cp(0x0995) + cp(0x09CD) + ZWJ) + flags(cp(0x0D15) + cp(0x0D4D) + ZWJ), '11', '10. Bengali and Malayalam viramas');
+  assertEqual(flags(cp(0x0DA4) + cp(0x0DCA) + ZWJ) + flags(cp(0x1000) + cp(0x103A) + ZWNJ), '11', '10. Sinhala al-lakuna and Myanmar asat');
+  assertEqual(flags(cp(0x11013) + cp(0x11046) + ZWJ), '1', '10. Brahmi: a supplementary-plane virama');
+  assertEqual(flags(KA + ZWJ + SSA) + flags(KA + ZWNJ + SSA), '00', '10. joiners after a consonant without a virama are not benign');
+  assertEqual(flags(KA + NUKTA + ZWJ), '0', '10. a nukta is not a virama');
+  assertEqual(flags(KA + VIRAMA + ZWJ + ZWJ), '10', '10. only the joiner right after the virama is benign');
+  assertEqual(flags(KA + VIRAMA + ZWSP), '0', '10. a zero width space after a virama is not benign');
+
+  // Persian: U+200C between two Arabic-script letters, skipping marks
+  const MEEM = cp(0x0645), YEH = cp(0x06CC), KHAH = cp(0x062E), BEH = cp(0x0628), HEH = cp(0x0647);
+  assertEqual(flags(MEEM + YEH + ZWNJ + KHAH), '1', '10. Persian: ZWNJ between Arabic letters is benign');
+  assertEqual(flags(BEH + cp(0x064E) + ZWNJ + cp(0x0651) + HEH), '1', '10. Persian: marks on either side are skipped');
+  assertEqual(flags(cp(0x05D0) + ZWNJ + BEH), '0', '10. a Hebrew letter before is not benign');
+  assertEqual(flags(BEH + ZWNJ + 'a') + flags('a' + ZWNJ + BEH), '00', '10. a Latin letter on one side is not benign');
+  assertEqual(flags('a' + ZWNJ + 'b'), '0', '10. ZWNJ between Latin letters is not benign');
+  assertEqual(flags(ZWNJ + BEH) + flags(BEH + ZWNJ), '00', '10. ZWNJ at the start or the end is not benign');
+  assertEqual(flags(BEH + ZWNJ + ZWNJ + HEH), '00', '10. two ZWNJ in a row are not benign');
+  assertEqual(flags(BEH + cp(0x064E) + cp(0x064E)), '', '10. marks alone are not findings');
+  assertEqual(flags(BEH + ZWJ + HEH), '0', '10. ZWJ between Arabic letters is not benign (only after a virama)');
+  assertEqual(flags(BEH + ZWSP + HEH), '0', '10. a zero width space between Arabic letters is not benign');
+
+  const report = inspectTextInContext(`${MEEM}${YEH}${ZWNJ}${KHAH} ${KA}${VIRAMA}${ZWJ}${SSA} a${ZWNJ}b`, { maxFindings: 0 });
+  assertEqual(report.counts.zero_width + ':' + report.benignCounts.zero_width, '3:2', '10. benignCounts.zero_width counts the script joiners');
+}
+
+
+// 11. benignSupplementarySelectorCount: suspicious U+E0100-U+E01EF are counted exactly
+{
+  const text = `${cp(0x845B)}${cp(0xE0100)} a${cp(0xE0101)} ${cp(0xFE00)} ${cp(0x270C)}${VS16} ${cp(0x20000)}${cp(0xE01EF)}${cp(0xE0102)}`;
+  const ctx = inspectTextInContext(text, { maxFindings: 1 });
+  assertEqual(ctx.benignSupplementarySelectorCount, 2, '11. two benign ideographic variation selectors');
+  assertEqual(ctx.benignCounts.variation_selector, 3, '11. benignCounts.variation_selector also counts VS16');
+  const scan = findHiddenRuns(text);
+  assertEqual(scan.supplementarySelectorCount - ctx.benignSupplementarySelectorCount, 2, '11. findHiddenRuns supplementarySelectorCount minus it is the suspicious count');
+  assertEqual(inspectTextInContext('plain').benignSupplementarySelectorCount, 0, '11. zero on clean text');
+}
+
+
+// 12. Heap stays flat with many script joiners
+{
+  const M = 8 * 1024 * 1024;
+  const persian = (cp(0x0628) + cp(0x200C)).repeat(M); // 16 M units
+  persian.charCodeAt(0);
+  const a = heapGrowthMb(() => inspectTextInContext(persian, { maxFindings: 20 }));
+  assertEqual(a.result.benignCounts.zero_width + ':' + a.result.counts.zero_width, `${M - 1}:${M}`, '12. 8 M ZWNJ between Arabic letters: all benign but the last');
+  assertEqual(a.grew < 4, true, `12. 16 M units of Persian joiners, maxFindings: 20 (heap grew ${a.grew.toFixed(1)} MB, limit 4)`);
+}
+
+
 console.log('All context tests finished.');

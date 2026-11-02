@@ -285,8 +285,12 @@ Benign, and nothing else:
 - one of U+E0100–U+E01EF directly after an ideograph
 - U+180B–U+180D or U+180F directly after a Mongolian letter
 - the tags of the England, Scotland and Wales flags
+- U+200C or U+200D directly after a virama (Devanagari, Bengali, Tamil, Malayalam, Sinhala, Myanmar and the other scripts with one), as IDNA ContextJ (RFC 5892) allows
+- U+200C between two Arabic-script letters, skipping marks, as in Persian. This approximates the RFC's joining-type rule: it also accepts a ZWNJ after a letter that does not join to the left, and none in other joining scripts such as Syriac
 
-U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign. Joiners in scripts that need them (ZWNJ in Persian, ZWJ in Indic scripts) are not benign yet. It needs Unicode property escapes (Node 10+, current browsers), is not in the browser file, and is about 1.7 KB gzipped on its own.
+U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. It needs Unicode property escapes (Node 10+, current browsers), is not in the browser file, and is about 2.1 KB gzipped on its own.
+
+`benignSupplementarySelectorCount` counts the benign ideographic selectors U+E0100–U+E01EF. With `findHiddenRuns` from `text-sanctifier/hidden`, `scan.supplementarySelectorCount - report.benignSupplementarySelectorCount` is the exact number of suspicious ones.
 
 ---
 

@@ -38,8 +38,9 @@ const PROBES = [
     // 593 -> 912 for line/column, maxRuns, maxDecodedLength and exact counts on each run;
     // 943 -> 996 for the reserved_tag_plane kind and code-point totals.
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1100, mustNotContain: [SANITIZER, EMOJI_TABLE] },
-    // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes.
-    { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 1850, mustNotContain: [SANITIZER] },
+    // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes;
+    // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the 69-code-point virama table.
+    { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 2250, mustNotContain: [SANITIZER] },
     { name: 'VERSION', code: "import { VERSION } from './src/index.js'; console.log(VERSION);", budget: 60, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'everything', code: "export * from './src/index.js';", budget: 3072 },
 ];
