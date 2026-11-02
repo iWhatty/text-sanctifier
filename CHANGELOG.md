@@ -2,10 +2,11 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## Unreleased
+## 1.3.8 — 2026-11-02
 
 Patch: `inspectTextInContext` marks joiners in Indic and Arabic-script text as benign, and counts benign supplementary selectors. No API removals and no category changes. Behavior change: U+200C and U+200D that were reported `benign: false` after a virama, and U+200C between Arabic-script letters, are now `benign: true` and counted in `benignCounts.zero_width`.
 
+- docs: the README pre-commit example uses `rev: v1.3.8`
 - feat: `inspectTextInContext` follows IDNA ContextJ (RFC 5892, appendix A.1 and A.2): U+200C or U+200D directly after a virama (Canonical_Combining_Class 9) is benign, exactly; U+200C between two Arabic-script letters, nonspacing marks skipped, is benign, an approximation of the RFC's joining-type rule. U+200D between Arabic letters stays suspicious
 - feat: `inspectTextInContext` returns `benignSupplementarySelectorCount`, the benign U+E0100–U+E01EF, so `findHiddenRuns(text).supplementarySelectorCount` minus it is the exact number of suspicious supplementary selectors
 - build: `scripts/gen-virama.js` derives the 69 viramas from Node's normalization data into `src/virama.generated.js`; `npm run gen:check` fails when Node's Unicode data changes the set
