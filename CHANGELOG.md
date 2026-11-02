@@ -1,218 +1,114 @@
 # CHANGELOG — `text-sanctifier`
 
-> Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
+What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
 ## 1.3.8 — 2026-11-02
 
-Patch: `inspectTextInContext` marks joiners in Indic and Arabic-script text as benign, and counts benign supplementary selectors. No API removals and no category changes. Behavior change: U+200C and U+200D that were reported `benign: false` after a virama, and U+200C between Arabic-script letters, are now `benign: true` and counted in `benignCounts.zero_width`.
+- `inspectTextInContext` now treats a ZWNJ or ZWJ after a virama (Hindi, Bengali and other Indic scripts) and a ZWNJ between Arabic-script letters (Persian and others) as benign, following IDNA ContextJ (RFC 5892).
+- `inspectTextInContext` returns `benignSupplementarySelectorCount`, so you can subtract it from `findHiddenRuns(text).supplementarySelectorCount` to get the suspicious ones.
 
-- docs: the README pre-commit example uses `rev: v1.3.8`
-- feat: `inspectTextInContext` follows IDNA ContextJ (RFC 5892, appendix A.1 and A.2): U+200C or U+200D directly after a virama (Canonical_Combining_Class 9) is benign, exactly; U+200C between two Arabic-script letters, nonspacing marks skipped, is benign, an approximation of the RFC's joining-type rule. U+200D between Arabic letters stays suspicious
-- feat: `inspectTextInContext` returns `benignSupplementarySelectorCount`, the benign U+E0100–U+E01EF, so `findHiddenRuns(text).supplementarySelectorCount` minus it is the exact number of suspicious supplementary selectors
-- build: `scripts/gen-virama.js` derives the 69 viramas from Node's normalization data into `src/virama.generated.js`; `npm run gen:check` fails when Node's Unicode data changes the set
-- build: size budget: `text-sanctifier/context` 2074 bytes gzipped (budget 1850 -> 2250), most of it the virama table
-- docs: the README states the browser file's size as its enforced budget, under 3 KiB gzipped, instead of a measured figure that had gone stale (~2.87 KB; it is 3035 bytes). The bundle-size badge says "under 3 KiB": 3035 bytes is over 3 kB
+Behavior change: those joiners were reported `benign: false` before.
 
 ## 1.3.7 — 2026-11-01
 
-Patch: a new entry point, `text-sanctifier/context`, whose `inspectTextInContext` tells legitimate emoji joiners, presentation selectors, ideographic variation sequences, Mongolian selectors and subdivision flags from hidden ones, with exact benign counts; and code-point totals on `findHiddenRuns`. No API removals, no category changes and no changes to existing results; the browser file is unchanged.
-
-- docs: the README pre-commit example uses `rev: v1.3.7`
-- feat: `text-sanctifier/context` exports `inspectTextInContext(text, options)`: the findings, `counts`, `total` and `truncated` of `inspectTextDetailed`, plus `benign` on each listed finding and `benignCounts` and `benignTotal`, exact whether or not a finding is listed. Benign: U+200D in emoji ZWJ sequences, presentation selectors after emoji and in keycaps, one ideographic variation selector after an ideograph, Mongolian selectors after a Mongolian letter, and the tags of the England, Scotland and Wales flags. U+200B, U+2060, U+FEFF and bidi controls are never benign. The categories are unchanged. It checks only the neighbours of each candidate with sticky Unicode property regexes, so it allocates nothing per character: on 16 M UTF-16 units with `maxFindings: 20` the heap grows under 1 MB
-- feat: `findHiddenRuns` returns `codePointCounts` (code points per run kind) and `supplementarySelectorCount` (U+E0100–U+E01EF, apart from the emoji selectors), both exact beyond `maxRuns` and without benign spans
-- build: size budgets: `text-sanctifier/context` 1695 bytes gzipped (budget 1850); `text-sanctifier/hidden` 996 (budget 1000 -> 1100)
+- New entry point `text-sanctifier/context`: `inspectTextInContext(text, options)` returns the same report as `inspectTextDetailed`, plus `benign` on each finding and exact `benignCounts`. Benign means part of a legitimate sequence: emoji ZWJ sequences, emoji and keycap presentation selectors, ideographic variation sequences, Mongolian selectors after a Mongolian letter, and the England, Scotland and Wales flags. Zero-width spaces, word joiners, BOMs and bidi controls are never benign.
+- `findHiddenRuns` returns `codePointCounts` and `supplementarySelectorCount`.
 
 ## 1.3.6 — 2026-11-01
 
-Patch: standalone preset exports, a `VERSION` export, and bounded, positioned hidden-run scans in `text-sanctifier/hidden` (`maxRuns`, `maxDecodedLength`, exact counts, line and column, the `reserved_tag_plane` run kind). `inspectText` no longer pulls in the sanitizer when bundled. No API removals and no category changes. Behavior change: `findHiddenRuns` and `check --ai-config` now report the reserved code points of the tag plane as runs of their own; before, `findHiddenRuns` skipped them and `check --ai-config` listed them only as single findings.
+- Each preset is its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. Importing one bundles smaller than importing `summonSanctifier`.
+- `VERSION` export, from the package root and `text-sanctifier/hidden`.
+- `findHiddenRuns(text, { maxRuns, maxDecodedLength })` caps what it lists while keeping `counts`, `total` and `benignTotal` exact, so memory stays flat on huge inputs. Each run now has `line` and `column`.
+- `inspectText` no longer pulls in the sanitizer when bundled.
 
-- docs: the README pre-commit example uses `rev: v1.3.6`
-
-- feat: `findHiddenRuns` and `check --ai-config` report runs of the reserved code points of the tag plane, U+E0080–U+E00FF and U+E01F0–U+E0FFF, as the new run kind `reserved_tag_plane` ("reserved plane-14 code points" in text output). They were already in the `invisible_format` category, so inspection and purging are unchanged; the category list is unchanged. Together with `tag` and `variation_selector`, every code point from U+E0000 to U+E0FFF is now a run, which a test checks. A TypeScript `switch` that handles every `HiddenRunKind` needs the new case
-- feat: `VERSION`, the installed version, exported from the package root and `text-sanctifier/hidden`. It is generated from `package.json` by `npm run gen` (`scripts/gen-version.js`), so it needs no JSON import and works in the browser file; `npm run ci` fails while it is stale
-- feat: `findHiddenRuns(text, { maxRuns, maxDecodedLength })`. `maxRuns` caps the listed runs and, separately, the listed benign spans; the new `counts` (per run kind), `total`, `benignTotal` and `truncated` count everything, as `maxFindings` does for `inspectTextDetailed`. `maxDecodedLength` caps each tag run's `decoded` text without cutting a `<U+XXXX>` marker, and the new `decodedTruncated` says when it did. Both default to no cap, and invalid values mean no cap, so results are the same as before apart from the new fields. On inputs of 16 M UTF-16 units, 32 MB (8 M short runs, one 8 M-tag run, 8 M benign spans), the heap grew 629, 154 and 726 MB before; with `maxRuns: 100` and `maxDecodedLength: 1000` it stays under 1 MB, and tests check it stays under 4
-- feat: each hidden run has `line` and `column`, counted exactly as `inspectTextDetailed` counts them; a test compares them over generated text with every newline style and astral characters
-- build: `text-sanctifier/hidden` is 912 bytes gzipped, up from 593, for positions, caps and counts; its budget goes from 700 to 1000. The browser file is 3035 bytes (budget 3072), 19 more for `VERSION`
-- feat: each preset is its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`, the same functions as `summonSanctifier.strict` and the rest, with types. Importing one preset bundles to about 1.1 KB gzipped instead of 1.45 KB. `summonSanctifier` is now a `const` built with `Object.assign` in a call marked pure, instead of a function declaration with presets assigned at module load; it is called and typed the same way, and its `name` is now `createSanctifier`
-- build: the prebuilt browser file is 3016 bytes gzipped (budget 3072), 73 more for the new export names. `npm run size` adds probes for `sanctifyPasted` and `sanctifyStrict`
-- build: `inspectText` no longer pulls in the sanitizer when bundled: 1882 → 1106 bytes gzipped. The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) moved to `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `npm run size` now fails if `inspectText` contains the sanitizer, and its budget drops from 2100 to 1250 bytes
+Behavior change: `findHiddenRuns` and `check --ai-config` report the reserved tag-plane code points (U+E0080–U+E00FF, U+E01F0–U+E0FFF) as a new run kind, `reserved_tag_plane`. A TypeScript `switch` over `HiddenRunKind` needs the new case.
 
 ## 1.3.5 — 2026-11-01
 
-Patch: `revealInvisible`, the `pasted` preset and a `reveal` command; a fix for `onMaxLength` in the browser build; the browser file built with esbuild, and size budgets per import. No API removals and no category changes.
+- `revealInvisible(text, { format })` replaces hidden characters with visible markers such as `<U+200B>` and keeps everything else.
+- `summonSanctifier.pasted`, a preset for pasted text and model output: look-alike spaces become ordinary spaces, zero-width spaces are removed, and newlines are normalized. Emoji, ZWNJ, bidi marks, indentation and blank lines are kept.
+- New `SanctifyOptions`: `normalizeSpaces` and `purgeZeroWidthSpaces`.
+- New command `text-sanctifier reveal [paths...]`, and `fix --normalize-spaces`.
+- Fix: in `text-sanctifier/browser`, `onMaxLength` was ignored, so `truncate` and `noop` behaved like `throw`.
+- With a bundler, import `text-sanctifier`; `text-sanctifier/browser` is for pages with no build step.
 
 Behavior change: `text-sanctifier fix` with no cleaning flag now replaces look-alike spaces with ordinary spaces instead of deleting them, so words next to a non-breaking space no longer run together.
 
-- feat: `revealInvisible(text, { format })` replaces every character `inspectTextDetailed` would report with a visible marker (default `<U+XXXX>`) and keeps everything else, including tabs, newlines and emoji. Exported from the package root and the browser build, with a `RevealOptions` type
-- feat: `summonSanctifier.pasted`, a preset for pasted text and model output: look-alike spaces (U+00A0, U+2000–U+200A, U+202F, U+205F) become ordinary spaces, U+200B, U+2060 and U+FEFF are removed, and newlines are normalized. It keeps emoji joiners, variation selectors, ZWNJ, bidi marks, U+3000 and all indentation and blank lines
-- feat: two `SanctifyOptions`, both applied before the others: `normalizeSpaces` (the look-alike spaces above become ordinary spaces) and `purgeZeroWidthSpaces` (only U+200B, U+2060 and U+FEFF are removed)
-- feat(cli): `text-sanctifier reveal [paths...]` prints inputs with hidden characters shown as markers and never changes files. `fix --normalize-spaces` exposes `normalizeSpaces`, and is now part of the default `fix`. `fix` reports replaced spaces apart from removed characters, and its JSON gains `spacesReplaced` per file
-- fix: in the browser build, `onMaxLength` was ignored, so `truncate` and `noop` behaved like `throw`. Closure ADVANCED renamed the option because `externs.js` did not declare it. The browser file is now built with esbuild (below), and the dist test covers `maxLength` and `onMaxLength`
-- test: `SPACE_LOOKALIKES_REGEX` is checked over every code point to equal the `nonbreaking_space` category minus U+3000; the dist test covers the preset, both options, `revealInvisible` and its `format` option; the TypeScript consumer compiles against the new exports and types, and no longer contains a raw zero-width space
-- build: the prebuilt browser file (`text-sanctifier/browser`) is built with esbuild instead of Closure Compiler ADVANCED. esbuild does not rename properties, so options and fields can no longer be silently renamed in that file, the cause of the `onMaxLength` bug above. `externs.js`, the export-rewriting step and the `google-closure-compiler` and `terser` dev dependencies are gone. The file is 2942 bytes gzipped, 78 more than with Closure (budget 3072); its exports and behavior are the same, and the dist tests pass unchanged
-- build: `npm run size` (part of `npm run ci`) bundles each export on its own from the source, tree-shaken and minified, and checks its gzipped size against a budget in `scripts/check-size.js`: about 1 KB for `inspectTextDetailed` and `revealInvisible`, 0.3 KB for `getNewlineStats`, 1.4 KB for `summonSanctifier`. Detection-only imports also fail the check if they pull in the sanitizer or the emoji tables. `--worst-case` shows the sizes for a bundler that ignores `sideEffects: false`
-- docs: with a bundler, import `text-sanctifier`, not `text-sanctifier/browser`; the prebuilt file is for pages with no build step and can't be tree-shaken
-- docs: the README pre-commit example uses `rev: v1.3.5`
-
 ## 1.3.4 — 2026-11-01
 
-Patch: docs only. No code, API or category changes; the browser bundle is unchanged.
-
-- docs: CHANGELOG headings match the published releases. The section seeded as "Unreleased — 2026-03-02" is split into 1.0.18, 1.0.19 and 1.0.20 (1.0.20 was missing), and "0.0.16" is corrected to 1.0.16
-- the pre-commit hooks were checked with pre-commit 4.7.0 (`pre-commit try-repo`): both pass on clean files, and both fail with the expected findings on a zero-width space and on hidden tag text, with `--ai-config` decoding the text and checking only agent instruction files
-- docs: the README pre-commit example uses `rev: v1.3.4`
-- docs: README badges come from badgen.net. GitHub and npm proxy README images through camo, which was timing out on every shields.io request; the badges published with 1.3.3 showed as broken images on npm until this release. The bundle-size badge is static ("under 3 kB gzip"), backed by the build's size budget
+Docs only: corrected CHANGELOG headings for 1.0.16–1.0.20, and README badges that load on GitHub and npm.
 
 ## 1.3.3 — 2026-10-29
 
-Patch: a new entry point. No API removals, no category changes, and the browser bundle is unchanged.
-
-- feat: `text-sanctifier/hidden` exports `findHiddenRuns` and `decodeTagText`, the run finder behind `check --ai-config`, with types. It has no Node APIs, so browser tools (extensions, page-to-Markdown converters) can use it on text bound for a model
-- test: `tests/cli.test.js` imports the entry point through the package's own `exports` map, and `tests/types/consumer.ts` compiles against its types
-- docs: README badges on shields.io with a one-day cache; license and types badges static, bundle size from bundlejs instead of rate-limited bundlephobia
+- New entry point `text-sanctifier/hidden`: `findHiddenRuns` and `decodeTagText`, the scanner behind `check --ai-config`. It has no Node APIs, so it runs in browsers too.
 
 ## 1.3.2 — 2026-10-15
 
-Patch: full Default_Ignorable_Code_Point coverage, SARIF output, `check --ai-config` with decoding of hidden tag text, pre-commit hooks, one generated category table, and a browser-bundle size budget. No API removals and no category names changed. Behavior change: `invisible_format` and `variation_selector` now cover every remaining Default_Ignorable_Code_Point, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before, including the Mongolian free variation selectors.
+- `check --format sarif` prints a SARIF 2.1.0 log for code-scanning tools.
+- `check --ai-config [paths]` finds agent instruction files (`CLAUDE.md`, `AGENTS.md`, `SKILL.md`, Cursor and Copilot rules, MCP config and others) and reports hidden tag text, decoded, plus variation-selector and invisible-operator runs.
+- Two pre-commit hooks: `text-sanctifier` and `text-sanctifier-ai-config`.
+- Fix: `inspectTextDetailed` finds invisible characters in every plane, not only plane 14.
 
-- feat(cli): `check --format sarif` prints a SARIF 2.1.0 log: one result per finding with file, line, column (UTF-16 units) and the category as `ruleId`. Levels: `error` for `bidi_control` and `tag`, `note` for `nonbreaking_space`, `warning` for the rest. The levels live in the command line only; categories are unchanged. `--format json` is the same as `--json`, which still works
-- feat(cli): `check --ai-config [paths]` searches for agent instruction files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `SKILL.md`, `.claude/`, Cursor, Windsurf, Cline and Roo rules, Copilot instructions and prompts, MCP config JSON) and reports runs of tag characters, variation selectors and invisible operators once each, decoding the ASCII hidden in tag runs. The England, Scotland and Wales flags and a single emoji or text presentation selector are left out; a plain `check` still reports them. `--json` adds `hiddenRuns` and `hiddenRunCount`
-- feat: `.pre-commit-hooks.yaml` publishes two pre-commit hooks, `text-sanctifier` (`check` on staged text files) and `text-sanctifier-ai-config` (`check --ai-config` on staged agent instruction files). They run locally
-- The new code is in `bin/` and `src/hiddenText.js`, which `src/index.js` does not import, so the browser bundle is unchanged
-- test: `tests/cli.test.js` checks the SARIF log against the fields SARIF 2.1.0 requires (offline), the `--ai-config` file list against the pre-commit hook's `files` pattern, tag decoding, and that the flags are not reported
-- fix: every Default_Ignorable_Code_Point is now categorized; about 3,700 were missing, mostly reserved plane-14 code points
-  - `variation_selector` gains the Mongolian free variation selectors U+180B–U+180D and U+180F. They are the same smuggling vector as the other variation selectors, but legitimate in Mongolian text, which `purgeInvisibleChars` can change
-  - `invisible_format` gains U+17B4–U+17B5 (Khmer inherent vowels), U+2065, U+206A–U+206F (deprecated format characters), U+FFF0–U+FFF8, U+1BCA0–U+1BCA3 (shorthand format controls), U+1D173–U+1D17A (musical formatting), and the reserved plane-14 ranges U+E0080–U+E00FF and U+E01F0–U+E0FFF. Those sit next to the tag block, so before this a check that only covered U+E0000–U+E007F could be bypassed
-- fix: `inspectTextDetailed` decodes every surrogate pair, not just those starting with U+DB40, so invisible characters in any plane are found. Lone surrogates are still skipped. Emoji-heavy text scans faster (4 M characters: 20.1 → 14.3 ms); other text is unchanged
-- build: `npm run build` (and so `npm run ci`) fails when the gzipped browser bundle exceeds `GZIP_BUDGET_BYTES` (3072 bytes) in `scripts/buildc.js`; it is 2632 today
-- docs: DESIGN.md has a survey of similar tools and the problems seen in practice, and a roadmap with status
-- test: a drift guard checks that every Default_Ignorable_Code_Point in the running Node's Unicode data (4,174 code points in Unicode 16.0) is categorized, so a Node upgrade that brings newer Unicode data fails until `scripts/categories.js` catches up; the dist test covers the new planes
-- build: the generator no longer requires astral ranges to share one high surrogate, and `TRASH_HIGH_SURROGATE` is gone from `src/categories.generated.js` (it was never exported from the package)
-- refactor: the categories and their code points are defined once, in `scripts/categories.js`. `npm run gen` generates `CONTROL_CHARS_REGEX`, `INVISIBLE_TRASH_REGEX` and the `inspectTextDetailed` classifier (`src/categories.generated.js`), plus the category list in its JSDoc and the README table; `npm run ci` fails while any of them is stale. Checked against the previous regexes and classifier over every code point U+0000–U+10FFFF
-- perf: the classifier is a generated binary search on numbers, split in two so V8 inlines it. On 4 M characters: CJK 19.6 → 13.3 ms, emoji 12.7 → 9.3 ms, Latin-1 unchanged, NBSP 17.0 → 18.6 ms (16 MB of NBSP: about 70 → 80 ms; README updated)
-- docs: the README category table has a "Removed by" column, and `c0_control` lists its ranges explicitly
-- build: minified 5542 → 5724 bytes (category table) → 6045 (new ranges), gzipped 2495 → 2531 → 2632
+Behavior change: every Unicode Default_Ignorable_Code_Point is now categorized (about 3,700 were missing, mostly reserved plane-14 code points), so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before, including the Mongolian free variation selectors.
 
 ## 1.3.1 — 2026-10-14
 
-Patch: feedback from a downstream consumer after integrating 1.3.0. No API removals.
-
-- feat: `getNewlineStats` is exported from the package root and the browser build, with a `NewlineStats` type (`{ crlf, cr, lf, types, mixed }`); it was already used inside `inspectText` but could only be reached through `src/inspectText.js`
-- fix: U+205F (medium mathematical space) is in `nonbreaking_space`, alongside U+2000–U+200A and U+202F; `inspectText` now flags it and `purgeInvisibleChars` now strips it
-- docs: the cost of `maxFindings` grows with the number of findings, not the input size (roughly 100–200 bytes per listed finding, so `Infinity` on 8 M findings is about 1.5 GB); `maxFindings: 0` is a counts-only mode that builds no finding objects
-- test: `maxFindings: 0` on 16 MB of NBSP (16.7 M findings) keeps exact counts and leaves the heap flat; the dist test checks that `getNewlineStats` and its fields survive Closure ADVANCED; the TypeScript consumer imports `getNewlineStats` and `NewlineStats`
-- build: minified 5457 → 5542 bytes, gzipped 2462 → 2495
+- `getNewlineStats` is exported, with a `NewlineStats` type.
+- Fix: U+205F (medium mathematical space) is detected and stripped as `nonbreaking_space`.
+- `maxFindings: 0` gives exact counts without building finding objects.
 
 ## 1.3.0 — 2026-10-14
 
-Minor: adds a `text-sanctifier` command. The library API is unchanged.
-
-- feat: `text-sanctifier check [paths...]` prints `path:line:column  U+XXXX  category` for each finding from `inspectTextDetailed`, or `--json`; `--max-findings N`; exits 1 when anything is found, so CI and coding agents can run it without writing scripts
-- feat: `text-sanctifier fix [paths...]` rewrites files with `--purge-invisible`, `--nuke-controls`, `--normalize-newlines` (default: the first two), `--dry-run` (exits 1 when changes are pending) and `--json`, and reports what it removed per category
-- paths may be files, directories or globs; inside a git work tree, directories and globs skip whatever `.gitignore` excludes (via `git ls-files`); binary and non-UTF-8 files are skipped and never written; `-` or piped input reads stdin
-- a BOM at offset 0 is kept by `fix` and not reported by `check` unless `--strip-bom` is given
-- plain Node 18+, no dependencies; exit code 2 for usage errors, missing paths and unreadable files
-- test: `tests/cli.test.js` runs the command against temp directories, including a throwaway git repo for `.gitignore`
+- New `text-sanctifier` command. `check [paths...]` lists each hidden character with its line and column and exits 1 when it finds any. `fix [paths...]` removes them, with `--dry-run` and `--json`. Directories respect `.gitignore`; binary and non-UTF-8 files are skipped.
 
 ## 1.2.0 — 2026-10-14
 
-Minor: new categories, so `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip characters they left alone before. No API removals.
+- `inspectTextDetailed` sees characters above U+FFFF.
+- New categories: `tag` (tag characters used to hide instructions from humans but not from LLMs), `variation_selector`, `invisible_format` and `hangul_filler`.
 
-- feat: `inspectTextDetailed` reads surrogate pairs, so it sees invisible characters above U+FFFF. `codePoint` is the full code point; `offset` and `column` stay in UTF-16 units (the high surrogate's index)
-- feat: new categories, each also detected by `inspectText` (`hasInvisibleChars`) and stripped by `purgeInvisibleChars`:
-  - `tag`: U+E0000–U+E007F, tag characters used for "ASCII smuggling" of instructions hidden from humans but read by LLMs
-  - `variation_selector`: U+FE00–U+FE0F, U+E0100–U+E01EF. Includes VS16 in emoji (✌️ → ✌ under `purgeInvisibleChars`); `keyboardOnlyEmoji` still keeps it
-  - `invisible_format`: U+00AD soft hyphen, U+034F, U+180E, U+2061–U+2064 invisible operators
-  - `hangul_filler`: U+115F, U+1160, U+3164, U+FFA0
-- `counts` gains `invisible_format`, `hangul_filler`, `variation_selector` and `tag` (added after `c1_control`); `TrashCategory` and the Closure externs list them
-- `INVISIBLE_TRASH_REGEX` now has the `u` flag
-- build: minified 4923 → 5457 bytes, gzipped 2217 → 2462
-- test: the categories == `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX` invariant is checked over all of U+0000–U+10FFFF, not just the BMP; the dist test checks astral findings and the new count fields survive Closure ADVANCED
+Behavior change: `inspectText`, `inspectTextDetailed` and `purgeInvisibleChars` report or strip those characters now, including VS16 in emoji. `keyboardOnlyEmoji` still keeps VS16.
 
 ## 1.1.1 — 2026-10-14
 
-Patch: type declarations only. No runtime changes; the browser build is byte-identical.
-
-- types: `DetailedTrashReport`, `TrashFinding`, `TrashCounts`, `TrashCategory`, `InspectDetailedOptions`, `UnicodeTrashReport` and `SanctifyOptions` are exported from the package root (and `text-sanctifier/browser`), so `import type { DetailedTrashReport } from 'text-sanctifier'` works without `ReturnType<typeof inspectTextDetailed>`
-- fix(types): `dist/types/inspectText.d.ts` referenced `SanctifyOptions` without importing it, which broke consumers compiling with `skipLibCheck: false`
-- test: `npm run test:types` (in `ci`) compiles a strict TypeScript consumer against `dist/types` through the package `exports` map
+- The report and option types are exported from the package root, so `import type { DetailedTrashReport } from 'text-sanctifier'` works.
+- Fix: the type declarations compile with `skipLibCheck: false`.
 
 ## 1.1.0 — 2026-10-14
 
-Minor: adds the `inspectTextDetailed` export. No breaking API changes. `purgeInvisibleChars` and `nukeControls` now also strip the bidi isolates and U+061C, so their output can differ for text containing them.
+- `inspectTextDetailed(text, { maxFindings })` locates each invisible or control character with its offset, line, column, code point and category.
+- `getNewlineStats` is faster and uses almost no memory.
 
-- fix: bidi isolates U+2066–U+2069 (LRI, RLI, FSI, PDI) and the Arabic letter mark U+061C are detected by `inspectText` and purged by `purgeInvisibleChars` and `nukeControls`; they were missed before (Trojan Source vector)
-- feat: `inspectTextDetailed(text, { maxFindings })` locates each invisible or control character as `{ offset, line, column, codePoint, category }` with per-category counts, `total` and `truncated`; categories `bidi_control`, `zero_width`, `nonbreaking_space`, `bom` (with `atStart`), `nul`, `c0_control`, `c1_control`; also in the browser build. `zero_width` also flags U+200D inside emoji ZWJ sequences
-- perf: `getNewlineStats` counts in one pass with no regex or copy (16 MB of CRLF: ~81 ms / 64 MB heap → ~25 ms / 0.2 MB)
-- build: the Closure export rewrite fails loudly instead of shipping a bundle without exports; minified 3786 → 4923 bytes, gzipped 1701 → 2217
+Behavior change: bidi isolates (U+2066–U+2069) and U+061C are now detected and stripped by `purgeInvisibleChars` and `nukeControls` (Trojan Source).
 
 ## 1.0.20 — 2026-05-26
 
-- chore(pkg): declare engines.node >=18  `29dab80`
-- chore(docs): seed initial CHANGELOG.md from git log  `4818afa`
-- chore(pkg): wire types into ./browser export  `5a33bc8`
+- Requires Node 18 or later.
+- Types for the `./browser` export.
 
 ## 1.0.19 — 2026-05-20
 
-- chore: normalize README shields row  `7ecc74c`
-- chore: rebrand author to WATT3D, interim license  `4300e0b`
-- feat: relicense to AGPL-3.0 + WATT3D AI Training Rider  `10a7c99`
-- chore: deploy WATT3D AI-bot robots.txt policy  `6df6a09`
-- chore: drop DO_NOT_TRAIN_ME, refresh ProjectLayout  `ab319b7`
-- chore: revise AI Training Rider (v2 — pre-counsel drafting fixes)  `8f53325`
-- chore: rider v3 — remove gameable 0.1% safe harbor  `e018830`
-- chore: rider v4 — Commercial Use restricted to Fully Open Source  `771dae3`
-- docs(README): apply @whatty README template  `0f12081`
-- chore(license): finalize AGPL-3.0 + WATT3D Additional Terms metadata  `e99d436`
-- chore: patch version bump to ship license metadata update  `5d7d37b`
+- Relicensed to AGPL-3.0 with WATT3D Additional Terms.
 
 ## 1.0.18 — 2026-03-02
 
-- feat!: add input length guard, improve emoji handling, and generate types  `d76f13a`
-- updated pkg size in readme, min + gzip  `198c644`
+- Input length guard (`maxLength`, `onMaxLength`), better emoji handling, and generated type declarations.
 
 ## 1.0.17 — 2026-03-02
 
-- cleaned up credit wording and do_not_train file  `623fd71`
-- fix(unicode): eliminate global RegExp state bugs and preserve full emoji sequences  `08bb1d0`
+- Fix: regexes no longer keep global state between calls, and full emoji sequences are preserved.
 
 ## 1.0.16 — 2025-05-28
 
-- Added helper getRecommendedSanctifierOptions.  `7069cf1`
-- Enhanced the  EMOJI_REGEX and fallback  `6d8439f`
+- `getRecommendedSanctifierOptions` helper; better emoji matching.
 
 ## 1.0.14 — 2025-05-22
 
-- Added robots.txt  `ae12ad7`
-- Bump to version 1.0.11 onNPM.  `09dd7fb`
-- Bumped to version 1.0.12 and updated license is now v3.0. Published to NPM  `86c212c`
-- Fixed bug where,purgeNonKeyboardChars, would purge newline chars. thus is not desirable since the keyboard can naturally generate newlines via the enter key.  `683d67b`
+- Fix: the keyboard-only filter no longer removes newlines.
 
 ## 1.0.10 — 2025-05-14
 
-- Added inspectTExt module to simple print a report of the chars found in the text.  `e9d2d88`
-- bumped readme to WATT v3.0, and license  `60977da`
+- `inspectText`, a report of the hidden characters in a string.
 
 ## 1.0.8 — 2025-05-08
 
-- Initial Commit, with license, Readme, tests, and npm published  `3441b34`
-- package.json updated --> "type": "module"  `f29dfc4`
-- Added .strict() and .loose() modes to santifyText to preset default options.  `4f4333d`
-- Updated index.d.ta, tohandle the new strict and loose modes.  `c7b1660`
-- Imrpoved ReadMe to use the more examples and .strict() and Loose() modes.  `a7ebbcb`
-- Added esbuild to test a minfied version.  `530e7b8`
-- .ignore files updated to hide build artfacts and temp files.  `56dcf93`
-- Added tests for the .min.js code to ensure we bundled and minify'd without breaking anything.  `031a981`
-- Added notes to check out Shields.io for badges to finalize the launch.  `ae9aa4a`
-- Added Arrow Functions to shorten the sanctifyText functions.  `36afb30`
-- Added *.gz to npm ignore.  `4e807bc`
-- Bumped to version 1.0.4.  `4610c42`
-- testing shields.io in ReadMe  `807049b`
-- Updated badges in ReadMe  `0495bb3`
-- Added purgeEmojisCharacters, and boolean flag.  `2ba5de0`
-- Updated Readme to reflect the purge emoji mode.  `98438e0`
-- purgeInvisibleTrash comment improved to match the function logic. We remove these invisible chars, we no longer replace them with a space.  `6616eb0`
-- Updated license  `5f6139e`
-- feat: add keyboard-only sanitization modes + emoji-safe filtering  `9247412`
-- Upadted shield badge targets  `e8ab27d`
-- Added Github stars from shields.io  `d8616e5`
+- First release: `summonSanctifier` with `strict` and `loose` presets, keyboard-only filtering and emoji purging.
