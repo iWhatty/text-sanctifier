@@ -31,6 +31,10 @@
       "types": "./dist/types/hiddenText.d.ts",
       "default": "./src/hiddenText.js"
     },
+    "./context": {
+      "types": "./dist/types/context.d.ts",
+      "default": "./src/context.js"
+    },
     "./browser": {
       "types": "./dist/types/index.d.ts",
       "default": "./dist/text-sanctifier.min.js"
@@ -44,7 +48,7 @@
     "build": "node scripts/build.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node tests/cli.test.js",
+    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "ci": "npm run gen:check && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
     "size": "node scripts/check-size.js"

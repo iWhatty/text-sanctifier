@@ -40,6 +40,9 @@ export { VERSION } from './version.generated.js';
  * @property {Array<[number, number]>} benign - [offset, end) spans of legitimate
  *   sequences (subdivision flags, a single emoji or text presentation selector), at most `maxRuns` long
  * @property {HiddenRunCounts} counts - every run per kind, listed or not
+ * @property {HiddenRunCounts} codePointCounts - code points in those runs per kind, listed or not
+ * @property {number} supplementarySelectorCount - code points U+E0100–U+E01EF in those runs, which
+ *   (unlike the emoji selectors U+FE00–U+FE0F) can carry data; included in codePointCounts.variation_selector
  * @property {number} total - sum of `counts`
  * @property {number} benignTotal - every benign span, listed or not
  * @property {boolean} truncated - true when runs or benign spans were left out of the lists
@@ -164,6 +167,9 @@ export function findHiddenRuns(text, options = {}) {
     const benign = [];
     /** @type {HiddenRunCounts} */
     const counts = { tag: 0, variation_selector: 0, invisible_operator: 0, reserved_tag_plane: 0 };
+    /** @type {HiddenRunCounts} */
+    const codePointCounts = { tag: 0, variation_selector: 0, invisible_operator: 0, reserved_tag_plane: 0 };
+    let supplementarySelectorCount = 0;
     let total = 0;
     let benignTotal = 0;
     let line = 1;
@@ -184,12 +190,14 @@ export function findHiddenRuns(text, options = {}) {
 
         const offset = i;
         let count = 0;
+        let supplementary = 0;
         let last = cp;
         while (i < text.length) {
             const c = /** @type {number} */ (text.codePointAt(i));
             if (kindOf(c) !== kind) break;
             last = c;
             count++;
+            if (c >= 0xE0100 && c <= 0xE01EF) supplementary++;
             i += c > 0xFFFF ? 2 : 1;
         }
         const end = i;
@@ -207,6 +215,8 @@ export function findHiddenRuns(text, options = {}) {
         }
 
         counts[kind]++;
+        codePointCounts[kind] += count;
+        supplementarySelectorCount += supplementary;
         total++;
         if (runs.length < maxRuns) {
             /** @type {HiddenRun} */
@@ -219,5 +229,5 @@ export function findHiddenRuns(text, options = {}) {
             runs.push(run);
         }
     }
-    return { runs, benign, counts, total, benignTotal, truncated: total > runs.length || benignTotal > benign.length };
+    return { runs, benign, counts, codePointCounts, supplementarySelectorCount, total, benignTotal, truncated: total > runs.length || benignTotal > benign.length };
 }

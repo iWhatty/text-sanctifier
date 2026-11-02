@@ -36,6 +36,8 @@ import type {
 } from 'text-sanctifier/browser';
 import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-sanctifier/hidden';
 import type { HiddenRun, HiddenRunKind, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
+import { inspectTextInContext } from 'text-sanctifier/context';
+import type { ContextReport, ContextFinding } from 'text-sanctifier/context';
 
 const scan: HiddenTextScan = findHiddenRuns('x');
 const firstRun: HiddenRun | undefined = scan.runs[0];
@@ -44,6 +46,12 @@ const capped: HiddenTextScan = findHiddenRuns('x', scanOptions);
 const runCounts: HiddenRunCounts = capped.counts;
 const runSummary: string = `${capped.total} ${capped.benignTotal} ${capped.truncated} ${firstRun?.line}:${firstRun?.column} ${firstRun?.decodedTruncated}`;
 const versions: string = VERSION + HIDDEN_VERSION;
+const pointCounts: HiddenRunCounts = capped.codePointCounts;
+const supplementary: number = capped.supplementarySelectorCount;
+const inContext: ContextReport = inspectTextInContext('x', { maxFindings: 20 });
+const contextFinding: ContextFinding | undefined = inContext.findings[0];
+const benignFlag: boolean | undefined = contextFinding?.benign;
+const suspiciousZeroWidth: number = inContext.counts.zero_width - inContext.benignCounts.zero_width + inContext.benignTotal;
 const runKind: HiddenRunKind | undefined = firstRun?.kind;
 const decodedTags: string = decodeTagText('x');
 

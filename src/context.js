@@ -1,0 +1,177 @@
+// src/context.js
+//
+// inspectTextInContext: inspectTextDetailed plus which findings belong to legitimate
+// sequences (emoji joiners and selectors, ideographic variation sequences, Mongolian
+// selectors, subdivision flags), counted exactly per category. The categories are
+// unchanged; see "Proposal: context-aware findings" in DESIGN.md.
+//
+// Exported as `text-sanctifier/context`. It needs Unicode property escapes in regexes,
+// so it lives apart from the core and the browser file and has its own size budget.
+
+import { inspectTextDetailed } from './inspectText.js';
+
+/** @typedef {import('./inspectText.js').TrashFinding} TrashFinding */
+/** @typedef {import('./inspectText.js').TrashCounts} TrashCounts */
+/** @typedef {import('./inspectText.js').InspectDetailedOptions} InspectDetailedOptions */
+
+/**
+ * @typedef {TrashFinding & { benign: boolean }} ContextFinding
+ * A finding with `benign`: true when the character is part of a legitimate sequence.
+ */
+
+/**
+ * @typedef {Object} ContextReport
+ * @property {ContextFinding[]} findings - As in inspectTextDetailed, each with `benign`.
+ * @property {TrashCounts} counts - As in inspectTextDetailed: every occurrence, benign or not.
+ * @property {number} total - Sum of `counts`.
+ * @property {boolean} truncated - True when `total` exceeds `findings.length`.
+ * @property {TrashCounts} benignCounts - Benign occurrences per category, listed or not.
+ *   `counts[c] - benignCounts[c]` is the number of suspicious characters in category `c`.
+ * @property {number} benignTotal - Sum of `benignCounts`.
+ */
+
+// Tested at an index of the text itself, so nothing is allocated per character.
+const PICTOGRAPHIC_AT = /\p{Extended_Pictographic}/yu;
+const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
+
+// RGI subdivision flags: U+1F3F4, the tag letters, U+E007F
+const SUBDIVISION_FLAGS = ['gbeng', 'gbsct', 'gbwls'];
+
+/**
+ * @param {RegExp} re - sticky
+ * @param {string} text
+ * @param {number} index
+ */
+function matchesAt(re, text, index) {
+    re.lastIndex = index;
+    return re.test(text);
+}
+
+/**
+ * Index where the code point that ends just before `index` starts, or -1.
+ * @param {string} text
+ * @param {number} index
+ */
+function previousStart(text, index) {
+    if (index <= 0) return -1;
+    const low = text.charCodeAt(index - 1);
+    if (low >= 0xDC00 && low <= 0xDFFF && index >= 2) {
+        const high = text.charCodeAt(index - 2);
+        if (high >= 0xD800 && high <= 0xDBFF) return index - 2;
+    }
+    return index - 1;
+}
+
+/** @param {number} c */
+const isMongolianLetter = (c) =>
+    (c >= 0x1820 && c <= 0x1878) || (c >= 0x1880 && c <= 0x1884) || (c >= 0x1887 && c <= 0x18A8) || c === 0x18AA;
+
+/**
+ * A U+200D is benign between two Extended_Pictographic code points, allowing a
+ * skin-tone modifier or VS16 after the first.
+ * @param {string} text
+ * @param {number} i - index of the U+200D
+ */
+function isEmojiJoiner(text, i) {
+    let p = previousStart(text, i);
+    if (p < 0) return false;
+    const before = /** @type {number} */ (text.codePointAt(p));
+    if (before === 0xFE0F || (before >= 0x1F3FB && before <= 0x1F3FF)) p = previousStart(text, p);
+    return p >= 0 && matchesAt(PICTOGRAPHIC_AT, text, p) && matchesAt(PICTOGRAPHIC_AT, text, i + 1);
+}
+
+/**
+ * Length in UTF-16 units of the subdivision-flag tags starting at `i` (just after a
+ * U+1F3F4), or 0 when they are not exactly one of the RGI flags, as findHiddenRuns decides.
+ * @param {string} text
+ * @param {number} i
+ */
+function flagTagsAt(text, i) {
+    // five tag letters and CANCEL TAG, each a surrogate pair
+    if (text.charCodeAt(i + 10) !== 0xDB40 || text.charCodeAt(i + 11) !== 0xDC7F) return 0;
+    // more tags after CANCEL TAG make it one longer tag run, which is not a flag
+    const after = text.charCodeAt(i + 13);
+    if (text.charCodeAt(i + 12) === 0xDB40 && after >= 0xDC00 && after <= 0xDC7F) return 0;
+    let letters = '';
+    for (let k = 0; k < 10; k += 2) {
+        const low = text.charCodeAt(i + k + 1);
+        if (text.charCodeAt(i + k) !== 0xDB40 || low < 0xDC61 || low > 0xDC7A) return 0; // tag a-z
+        letters += String.fromCharCode(low - 0xDC00);
+    }
+    return SUBDIVISION_FLAGS.includes(letters) ? 12 : 0;
+}
+
+/**
+ * Locates invisible and control characters as inspectTextDetailed does, and marks
+ * the ones that belong to legitimate sequences as benign:
+ * - U+200D between two emoji (Extended_Pictographic), allowing a skin-tone modifier or
+ *   VS16 after the first: an emoji ZWJ sequence
+ * - U+FE0E or U+FE0F directly after an emoji, or between 0-9, # or * and U+20E3 (keycap)
+ * - one of U+E0100–U+E01EF directly after an ideograph: an ideographic variation sequence
+ * - U+180B–U+180D or U+180F directly after a Mongolian letter
+ * - the tags of the England, Scotland and Wales flags after U+1F3F4
+ * Nothing else is benign: not U+200B, U+2060, U+FEFF, bidi controls or other tags.
+ *
+ * `counts`, `total` and `truncated` are exactly those of inspectTextDetailed;
+ * `benignCounts` counts every benign character, listed or not. Two passes over the
+ * string, no copy; memory is flat with `maxFindings` set.
+ *
+ * @param {string} text
+ * @param {InspectDetailedOptions} [options]
+ * @returns {ContextReport}
+ */
+export function inspectTextInContext(text, options = {}) {
+    if (typeof text !== 'string') {
+        throw new TypeError('inspectTextInContext expects a string input.');
+    }
+    const report = inspectTextDetailed(text, options);
+    const findings = /** @type {ContextFinding[]} */ (report.findings);
+    for (const f of findings) f.benign = false;
+
+    /** @type {TrashCounts} */
+    const benignCounts = /** @type {TrashCounts} */ ({});
+    for (const key of Object.keys(report.counts)) benignCounts[/** @type {keyof TrashCounts} */ (key)] = 0;
+    let benignTotal = 0;
+    let next = 0; // first listed finding not yet passed
+
+    /**
+     * @param {number} offset
+     * @param {keyof TrashCounts} category
+     */
+    const markBenign = (offset, category) => {
+        benignCounts[category]++;
+        benignTotal++;
+        while (next < findings.length && findings[next].offset < offset) next++;
+        if (next < findings.length && findings[next].offset === offset) findings[next].benign = true;
+    };
+
+    for (let i = 0, n = text.length; i < n; i++) {
+        const c = text.charCodeAt(i);
+        if (c < 0x180B) continue; // the common case: nothing below can be benign
+
+        if (c === 0x200D) {
+            if (isEmojiJoiner(text, i)) markBenign(i, 'zero_width');
+        } else if (c === 0xFE0E || c === 0xFE0F) {
+            const p = previousStart(text, i);
+            const before = p < 0 ? -1 : text.charCodeAt(p);
+            const keycap = (before === 0x23 || before === 0x2A || (before >= 0x30 && before <= 0x39)) &&
+                text.charCodeAt(i + 1) === 0x20E3;
+            if (keycap || (p >= 0 && matchesAt(PICTOGRAPHIC_AT, text, p))) markBenign(i, 'variation_selector');
+        } else if ((c >= 0x180B && c <= 0x180D) || c === 0x180F) {
+            if (isMongolianLetter(text.charCodeAt(i - 1))) markBenign(i, 'variation_selector');
+        } else if (c === 0xD83C && text.charCodeAt(i + 1) === 0xDFF4) { // U+1F3F4
+            const length = flagTagsAt(text, i + 2);
+            for (let k = 0; k < length; k += 2) markBenign(i + 2 + k, 'tag');
+            i += 1 + length;
+        } else if (c === 0xDB40) { // plane 14: U+E0000-U+E03FF
+            const low = text.charCodeAt(i + 1);
+            if (low >= 0xDD00 && low <= 0xDDEF) { // U+E0100-U+E01EF
+                const p = previousStart(text, i);
+                if (p >= 0 && matchesAt(IDEOGRAPHIC_AT, text, p)) markBenign(i, 'variation_selector');
+            }
+            if (low >= 0xDC00 && low <= 0xDFFF) i++;
+        }
+    }
+
+    return { findings, counts: report.counts, total: report.total, truncated: report.truncated, benignCounts, benignTotal };
+}

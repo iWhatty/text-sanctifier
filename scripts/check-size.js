@@ -35,8 +35,11 @@ const PROBES = [
     { name: 'summonSanctifier.pasted', code: "import { summonSanctifier } from './src/index.js'; summonSanctifier.pasted('');", budget: 1600 },
     { name: 'sanctifyPasted', code: "import { sanctifyPasted } from './src/index.js'; sanctifyPasted('');", budget: 1250 },
     { name: 'sanctifyStrict', code: "import { sanctifyStrict } from './src/index.js'; sanctifyStrict('');", budget: 1250 },
-    // 593 -> 912 for line/column, maxRuns, maxDecodedLength and exact counts on each run.
-    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1000, mustNotContain: [SANITIZER, EMOJI_TABLE] },
+    // 593 -> 912 for line/column, maxRuns, maxDecodedLength and exact counts on each run;
+    // 943 -> 996 for the reserved_tag_plane kind and code-point totals.
+    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1100, mustNotContain: [SANITIZER, EMOJI_TABLE] },
+    // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes.
+    { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 1850, mustNotContain: [SANITIZER] },
     { name: 'VERSION', code: "import { VERSION } from './src/index.js'; console.log(VERSION);", budget: 60, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'everything', code: "export * from './src/index.js';", budget: 3072 },
 ];

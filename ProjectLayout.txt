@@ -6,6 +6,7 @@ text-sanctifier/
 │   ├── inspectText.js        diagnostics helper
 │   ├── textPatterns.js       emoji, keyboard and typographic patterns shared by both
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
+│   ├── context.js            inspectTextInContext: benign findings (text-sanctifier/context)
 │   └── categories.generated.js  purge regexes + classifier (generated; do not edit)
 ├── bin/
 │   └── text-sanctifier.js    command line (check / fix)

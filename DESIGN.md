@@ -105,7 +105,7 @@ Capability over size.
 - **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector are left out. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
 - **Done: integration that runs locally.** `check --format sarif` (SARIF 2.1.0, a level per category, set in the command line) and `.pre-commit-hooks.yaml` with two hooks. No cloud CI.
 - **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
-- **Context-aware findings**, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones. Proposed design below, not built yet.
+- **Context-aware findings**, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones. Built: see "Context-aware findings" below.
 - **A bidi balance check** for unterminated or overlapping bidi controls, the specific Trojan Source pattern.
 - **`fix` options and reports:** rewrite characters in source as escape sequences instead of deleting them, list each removal by its offset in the original text, and allow suppressions by code point or path.
 - **Streaming inspection** for very large files.
@@ -136,9 +136,9 @@ Size over features.
 4. Context-aware findings (the reveal helper and the pasted-text preset are done).
 5. The server entry point, once the first server-only feature needs a home.
 
-## Proposal: context-aware findings (not built)
+## Context-aware findings
 
-Status: proposed 2026-11-01, waiting for a decision on the names. Nothing here is API yet.
+Status: built as proposed (2026-11-01), unreleased. The names below are API.
 
 **Problem.** `zero_width` counts U+200D inside emoji such as a family emoji, and `variation_selector` counts VS16 in emoji and the ideographic selectors (U+E0100–U+E01EF) in CJK names. A consumer that warns from `counts` can't tell those from a joiner or selector used to hide text. The listed findings carry the code point, which separates U+200D from U+200B, but not whether a U+200D sits inside an emoji.
 
@@ -167,7 +167,7 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 
 **Implementation.** The same single pass as `inspectTextDetailed`, checking only the neighbours of each finding with sticky regexes (`/\p{Extended_Pictographic}/yu` at an index), so nothing is allocated per character and memory stays flat with `maxFindings` set. Neighbour checks match the rules above exactly and need no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster and decide nothing these rules don't. It needs Unicode property escapes in regexes (ES2018: Node 10+, every current browser).
 
-**Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; names to decide.
+**Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; built as proposed.
 
 **Size and tests.** Its own size probe and budget; core probes unchanged. Tests: every rule with positive and negative cases, `benignCounts` equal to the benign listed findings when nothing is truncated, `benignCounts[c] <= counts[c]`, and the 16 M-unit heap check.
 

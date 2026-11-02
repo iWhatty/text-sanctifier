@@ -2,6 +2,14 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
+## Unreleased
+
+No category changes and no changes to existing results. New entry point `text-sanctifier/context`; new fields on `findHiddenRuns`.
+
+- feat: `text-sanctifier/context` exports `inspectTextInContext(text, options)`: the findings, `counts`, `total` and `truncated` of `inspectTextDetailed`, plus `benign` on each listed finding and `benignCounts` and `benignTotal`, exact whether or not a finding is listed. Benign: U+200D in emoji ZWJ sequences, presentation selectors after emoji and in keycaps, one ideographic variation selector after an ideograph, Mongolian selectors after a Mongolian letter, and the tags of the England, Scotland and Wales flags. U+200B, U+2060, U+FEFF and bidi controls are never benign. The categories are unchanged. It checks only the neighbours of each candidate with sticky Unicode property regexes, so it allocates nothing per character: on 16 M UTF-16 units with `maxFindings: 20` the heap grows under 1 MB
+- feat: `findHiddenRuns` returns `codePointCounts` (code points per run kind) and `supplementarySelectorCount` (U+E0100–U+E01EF, apart from the emoji selectors), both exact beyond `maxRuns` and without benign spans
+- build: size budgets: `text-sanctifier/context` 1695 bytes gzipped (budget 1850); `text-sanctifier/hidden` 996 (budget 1000 -> 1100)
+
 ## 1.3.6 — 2026-11-01
 
 Patch: standalone preset exports, a `VERSION` export, and bounded, positioned hidden-run scans in `text-sanctifier/hidden` (`maxRuns`, `maxDecodedLength`, exact counts, line and column, the `reserved_tag_plane` run kind). `inspectText` no longer pulls in the sanitizer when bundled. No API removals and no category changes. Behavior change: `findHiddenRuns` and `check --ai-config` now report the reserved code points of the tag plane as runs of their own; before, `findHiddenRuns` skipped them and `check --ai-config` listed them only as single findings.

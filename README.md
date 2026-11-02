@@ -264,7 +264,29 @@ const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRun
 - `maxRuns` caps the `runs` list and, separately, the `benign` list; `counts`, `total` and `benignTotal` count everything, and `truncated` is true when either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units and never cuts a `<U+XXXX>` marker. Both default to no cap, and an invalid value (negative, fractional, a string) also means no cap, so set them explicitly for untrusted input. With both set, memory stays flat on any input: on 16 M characters (32 MB) of hidden text the heap grows by under 1 MB, against hundreds of MB with no caps.
 - `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
 - Zero-width, bidi and other invisible characters are not runs; use `inspectTextDetailed` for those.
+- `codePointCounts` has the same keys as `counts` and counts the code points in those runs, so long runs weigh more than short ones; `supplementarySelectorCount` counts U+E0100–U+E01EF on their own, apart from the emoji selectors U+FE00–U+FE0F. Both leave out benign spans and stay exact under `maxRuns`.
 - `VERSION` is exported here and from the package root: the installed version, as in `package.json`.
+
+### `text-sanctifier/context`: `inspectTextInContext(text, options?)`
+
+`inspectTextDetailed` with context. Some invisible characters are part of ordinary text: the joiners in a family emoji, the selector in ✌ followed by VS16, an ideographic variation selector after a CJK character. This entry point reports the same findings and `counts`, marks each listed finding `benign: true` or `false`, and adds `benignCounts`, exact whether or not a finding is listed. The categories are the same.
+
+```js
+import { inspectTextInContext } from 'text-sanctifier/context';
+
+const report = inspectTextInContext(text, { maxFindings: 20 });
+const suspicious = report.counts.zero_width - report.benignCounts.zero_width; // U+200B, U+2060, stray U+200D
+```
+
+Benign, and nothing else:
+
+- U+200D between two emoji (`Extended_Pictographic`), allowing a skin-tone modifier or VS16 after the first
+- U+FE0E or U+FE0F directly after an emoji, or in a keycap (0-9, # or *, the selector, U+20E3)
+- one of U+E0100–U+E01EF directly after an ideograph
+- U+180B–U+180D or U+180F directly after a Mongolian letter
+- the tags of the England, Scotland and Wales flags
+
+U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign. Joiners in scripts that need them (ZWNJ in Persian, ZWJ in Indic scripts) are not benign yet. It needs Unicode property escapes (Node 10+, current browsers), is not in the browser file, and is about 1.7 KB gzipped on its own.
 
 ---
 
