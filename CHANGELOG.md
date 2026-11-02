@@ -2,10 +2,11 @@
 
 > Initial cut seeded from `git log` by the host repo's `tools/seed-changelogs.mjs` script. Version groupings infer release boundaries from tags and commit subjects; rough cuts are expected — review and tighten as part of normal maintenance.
 
-## Unreleased
+## 1.3.7 — 2026-11-01
 
-No category changes and no changes to existing results. New entry point `text-sanctifier/context`; new fields on `findHiddenRuns`.
+Patch: a new entry point, `text-sanctifier/context`, whose `inspectTextInContext` tells legitimate emoji joiners, presentation selectors, ideographic variation sequences, Mongolian selectors and subdivision flags from hidden ones, with exact benign counts; and code-point totals on `findHiddenRuns`. No API removals, no category changes and no changes to existing results; the browser file is unchanged.
 
+- docs: the README pre-commit example uses `rev: v1.3.7`
 - feat: `text-sanctifier/context` exports `inspectTextInContext(text, options)`: the findings, `counts`, `total` and `truncated` of `inspectTextDetailed`, plus `benign` on each listed finding and `benignCounts` and `benignTotal`, exact whether or not a finding is listed. Benign: U+200D in emoji ZWJ sequences, presentation selectors after emoji and in keycaps, one ideographic variation selector after an ideograph, Mongolian selectors after a Mongolian letter, and the tags of the England, Scotland and Wales flags. U+200B, U+2060, U+FEFF and bidi controls are never benign. The categories are unchanged. It checks only the neighbours of each candidate with sticky Unicode property regexes, so it allocates nothing per character: on 16 M UTF-16 units with `maxFindings: 20` the heap grows under 1 MB
 - feat: `findHiddenRuns` returns `codePointCounts` (code points per run kind) and `supplementarySelectorCount` (U+E0100–U+E01EF, apart from the emoji selectors), both exact beyond `maxRuns` and without benign spans
 - build: size budgets: `text-sanctifier/context` 1695 bytes gzipped (budget 1850); `text-sanctifier/hidden` 996 (budget 1000 -> 1100)
