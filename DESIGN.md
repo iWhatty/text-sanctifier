@@ -87,13 +87,13 @@ The problems seen in practice, which this library should keep solving:
 
 ## Roadmap: two tracks, one core
 
-The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of October 2026.
+The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of November 2026.
 
 ### Shared core (both tracks)
 
 - **Done: one table of categories and code-point ranges, used everywhere.** `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
 - **Done: complete coverage of Default_Ignorable_Code_Point**, the Unicode property for characters renderers must draw as nothing. A test checks it against the running Node's Unicode data, so a Node upgrade with newer Unicode fails until the table catches up.
-- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the emoji joiner, the two kinds of variation selector, the `nonbreaking_space` name) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates, noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
+- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the `nonbreaking_space` name; the emoji joiner and the two kinds of variation selector are now answered without a category change, by `text-sanctifier/context` and the `findHiddenRuns` totals) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates, noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
 - **Done: a reveal helper.** `revealInvisible` and `text-sanctifier reveal` render hidden characters visibly as `<U+XXXX>` markers, as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output. Unicode character names in markers would need a name table, so they belong in the server track.
 - **One test corpus run against both builds**, so the source build and the browser build can never report differently.
 
@@ -114,7 +114,7 @@ Capability over size.
 
 Size over features.
 
-- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js` (for example about 1 KB for `inspectTextDetailed`), plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`); it is 2942. Raising the budget is a deliberate decision made in the same commit as the growth.
+- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js` (for example about 1 KB for `inspectTextDetailed`), plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`); it is 3035. Raising the budget is a deliberate decision made in the same commit as the growth.
 - **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
@@ -133,12 +133,12 @@ Size over features.
 1. Done: the single category table, full default-ignorable coverage, and the size budget.
 2. Done: the AI configuration file check, SARIF output and the pre-commit hook. These came first because the risk is current and the work is small.
 3. The planned category changes, coordinated with consumers and shipped together.
-4. Context-aware findings (the reveal helper and the pasted-text preset are done).
+4. Done: context-aware findings (1.3.7, script joiners in 1.3.8), the reveal helper and the pasted-text preset.
 5. The server entry point, once the first server-only feature needs a home.
 
 ## Context-aware findings
 
-Status: built as proposed and released in 1.3.7; script joiners added after it (see below). The names below are API.
+Status: released in 1.3.7; script joiners and `benignSupplementarySelectorCount` in 1.3.8. The names below are API.
 
 **Problem.** `zero_width` counts U+200D inside emoji such as a family emoji, and `variation_selector` counts VS16 in emoji and the ideographic selectors (U+E0100–U+E01EF) in CJK names. A consumer that warns from `counts` can't tell those from a joiner or selector used to hide text. The listed findings carry the code point, which separates U+200D from U+200B, but not whether a U+200D sits inside an emoji.
 
@@ -178,6 +178,18 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 **Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; built as proposed.
 
 **Size and tests.** Its own size probe and budget; core probes unchanged. Tests: every rule with positive and negative cases, `benignCounts` equal to the benign listed findings when nothing is truncated, `benignCounts[c] <= counts[c]`, and the 16 M-unit heap check.
+
+**Known limits.** Each errs in one known direction, and none has been reported as a problem in real text:
+- The Arabic-script ZWNJ rule is approximate (see "Script joiners"): it accepts a ZWNJ after letters that don't join to the left, such as alef, reh and waw, so a few suspicious characters read as benign.
+- Joiners in the other joining scripts (Syriac, N'Ko, Mongolian, Adlam, Hanifi Rohingya and others) are never benign, so legitimate ones read as suspicious.
+- `Extended_Pictographic` includes text-default symbols such as © and ® and unassigned code points in the emoji ranges, so a joiner or selector next to one reads as benign. `Ideographic` includes U+3006, U+3007, U+3021–U+3029 and Tangut, so a supplementary selector after one reads as benign.
+- Speed: memory stays flat, but every joiner costs a few sticky-regex tests. On 16 M UTF-16 units with `maxFindings: 20` (Node 24): clean text 63 ms, 5.6 M virama joiners 0.4 s, 8 M Persian ZWNJ 1.5 s.
+
+**Next, when reports call for it.** No consumer has open asks, so the next round waits for false warnings or misses seen in real text. What each kind of report would lead to:
+- False warnings on Syriac, N'Ko or other joining scripts: an exact Joining_Type table generated from Unicode's ArabicShaping.txt, replacing the Arabic-script approximation. Costs bytes in this entry point and a data file at generation time that Node can't check.
+- Misses next to © or ®: limit the emoji rules to code points with emoji presentation, or a VS16 before the joiner.
+- Slow scans on large Persian or Indic input: test cheap code-unit ranges (the Arabic blocks, the virama table's BMP part) before the property regexes.
+- A selector that carries data after a legitimate base: decoding data hidden in variation selectors, already listed under the server track.
 
 ## Releases
 
