@@ -24,8 +24,8 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects. T
 - Nukes control characters (if enabled)
 - Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
 - Keyboard-only filtering (retain printable ASCII + full emoji sequences)
-  - Preserves ZWJ emoji clusters (👨‍👩‍👧‍👦)
-  - Preserves VS16 emoji presentation variants (✌️, ‼️)
+  - Preserves ZWJ emoji clusters (the family emoji, U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466)
+  - Preserves VS16 emoji presentation variants (U+270C U+FE0F, U+203C U+FE0F)
 - Configurable via fine-grained flags or ready-made presets
 - Includes strict, loose, and keyboard-only modes
 - Deterministic RegExp usage (no global `lastIndex` state leaks)
@@ -242,7 +242,7 @@ import { getNewlineStats } from 'text-sanctifier';
 getNewlineStats('a\r\nb\n'); // { crlf: 1, cr: 0, lf: 1, types: ['CRLF', 'LF'], mixed: true }
 ```
 
-`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as 👨‍👩‍👧, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as ✌️ and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16. The Mongolian free variation selectors (U+180B–U+180D, U+180F) are also `variation_selector`: they are legitimate in Mongolian text, which `purgeInvisibleChars` can change, so don't purge Mongolian text with it.
+`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as U+1F468 U+200D U+1F469 U+200D U+1F467, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as U+270C U+FE0F and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16. The Mongolian free variation selectors (U+180B–U+180D, U+180F) are also `variation_selector`: they are legitimate in Mongolian text, which `purgeInvisibleChars` can change, so don't purge Mongolian text with it.
 
 The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip. Every code point with the Unicode property Default_Ignorable_Code_Point (characters renderers must draw as nothing) is in a category, and a test checks this against the running Node's Unicode data.
 

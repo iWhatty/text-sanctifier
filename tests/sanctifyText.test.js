@@ -145,8 +145,8 @@ assertEqual(
 const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
 
 assertEqual(
-  keyboardEmojiSanctifier('Hello — World 😊 👽 𝌆 ‼️'),
-  'Hello - World 😊 👽  ‼️',
+  keyboardEmojiSanctifier('Hello — World 😊 👽 𝌆 ‼\uFE0F'),
+  'Hello - World 😊 👽  ‼\uFE0F',
   '12. keyboardOnlyEmoji: normalize dashes and preserve emojis'
 );
 
@@ -210,10 +210,10 @@ assertEqual(
   const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
 
   // family emoji is a ZWJ sequence in many renderers
-  const input = 'Hi 👨‍👩‍👧‍👦!';
+  const input = 'Hi 👨\u200D👩\u200D👧\u200D👦!';
   assertEqual(
     keyboardEmojiSanctifier(input),
-    'Hi 👨‍👩‍👧‍👦!',
+    'Hi 👨\u200D👩\u200D👧\u200D👦!',
     '18. Preserve ZWJ emoji sequences'
   );
 }
@@ -223,11 +223,11 @@ assertEqual(
 {
   const keyboardEmojiSanctifier = summonSanctifier.keyboardOnlyEmoji;
 
-  // "✌️" includes VS16; often tricky
-  const input = 'Vibes ✌️ ok';
+  // U+270C U+FE0F includes VS16; often tricky
+  const input = 'Vibes ✌\uFE0F ok';
   assertEqual(
     keyboardEmojiSanctifier(input),
-    'Vibes ✌️ ok',
+    'Vibes ✌\uFE0F ok',
     '19. Preserve VS16 emoji variants'
   );
 }

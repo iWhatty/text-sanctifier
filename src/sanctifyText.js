@@ -278,7 +278,7 @@ export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, 
  * Brutal text normalizer and invisible trash scrubber,
  * configurable to kill whatever ghosts you want dead.
  *
- * ⚠️ Note: This is plain-text normalization/filtering — not an HTML/XSS sanitizer.
+ * Note: This is plain-text normalization/filtering — not an HTML/XSS sanitizer.
  *
  * @param {string} text
  * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
@@ -413,8 +413,8 @@ function purgeInvisibleTrash(text) {
  * Uses the global `EMOJI_REGEX` to match full emoji grapheme sequences,
  * including:
  *   - Extended pictographic characters
- *   - Zero-width joiner (ZWJ) sequences (e.g. 👨‍👩‍👧‍👦)
- *   - Variation Selector-16 (VS16) emoji presentation forms (e.g. ✌️, ‼️)
+ *   - Zero-width joiner (ZWJ) sequences (e.g. U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466)
+ *   - Variation Selector-16 (VS16) emoji presentation forms (e.g. U+270C U+FE0F, U+203C U+FE0F)
  *
  * Any non-emoji characters are ignored.
  *
@@ -451,7 +451,7 @@ function purgeNonKeyboardChars(text, purgeEmojis = false) {
     }
 
     // Replace each non-ASCII run with ONLY the emoji sequences inside it.
-    // This preserves ZWJ sequences and VS16 variants (e.g. 👨‍👩‍👧‍👦, ✌️, ‼️),
+    // This preserves ZWJ sequences and VS16 variants (e.g. the family emoji, U+270C U+FE0F, U+203C U+FE0F),
     // while dropping non-emoji non-ASCII (e.g. 𝌆).
     return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, (run) => extractEmojiSequences(run));
 }

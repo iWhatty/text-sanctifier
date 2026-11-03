@@ -15,7 +15,7 @@
 
 - **Based Vanilla JavaScript**: No frameworks, no dependencies.
 - **Human Coders**: This package is built for you. 🖤
-- **Anti-AI Training Defense League**: 🏴‍☠️
+- **Anti-AI Training Defense League**:
 
 ---
 

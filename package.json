@@ -50,7 +50,8 @@
     "test:types": "tsc -p tests/types/tsconfig.json",
     "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
-    "ci": "npm run gen:check && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
+    "check:self": "node bin/text-sanctifier.js check .",
+    "ci": "npm run gen:check && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
     "size": "node scripts/check-size.js"
   },
   "keywords": [

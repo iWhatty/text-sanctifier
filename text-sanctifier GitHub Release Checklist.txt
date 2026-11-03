@@ -21,10 +21,10 @@ npm unpublish text-sanctifier@1.0.3
 
 ****
 Deprecate Command (always possible)
-npm deprecate text-sanctifier@1.0.0 "⚠️ This version is outdated. Please upgrade to 1.0.4."
-npm deprecate text-sanctifier@1.0.1 "⚠️ This version is outdated. Please upgrade to 1.0.4."
-npm deprecate text-sanctifier@1.0.2 "⚠️ This version is outdated. Please upgrade to 1.0.4."
-npm deprecate text-sanctifier@1.0.3 "⚠️ This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.0 "This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.1 "This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.2 "This version is outdated. Please upgrade to 1.0.4."
+npm deprecate text-sanctifier@1.0.3 "This version is outdated. Please upgrade to 1.0.4."
 
 
 ---

@@ -346,7 +346,7 @@ try {
     assertEqual(paths(['*.txt']), 'kept.txt', 'git: glob honours .gitignore');
     assertEqual(paths(['ignored.txt']), 'ignored.txt', 'git: a file named explicitly is checked anyway');
   } else {
-    console.log('⚠️  git not found; .gitignore tests skipped');
+    console.log('git not found; .gitignore tests skipped');
   }
 
   // --- --format ---
