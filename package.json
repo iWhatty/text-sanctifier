@@ -43,16 +43,18 @@
   "types": "./dist/types/index.d.ts",
   "sideEffects": false,
   "scripts": {
-    "gen": "node scripts/gen-categories.js && node scripts/gen-version.js && node scripts/gen-virama.js",
-    "gen:check": "node scripts/gen-categories.js --check && node scripts/gen-version.js --check && node scripts/gen-virama.js --check",
+    "gen": "node scripts/gen-categories.js && node scripts/gen-version.js && node scripts/gen-virama.js && node scripts/gen-docs.js",
+    "gen:check": "node scripts/gen-categories.js --check && node scripts/gen-version.js --check && node scripts/gen-virama.js --check && node scripts/gen-docs.js --check",
     "build": "node scripts/build.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js",
+    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js && node tests/release.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "check:self": "node bin/text-sanctifier.js check .",
     "ci": "npm run gen:check && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
-    "size": "node scripts/check-size.js"
+    "size": "node scripts/check-size.js",
+    "release:prep": "node scripts/release.js prep",
+    "release:verify": "node scripts/release.js verify"
   },
   "keywords": [
     "text",

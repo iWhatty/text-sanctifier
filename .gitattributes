@@ -1,0 +1,3 @@
+# LF everywhere, so every checkout packs the same bytes and a release can be
+# verified by its shasum from any clone (see scripts/release.js).
+* text=auto eol=lf

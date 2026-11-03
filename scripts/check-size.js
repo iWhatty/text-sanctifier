@@ -11,10 +11,13 @@
 // `--worst-case` also bundles every probe with esbuild's `ignoreAnnotations`, which
 // ignores `sideEffects: false` and pure annotations, to show what a bundler that ignores
 // them would include. That run is informational and never fails.
+//
+// scripts/gen-docs.js imports PROBES and measure() to write the current sizes into the docs.
 
 import { build } from 'esbuild';
 import { gzipSync } from 'zlib';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 const ROOT = resolve('.');
 
@@ -25,7 +28,7 @@ const SANITIZER = 'sanctifyText expects';
 const EMOJI_TABLE = 'Extended_Pictographic';
 
 /** @type {Array<{ name: string, code: string, budget: number, mustNotContain?: string[] }>} */
-const PROBES = [
+export const PROBES = [
     { name: 'inspectTextDetailed', code: "import { inspectTextDetailed } from './src/index.js'; inspectTextDetailed('');", budget: 1100, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'revealInvisible', code: "import { revealInvisible } from './src/index.js'; revealInvisible('');", budget: 1250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'getNewlineStats', code: "import { getNewlineStats } from './src/index.js'; getNewlineStats('');", budget: 350, mustNotContain: [SANITIZER, EMOJI_TABLE] },
@@ -62,24 +65,38 @@ async function bundledSize(code, ignoreAnnotations) {
     return { text, gzipped: gzipSync(text, { level: 9 }).length };
 }
 
-const worstCase = process.argv.includes('--worst-case');
-let failed = 0;
-
-console.log('Bundled, tree-shaken, minified and gzipped size per import:');
-for (const probe of PROBES) {
-    const { text, gzipped } = await bundledSize(probe.code, false);
-    const leaks = (probe.mustNotContain || []).filter((s) => text.includes(s));
-    const over = gzipped > probe.budget;
-    if (over || leaks.length) failed++;
-
-    let line = `${over || leaks.length ? '❌' : '✅'} ${probe.name.padEnd(32)} ${String(gzipped).padStart(5)} / ${probe.budget} bytes`;
-    if (over) line += `  over budget by ${gzipped - probe.budget}`;
-    if (leaks.length) line += `  leaks: ${leaks.map((s) => JSON.stringify(s)).join(', ')}`;
-    if (worstCase) line += `  (ignoring sideEffects and annotations: ${(await bundledSize(probe.code, true)).gzipped})`;
-    console.log(line);
+/**
+ * Gzipped size of every probe, by name.
+ * @returns {Promise<Map<string, number>>}
+ */
+export async function measure() {
+    const sizes = new Map();
+    for (const probe of PROBES) sizes.set(probe.name, (await bundledSize(probe.code, false)).gzipped);
+    return sizes;
 }
 
-if (failed) {
-    console.error(`❌ ${failed} size check${failed === 1 ? '' : 's'} failed (budgets in scripts/check-size.js).`);
-    process.exitCode = 1;
+async function main() {
+    const worstCase = process.argv.includes('--worst-case');
+    let failed = 0;
+
+    console.log('Bundled, tree-shaken, minified and gzipped size per import:');
+    for (const probe of PROBES) {
+        const { text, gzipped } = await bundledSize(probe.code, false);
+        const leaks = (probe.mustNotContain || []).filter((s) => text.includes(s));
+        const over = gzipped > probe.budget;
+        if (over || leaks.length) failed++;
+
+        let line = `${over || leaks.length ? '❌' : '✅'} ${probe.name.padEnd(32)} ${String(gzipped).padStart(5)} / ${probe.budget} bytes`;
+        if (over) line += `  over budget by ${gzipped - probe.budget}`;
+        if (leaks.length) line += `  leaks: ${leaks.map((s) => JSON.stringify(s)).join(', ')}`;
+        if (worstCase) line += `  (ignoring sideEffects and annotations: ${(await bundledSize(probe.code, true)).gzipped})`;
+        console.log(line);
+    }
+
+    if (failed) {
+        console.error(`❌ ${failed} size check${failed === 1 ? '' : 's'} failed (budgets in scripts/check-size.js).`);
+        process.exitCode = 1;
+    }
 }
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

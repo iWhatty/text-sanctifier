@@ -121,7 +121,7 @@ Two options handle spaces and zero-width characters gently, and both run before 
 
 ### Presets as standalone imports
 
-Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about 1.1 KB gzipped instead of 1.45 KB).
+Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->).
 
 ```js
 import { sanctifyPasted } from 'text-sanctifier';
@@ -288,7 +288,7 @@ Benign, and nothing else:
 - U+200C or U+200D directly after a virama (Devanagari, Bengali, Tamil, Malayalam, Sinhala, Myanmar and the other scripts with one), as IDNA ContextJ (RFC 5892) allows
 - U+200C between two Arabic-script letters, skipping marks, as in Persian. This approximates the RFC's joining-type rule: it also accepts a ZWNJ after a letter that does not join to the left, and none in other joining scripts such as Syriac
 
-U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. It needs Unicode property escapes (Node 10+, current browsers), is not in the browser file, and is about 2.1 KB gzipped on its own.
+U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. It needs Unicode property escapes (Node 10+, current browsers), is not in the browser file, and is about <!-- gen:size:text-sanctifier/context -->2.0 KiB<!-- /gen --> gzipped on its own.
 
 `benignSupplementarySelectorCount` counts the benign ideographic selectors U+E0100–U+E01EF. With `findHiddenRuns` from `text-sanctifier/hidden`, `scan.supplementarySelectorCount - report.benignSupplementarySelectorCount` is the exact number of suspicious ones.
 
@@ -426,7 +426,7 @@ Requires a modern JavaScript runtime with ES2020+ support:
 - **ESM only:** no CommonJS build; `require('text-sanctifier')` works only on Node versions with `require(esm)` support (20.19+, 22.12+)
 - **Types:** TypeScript declarations ship in `dist/types`
 - **Browser build (`dist/`):** one minified ESM file with every export, for pages with no build step (`<script type="module">` from a CDN). It is imported as `text-sanctifier/browser`. With a bundler, import `text-sanctifier` instead: the source tree-shakes, and the prebuilt file does not
-- **Tree-shake friendly:** ships `sideEffects: false`; `npm run ci` checks the bundled size of each export on its own (for example `inspectTextDetailed` is under 1 KB gzipped)
+- **Tree-shake friendly:** ships `sideEffects: false`; `npm run ci` checks the bundled size of each export on its own (for example `inspectTextDetailed` is about <!-- gen:size:inspectTextDetailed -->0.9 KiB<!-- /gen --> gzipped)
 - **Zero transpilation:** no built-in polyfills or runtime overhead
 - **Bundler ready:** works with Vite, Rollup, Webpack, Parcel, esbuild
 

@@ -1,10 +1,15 @@
 # text-sanctifier Publish Checklist
 
-- [ ] Bump the patch number only (1.3.0 -> 1.3.1), even for new features or exports. Batch work done close together into one release. Changing the minor or major number is a deliberate decision, not a semver default.
-- [ ] Run `npm run gen` after the bump, so `src/version.generated.js` (the `VERSION` export) matches; `npm run ci` fails until it does.
-- [ ] Pass `node tests/sanctifyText.test.js`
-- [ ] Run `npm pack` and check contents
-- [ ] Final check of README, LICENSE, CREDITS
-- [ ] `npm publish --access public`
-- [ ] Git push and tag new release
-- [ ] Create Repo / Build badges from --> https://shields.io/
+The steps that are the same every time are scripted (scripts/release.js).
+
+While working
+- [ ] Put CHANGELOG entries under "## Unreleased" as changes land (what changed for someone using the package; see CLAUDE.md).
+- [ ] `npm run ci` passes. Sizes, the release line and the pre-commit `rev:` in README.md and DESIGN.md are generated: if ci says they are stale, run `npm run gen`.
+
+Release (patch bump only; work done close together goes out as one release)
+- [ ] `npm run release:prep -- --dry-run`: checks main is clean and pushed, npm has the current version, and "## Unreleased" has entries; prints the next version.
+- [ ] `npm run release:prep`: bumps the patch number, dates the CHANGELOG heading, runs `npm run gen` and `npm run ci`, commits "chore(release): X.Y.Z" and pushes.
+- [ ] Maintainer: `npm publish --access public` (needs npm two-factor credentials), from the same checkout.
+- [ ] `npm run release:verify`: waits for npm, checks the published gitHead, shasum and file count against the release commit, then tags vX.Y.Z on that commit and pushes the tag.
+
+Changing the minor or major number is a deliberate decision, not a semver default; the scripts only bump the patch number.

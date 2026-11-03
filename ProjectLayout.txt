@@ -15,8 +15,11 @@ text-sanctifier/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check
 │   ├── gen-virama.js         npm run gen / gen:check: the virama table from Node's Unicode data
+│   ├── gen-docs.js           npm run gen / gen:check: sizes and release figures in README and DESIGN
+│   ├── browser-build.js      build options and size budget of the browser file
 │   ├── build.js              esbuild build of dist/text-sanctifier.min.js
-│   └── check-size.js         per-import size budgets and leak checks
+│   ├── check-size.js         per-import size budgets and leak checks
+│   └── release.js            npm run release:prep / release:verify
 ├── tests/
 │   ├── sanctifyText.test.js
 │   ├── cli.test.js

@@ -87,7 +87,7 @@ The problems seen in practice, which this library should keep solving:
 
 ## Roadmap: two tracks, one core
 
-The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of November 2026.
+The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of release <!-- gen:release -->1.3.8 (2026-11-02)<!-- /gen -->.
 
 ### Shared core (both tracks)
 
@@ -114,13 +114,36 @@ Capability over size.
 
 Size over features.
 
-- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js` (for example about 1 KB for `inspectTextDetailed`), plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`); it is 3035. Raising the budget is a deliberate decision made in the same commit as the growth.
+- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js`, plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`). Raising a budget is a deliberate decision made in the same commit as the growth. Current sizes are in "Sizes now" below; `npm run gen` writes them, and `npm run ci` fails while they are stale.
 - **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
 - **Done: `inspectText` no longer pulls in the sanitizer.** The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) live in `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `inspectText` went from 1882 to 1106 bytes gzipped, and its size probe now fails if the sanitizer leaks back in.
-- **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about 1.1 KB gzipped instead of 1.45 KB. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file (3016 of 3072 bytes), which leaves that budget 56 bytes of headroom: the next addition to the browser file needs a decision about its budget or what it includes.
-- **Done: bounded hidden-run scans.** `findHiddenRuns` takes `maxRuns` and `maxDecodedLength`, keeps `counts`, `total` and `benignTotal` exact, and gives each run `line` and `column` counted as `inspectTextDetailed` counts them, so callers no longer need their own scan limit or position code. The reserved code points of the tag plane (U+E0080–U+E00FF, U+E01F0–U+E0FFF) are a run kind of their own, `reserved_tag_plane`, so hidden-text scans cover the whole block up to U+E0FFF without a new category. With both caps set, 16 M characters (32 MB) of hidden text grow the heap by under 1 MB. `VERSION` is exported (generated from `package.json`), costing 19 bytes in the browser file, which is now 3035 of 3072. Still open: `check --ai-config` takes run positions from an uncapped `inspectTextDetailed` call and could use the run fields instead.
+- **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about 1.1 KB gzipped instead of 1.45 KB. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file. With little headroom left in the browser file's budget (see "Sizes now"), the next addition to it needs a decision about its budget or what it includes.
+- **Done: bounded hidden-run scans.** `findHiddenRuns` takes `maxRuns` and `maxDecodedLength`, keeps `counts`, `total` and `benignTotal` exact, and gives each run `line` and `column` counted as `inspectTextDetailed` counts them, so callers no longer need their own scan limit or position code. The reserved code points of the tag plane (U+E0080–U+E00FF, U+E01F0–U+E0FFF) are a run kind of their own, `reserved_tag_plane`, so hidden-text scans cover the whole block up to U+E0FFF without a new category. With both caps set, 16 M characters (32 MB) of hidden text grow the heap by under 1 MB. `VERSION` is exported (generated from `package.json`), costing 19 bytes in the browser file. Still open: `check --ai-config` takes run positions from an uncapped `inspectTextDetailed` call and could use the run fields instead.
+
+### Sizes now
+
+Gzipped bytes per import in the source on `main`, written by `npm run gen` (the last release is <!-- gen:release -->1.3.8 (2026-11-02)<!-- /gen -->):
+
+<!-- gen:sizes:start (generated by `npm run gen`; do not edit) -->
+| Import | Gzipped bytes | Budget | Headroom |
+| --- | ---: | ---: | ---: |
+| `inspectTextDetailed` | 959 | 1100 | 141 |
+| `revealInvisible` | 1102 | 1250 | 148 |
+| `getNewlineStats` | 272 | 350 | 78 |
+| `getRecommendedSanctifierOptions` | 173 | 250 | 77 |
+| `inspectText` | 1106 | 1250 | 144 |
+| `summonSanctifier` | 1457 | 1600 | 143 |
+| `summonSanctifier.pasted` | 1458 | 1600 | 142 |
+| `sanctifyPasted` | 1116 | 1250 | 134 |
+| `sanctifyStrict` | 1110 | 1250 | 140 |
+| `text-sanctifier/hidden` | 996 | 1100 | 104 |
+| `text-sanctifier/context` | 2074 | 2250 | 176 |
+| `VERSION` | 50 | 60 | 10 |
+| `everything` | 3035 | 3072 | 37 |
+| prebuilt browser file | 3035 | 3072 | 37 |
+<!-- gen:sizes:end -->
 
 ### Not planned here
 
@@ -196,7 +219,8 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 - Bump the patch number only, even for new exports or behavior changes. Batch work done close together into one release. Changing the minor or major number is a deliberate decision. See `PublishChecklist.txt`.
 - Describe behavior changes in `CHANGELOG.md` instead of signalling them through the version number.
 - Tag releases `vX.Y.Z` on the commit that was published.
-- After bumping `package.json`, run `npm run gen`: the `VERSION` export is generated from it, and `npm run ci` fails while it is stale.
+- The steps are scripted in `scripts/release.js`: `npm run release:prep` (bump, date the `## Unreleased` CHANGELOG section, `npm run gen`, `npm run ci`, commit, push), then the maintainer's `npm publish`, then `npm run release:verify` (wait for npm, check gitHead, shasum and file count against the commit, tag and push the tag). `.gitattributes` keeps every checkout LF, so the shasum is the same from any clone.
+- Figures that change with every release or every size change (gzipped sizes, the current release, the README's pre-commit `rev:`) are written by `npm run gen` between `gen:` markers, HTML comments that don't render (`scripts/gen-docs.js` lists them), and `npm run ci` fails while they are stale.
 - Publishing needs the maintainer's npm two-factor credentials. Agents prepare and verify releases; a maintainer publishes.
 
 ## Working in this repo
