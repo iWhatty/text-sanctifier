@@ -2,14 +2,23 @@
 
 The steps that are the same every time are scripted (scripts/release.js).
 
+Once per checkout
+- [ ] `npm run hooks:install`: a pre-push hook refuses pushes that name a private project.
+- [ ] Put those names in .git/info/private-names, one per line (never committed; see scripts/check-names.js).
+
 While working
 - [ ] Put CHANGELOG entries under "## Unreleased" as changes land (what changed for someone using the package; see CLAUDE.md).
-- [ ] `npm run ci` passes. Sizes, the release line and the pre-commit `rev:` in README.md and DESIGN.md are generated: if ci says they are stale, run `npm run gen`.
+- [ ] `npm run ci` passes. Sizes, budgets, counts, the release line, the pre-commit `rev:` and the size badge in README.md and DESIGN.md are generated: if ci says they are stale, run `npm run gen`.
+- [ ] Changed something on a hot path? `npm run bench`, and update the speed figures in README.md and DESIGN.md if they moved.
 
 Release (patch bump only; work done close together goes out as one release)
 - [ ] `npm run release:prep -- --dry-run`: checks main is clean and pushed, npm has the current version, and "## Unreleased" has entries; prints the next version.
 - [ ] `npm run release:prep`: bumps the patch number, dates the CHANGELOG heading, runs `npm run gen` and `npm run ci`, commits "chore(release): X.Y.Z" and pushes.
 - [ ] Maintainer: `npm publish --access public` (needs npm two-factor credentials), from the same checkout.
-- [ ] `npm run release:verify`: waits for npm, checks the published gitHead, shasum and file count against the release commit, then tags vX.Y.Z on that commit and pushes the tag.
+- [ ] `npm run release:verify -- --github-release`: waits for npm, checks the published gitHead, shasum and file count against the release commit, tags vX.Y.Z on that commit, pushes the tag, and creates the GitHub release with the CHANGELOG section as notes (needs `gh`; leave the flag off to skip it).
 
 Changing the minor or major number is a deliberate decision, not a semver default; the scripts only bump the patch number.
+
+If a release went wrong
+- Within 72 hours: `npm unpublish text-sanctifier@X.Y.Z` (npm also requires few downloads).
+- Any time: `npm deprecate text-sanctifier@X.Y.Z "Use X.Y.Z+1 or later."`, then fix and release the next patch.

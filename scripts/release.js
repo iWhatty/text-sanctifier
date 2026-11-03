@@ -9,12 +9,14 @@
 //   npm run release:verify               wait for npm, check the release matches its commit,
 //                                        tag vX.Y.Z on that commit and push the tag
 //   npm run release:verify -- 1.3.8 --no-tag
+//   npm run release:verify -- --github-release   also create the GitHub release (needs `gh`),
+//                                        with the version's CHANGELOG section as its notes
 //
 // While work lands, CHANGELOG entries go under "## Unreleased"; prep turns that heading
 // into "## X.Y.Z — YYYY-MM-DD" (local date) and refuses to release without entries.
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -51,6 +53,22 @@ export function dateChangelog(text, version, date) {
     if (!lines.slice(start + 1, end).some((l) => l.trim())) throw new Error('the "## Unreleased" section of CHANGELOG.md is empty.');
     lines[start] = `## ${version} ${DASH} ${date}`;
     return lines.join('\n');
+}
+
+/**
+ * The entries of a release's CHANGELOG section, without its heading: the GitHub release notes.
+ * @param {string} text
+ * @param {string} version
+ */
+export function changelogSection(text, version) {
+    const lines = text.split('\n');
+    const start = lines.findIndex((l) => l.startsWith(`## ${version} `));
+    if (start < 0) throw new Error(`CHANGELOG.md has no ${version} section.`);
+    let end = start + 1;
+    while (end < lines.length && !lines[end].startsWith('## ')) end++;
+    const notes = lines.slice(start + 1, end).join('\n').trim();
+    if (!notes) throw new Error(`the ${version} section of CHANGELOG.md is empty.`);
+    return notes + '\n';
 }
 
 /** @param {string} cmd */
@@ -107,8 +125,28 @@ function prep(dryRun) {
     console.log('release: next, the maintainer runs `npm publish --access public`, then `npm run release:verify`.');
 }
 
-/** @param {string | undefined} versionArg @param {boolean} tag */
-async function verify(versionArg, tag) {
+/**
+ * Creates the GitHub release for a pushed tag, with that release's CHANGELOG section as notes.
+ * @param {string} tagName @param {string} commit @param {string} version
+ */
+function githubRelease(tagName, commit, version) {
+    try { sh('gh --version'); } catch { fail('--github-release needs the GitHub CLI (`gh`), signed in.'); }
+    try {
+        sh(`gh release view ${tagName} --json tagName`);
+        return `GitHub release ${tagName} already exists`;
+    } catch { /* not released yet */ }
+    const notesFile = resolve(sh('git rev-parse --git-common-dir'), `release-notes-${version}.md`);
+    writeFileSync(notesFile, changelogSection(sh(`git show ${commit}:CHANGELOG.md`).replace(/\r\n/g, '\n'), version));
+    try {
+        run(`gh release create ${tagName} --verify-tag --title ${tagName} --notes-file "${notesFile}"`);
+    } finally {
+        rmSync(notesFile, { force: true });
+    }
+    return `created GitHub release ${tagName} from the CHANGELOG`;
+}
+
+/** @param {string | undefined} versionArg @param {boolean} tag @param {boolean} ghRelease */
+async function verify(versionArg, tag, ghRelease) {
     const version = versionArg || JSON.parse(readLf('package.json')).version;
     const deadline = Date.now() + NPM_WAIT_MS;
     let meta;
@@ -151,7 +189,9 @@ async function verify(versionArg, tag) {
         if (!tagged) run(`git tag ${tagName} ${commit}`);
         if (!sh(`git ls-remote --tags origin refs/tags/${tagName}`)) run(`git push -q origin ${tagName}`);
         report.push(tagged ? `tag ${tagName} already on it, and on origin` : `tagged ${tagName} and pushed it`);
+        if (ghRelease) report.push(githubRelease(tagName, commit, version));
     }
+    if (ghRelease && !tag) report.push('no GitHub release: it needs the tag (drop --no-tag)');
 
     console.log(report.map((line) => `release: ${line}`).join('\n'));
 }
@@ -159,6 +199,6 @@ async function verify(versionArg, tag) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const [command, ...rest] = process.argv.slice(2);
     if (command === 'prep') prep(rest.includes('--dry-run'));
-    else if (command === 'verify') await verify(rest.find((a) => !a.startsWith('--')), !rest.includes('--no-tag'));
-    else fail('usage: node scripts/release.js prep [--dry-run] | verify [X.Y.Z] [--no-tag]');
+    else if (command === 'verify') await verify(rest.find((a) => !a.startsWith('--')), !rest.includes('--no-tag'), rest.includes('--github-release'));
+    else fail('usage: node scripts/release.js prep [--dry-run] | verify [X.Y.Z] [--no-tag] [--github-release]');
 }

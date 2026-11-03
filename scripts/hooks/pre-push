@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by `npm run hooks:install` (git config core.hooksPath scripts/hooks).
+# Refuses a push that would publish a name from .git/info/private-names.
+exec node scripts/check-names.js --pre-push

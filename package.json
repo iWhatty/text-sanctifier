@@ -51,10 +51,13 @@
     "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js && node tests/release.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "check:self": "node bin/text-sanctifier.js check .",
-    "ci": "npm run gen:check && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
+    "check:names": "node scripts/check-names.js",
+    "ci": "npm run gen:check && npm run check:names && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
     "size": "node scripts/check-size.js",
+    "bench": "node --expose-gc scripts/bench.js",
     "release:prep": "node scripts/release.js prep",
-    "release:verify": "node scripts/release.js verify"
+    "release:verify": "node scripts/release.js verify",
+    "hooks:install": "git config core.hooksPath scripts/hooks"
   },
   "keywords": [
     "text",
