@@ -2,6 +2,15 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- `findHiddenRuns` and `check --ai-config` treat a lone U+FE0E or U+FE0F as benign only after an emoji or in a keycap, as `text-sanctifier/context` does. Before, any non-space character counted, so a selector after each letter could carry hidden data unreported.
+- `check` and `reveal` read files that are not valid UTF-8 instead of skipping them, with each invalid byte as U+FFFD, so one bad byte no longer hides the rest of a file. They are noted on stderr and listed under `notUtf8` in `--json`. `fix` still never writes them.
+- Stdin and AI configuration files are never skipped as binary; a NUL in them is reported as `nul`.
+- `check --ai-config` with no paths still searches the current directory when input is piped, and now says to pass `-` to check stdin.
+
+Behavior change: `check` can now exit 1 on files it used to skip, and `findHiddenRuns` reports selectors after letters that it used to list under `benign`.
+
 ## 1.3.8 — 2026-11-02
 
 - `inspectTextInContext` now treats a ZWNJ or ZWJ after a virama (Hindi, Bengali and other Indic scripts) and a ZWNJ between Arabic-script letters (Persian and others) as benign, following IDNA ContextJ (RFC 5892).

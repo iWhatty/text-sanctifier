@@ -24,6 +24,7 @@ const CANCEL = cp(0xE007F);
 const WALES = cp(0x1F3F4) + tags('gbwls') + CANCEL;
 const VS16 = cp(0xFE0F);
 const OP = cp(0x2061);
+const HEART = cp(0x2764); // HEAVY BLACK HEART, Extended_Pictographic
 
 function heapGrowthMb(fn) {
   if (globalThis.gc) globalThis.gc();
@@ -66,7 +67,7 @@ function heapGrowthMb(fn) {
     assertEqual(findHiddenRuns(text, { maxRuns: bad }).runs.length, 5, `2. invalid maxRuns (${String(bad)}) falls back to no cap`);
   }
 
-  const benignText = `a${VS16}b${VS16}c${VS16}${WALES}`;
+  const benignText = `${HEART}${VS16}b${HEART}${VS16}c${HEART}${VS16}${WALES}`;
   const b = findHiddenRuns(benignText, { maxRuns: 1 });
   assertEqual(b.benign.length, 1, '2. maxRuns also caps benign spans');
   assertEqual(b.benignTotal, 4, '2. benignTotal counts every benign span');
@@ -143,7 +144,7 @@ function heapGrowthMb(fn) {
   assertEqual(b.result.runs[0].count + ':' + b.result.runs[0].decoded.length, `${M}:1000`, '5. one 8 M-tag run, 1000 characters decoded');
   assertEqual(b.grew < 4, true, `5. 16 M-unit tag run, maxDecodedLength: 1000 (heap grew ${b.grew.toFixed(1)} MB, limit 4)`);
 
-  const manyBenign = ('a' + VS16).repeat(M);
+  const manyBenign = (HEART + VS16).repeat(M);
   manyBenign.charCodeAt(0);
   const c = heapGrowthMb(() => findHiddenRuns(manyBenign, { maxRuns: 100 }));
   assertEqual(c.result.benignTotal + ':' + c.result.benign.length, `${M}:100`, '5. 8 M benign spans counted, 100 listed');
@@ -170,6 +171,22 @@ function heapGrowthMb(fn) {
   assertEqual(scan.counts.reserved_tag_plane + ':' + scan.total, '2:3', '6. counts.reserved_tag_plane');
   assertEqual('decoded' in scan.runs[0], false, '6. reserved_tag_plane runs are not decoded');
   assertEqual(findHiddenRuns('plain').counts.reserved_tag_plane, 0, '6. counts has a reserved_tag_plane key');
+}
+
+
+// 7. A lone presentation selector is benign only after an emoji or in a keycap
+{
+  const VS15 = cp(0xFE0E);
+  const KEYCAP = cp(0x20E3);
+  assertEqual(findHiddenRuns(HEART + VS16).benignTotal, 1, '7. after an emoji: benign');
+  assertEqual(findHiddenRuns(cp(0x1F600) + VS15).benignTotal, 1, '7. after a supplementary emoji: benign');
+  assertEqual(findHiddenRuns('1' + VS16 + KEYCAP).benignTotal, 1, '7. keycap: benign');
+  assertEqual(findHiddenRuns('1' + VS16).total, 1, '7. after a digit with no keycap: a run');
+  assertEqual(findHiddenRuns(VS16 + 'x').total, 1, '7. at the start: a run');
+  // One selector per letter carries a bit each, the way data hides in ordinary words
+  const smuggled = 'h' + VS15 + 'e' + VS16 + 'l' + VS15 + 'l' + VS16 + 'o' + VS15;
+  const scan = findHiddenRuns(smuggled);
+  assertEqual(`${scan.total}:${scan.benignTotal}`, '5:0', '7. selectors after letters: every one is a run');
 }
 
 

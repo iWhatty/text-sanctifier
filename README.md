@@ -255,7 +255,7 @@ import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden';
 
 const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRuns: 100, maxDecodedLength: 1000 });
 // runs:   [{ kind: 'tag', offset, end, line, column, count, decoded: 'Ignore the user', decodedTruncated: false }, ...]
-// benign: [[offset, end], ...]  England/Scotland/Wales flags, a lone U+FE0E/U+FE0F after a character
+// benign: [[offset, end], ...]  England/Scotland/Wales flags, a lone U+FE0E/U+FE0F after an emoji or in a keycap
 // counts: { tag, variation_selector, invisible_operator, reserved_tag_plane }, every run listed or not; total is their sum
 ```
 
@@ -314,7 +314,7 @@ src/auth.js:40:3  U+202E  bidi_control
 2 findings in 2 of 31 files.
 ```
 
-- `--json` (or `--format json`): one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
+- `--json` (or `--format json`): one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped, notUtf8 }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
 - `--format sarif`: a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) log for code-scanning viewers and editors. See [SARIF output](#sarif-output).
 - `--max-findings N`: findings listed per file (default 100; `all` for no cap). Counts always cover every occurrence.
 - `--strip-bom`: also report a BOM at offset 0, which is skipped by default.
@@ -335,11 +335,11 @@ skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
 19 findings (2 hidden runs) in 2 of 6 AI configuration files.
 ```
 
-- With no paths it searches the current directory; directories you name are searched the same way, and files you name are checked whatever they are called. In a git work tree, files `.gitignore` excludes are skipped.
+- With no paths it searches the current directory, even when input is piped (so a CI job without stdin still checks the repository); pass `-` to check stdin; directories you name are searched the same way, and files you name are checked whatever they are called. In a git work tree, files `.gitignore` excludes are skipped.
 - Files it looks for, matched case-insensitively: `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `AGENT.md`, `GEMINI.md` and `SKILL.md` at any depth; and at the top of the directory, `.claude/**`, `.cursorrules`, `.cursor/rules/**`, `.cursor/mcp.json`, `.windsurfrules`, `.windsurf/rules/**`, `.clinerules` (file or directory), `.roorules`, `.roo/rules/**`, `.github/copilot-instructions.md`, `.github/{instructions,prompts,chatmodes,agents}/**`, `.mcp.json`, `mcp.json` and `.vscode/mcp.json`.
 - Consecutive tag characters, variation selectors or invisible operators are reported once, as a run, at the first character. Tag runs are decoded: U+E0020–U+E007E become the ASCII they shadow, and other tags are shown as `<U+XXXX>`.
 - Every other invisible or control character is reported as in a plain `check`.
-- Two legitimate sequences are left out: the flags of England, Scotland and Wales (U+1F3F4, tag letters, U+E007F), and a single U+FE0E or U+FE0F after another character (text or emoji presentation). A plain `check` still reports both.
+- Two legitimate sequences are left out: the flags of England, Scotland and Wales (U+1F3F4, tag letters, U+E007F), and a single U+FE0E or U+FE0F (text or emoji presentation) after an emoji (`Extended_Pictographic`) or in a keycap such as 1, U+FE0F, U+20E3. After a letter it is reported: one selector per letter can carry a bit of hidden data. A plain `check` still reports both.
 - `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector`, `invisible_operator` or `reserved_tag_plane`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
 
 ### SARIF output
@@ -398,8 +398,9 @@ git diff | npx text-sanctifier reveal
 
 - Paths can be files, directories or globs (`*`, `**`, `?`, `[...]`, `{a,b}`). Quote globs so the shell passes them through.
 - Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read.
-- Binary files (a NUL byte in the first 8000 bytes) and files that are not valid UTF-8 are skipped, and `fix` never writes them. In JSON they appear under `skipped`.
-- `-`, or no paths with piped input, reads stdin. `fix` writes the cleaned text to stdout and the report to stderr.
+- Binary files (a NUL byte in the first 8000 bytes) are skipped and listed under `skipped` in JSON. Stdin and AI configuration files are never treated as binary: a NUL in them is reported as `nul`.
+- Files that are not valid UTF-8 are still checked, with each invalid byte read as U+FFFD, so one bad byte cannot hide the rest of the file. `check` notes them on stderr and lists them under `notUtf8` in JSON; `fix` never writes them and lists them under `skipped`.
+- `-`, or no paths with piped input, reads stdin (with `--ai-config`, only `-` does). `fix` writes the cleaned text to stdout and the report to stderr.
 
 ### Exit codes
 

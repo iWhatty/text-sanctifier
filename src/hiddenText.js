@@ -114,18 +114,25 @@ function decodeRange(text, start, end, limit) {
     return { decoded: out, truncated: false };
 }
 
-// Whitespace as JavaScript's \s defines it, tested at an index of the text itself,
-// so the check allocates nothing.
-const SPACE_AT = /\s/y;
+// Tested at an index of the text itself, so the check allocates nothing.
+const PICTOGRAPHIC_AT = /\p{Extended_Pictographic}/yu;
 
 /**
+ * True when a presentation selector at `index` follows an emoji-capable character:
+ * an Extended_Pictographic code point, or a keycap base (#, * or a digit) with U+20E3 after.
  * @param {string} text
  * @param {number} index
  * @returns {boolean}
  */
-function isSpaceAt(text, index) {
-    SPACE_AT.lastIndex = index;
-    return SPACE_AT.test(text);
+function isPresentationBase(text, index) {
+    if (index === 0) return false;
+    const low = text.charCodeAt(index - 1);
+    const p = low >= 0xDC00 && low <= 0xDFFF && index >= 2 &&
+        (text.charCodeAt(index - 2) & 0xFC00) === 0xD800 ? index - 2 : index - 1;
+    const before = text.charCodeAt(p);
+    if ((before === 0x23 || before === 0x2A || (before >= 0x30 && before <= 0x39)) && text.charCodeAt(index + 1) === 0x20E3) return true;
+    PICTOGRAPHIC_AT.lastIndex = p;
+    return PICTOGRAPHIC_AT.test(text);
 }
 
 /**
@@ -146,7 +153,10 @@ function cap(value) {
  * legitimate and listed under `benign` instead of `runs`:
  *  - the subdivision flags of England, Scotland and Wales: U+1F3F4 followed by the
  *    tags for "gbeng", "gbsct" or "gbwls" and U+E007F
- *  - a single U+FE0E or U+FE0F (text or emoji presentation) after another character
+ *  - a single U+FE0E or U+FE0F (text or emoji presentation) after an
+ *    Extended_Pictographic character, or between #, * or a digit and U+20E3 (a keycap),
+ *    the same rule as text-sanctifier/context. After a letter it is a run: one selector
+ *    per letter can carry a bit each.
  *
  * `line` and `column` are counted as in inspectTextDetailed. Every run and benign
  * span is counted; only the first `maxRuns` of each are listed. With the caps set,
@@ -207,7 +217,7 @@ export function findHiddenRuns(text, options = {}) {
             ? count === 6 && last === CANCEL_TAG && offset >= 2 && text.codePointAt(offset - 2) === BLACK_FLAG &&
               SUBDIVISION_FLAGS.has(decodeRange(text, offset, end - 2, Infinity).decoded)
             : kind === 'variation_selector' && count === 1 && (cp === 0xFE0E || cp === 0xFE0F) &&
-              offset > 0 && !isSpaceAt(text, offset - 1);
+              isPresentationBase(text, offset);
         if (isBenign) {
             benignTotal++;
             if (benign.length < maxRuns) benign.push([offset, end]);

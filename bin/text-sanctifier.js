@@ -378,18 +378,22 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
 // --- Reading ---
 
 const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+const utf8Lenient = new TextDecoder('utf-8', { ignoreBOM: true });
 
 /**
- * Decodes UTF-8, keeping a leading BOM. Returns null for binary or non-UTF-8 data.
+ * Decodes UTF-8, keeping a leading BOM. With `sniff`, data with a NUL in its first
+ * BINARY_SNIFF_BYTES is binary and not decoded. Bytes that are not UTF-8 become U+FFFD
+ * and set `lossy`, so one bad byte cannot hide the rest of a file from `check`.
  * @param {Uint8Array} bytes
- * @returns {{ text: string|null, reason?: string }}
+ * @param {boolean} sniff
+ * @returns {{ text: string|null, reason?: string, lossy?: boolean }}
  */
-function decode(bytes) {
-    if (bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { text: null, reason: 'binary' };
+function decode(bytes, sniff) {
+    if (sniff && bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { text: null, reason: 'binary' };
     try {
         return { text: utf8.decode(bytes) };
     } catch {
-        return { text: null, reason: 'not UTF-8' };
+        return { text: utf8Lenient.decode(bytes), lossy: true };
     }
 }
 
@@ -612,6 +616,8 @@ async function main(argv) {
 
     const cwd = process.cwd();
     let paths = opts.paths;
+    // --ai-config with no paths searches the current directory even when stdin is not a
+    // terminal, so a CI job with no stdin still scans the repository; `-` reads stdin.
     if (paths.length === 0 && opts.aiConfig) {
         paths = ['.'];
     } else if (paths.length === 0) {
@@ -627,6 +633,8 @@ async function main(argv) {
     let errors = pathErrors;
     /** @type {Array<{ path: string, reason: string }>} */
     const skipped = [];
+    /** @type {string[]} */
+    const notUtf8 = [];
 
     /**
      * Reads every input in order, calling `visit(label, text, input)` for each decodable one.
@@ -643,11 +651,23 @@ async function main(argv) {
                 errors++;
                 continue;
             }
-            const { text, reason } = decode(bytes);
+            // Files that look binary are skipped. Stdin and AI configuration files are text
+            // by intent, so a NUL in one is a finding, not a reason to skip it.
+            const { text, reason, lossy } = decode(bytes, input.path !== STDIN && !opts.aiConfig);
             if (text === null) {
                 skipped.push({ path: label, reason });
                 if (input.explicit) warn(`${label}: skipped (${reason})`);
                 continue;
+            }
+            if (lossy) {
+                // fix never rewrites bytes it could not decode
+                if (opts.command === 'fix') {
+                    skipped.push({ path: label, reason: 'not UTF-8' });
+                    warn(`${label}: skipped (not UTF-8)`);
+                    continue;
+                }
+                notUtf8.push(label);
+                warn(`${label}: not valid UTF-8; checked with invalid bytes read as U+FFFD`);
             }
             visit(label, text, input);
         }
@@ -691,14 +711,17 @@ async function main(argv) {
 
         const kind = opts.aiConfig ? 'AI configuration file' : 'file';
         if (opts.format === 'json') {
-            const summary = { files, total, filesScanned: scanned, filesWithFindings: files.length, skipped };
+            const summary = { files, total, filesScanned: scanned, filesWithFindings: files.length, skipped, notUtf8 };
             if (opts.aiConfig) summary.hiddenRunCount = hiddenRunCount;
             out(JSON.stringify(summary, null, 2));
         } else if (opts.format === 'sarif') {
             out(JSON.stringify(sarifLog(files, { cwd, total, filesScanned: scanned, skipped, succeeded: errors === 0 }), null, 2));
         } else {
             for (const line of lines) out(line);
-            if (opts.aiConfig && scanned === 0 && skipped.length === 0) out('No AI configuration files found.');
+            if (opts.aiConfig && scanned === 0 && skipped.length === 0) {
+                out('No AI configuration files found.');
+                if (opts.paths.length === 0 && !process.stdin.isTTY) out('To check piped text, pass "-": text-sanctifier check --ai-config -');
+            }
             else if (total === 0) out(`No ${opts.aiConfig ? 'hidden text, ' : ''}invisible or control characters in ${plural(scanned, kind)}.`);
             else out(`${plural(total, 'finding')}${opts.aiConfig ? ` (${plural(hiddenRunCount, 'hidden run')})` : ''} in ${files.length} of ${plural(scanned, kind)}.`);
         }

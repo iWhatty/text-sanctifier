@@ -235,18 +235,31 @@ try {
     const dir = run(['check', '--json', 'd'], { cwd });
     const report = JSON.parse(dir.stdout);
     assertEqual(dir.code, 0, 'check dir: binary files do not fail the run');
-    assertEqual(report.filesScanned, 1, 'check dir: only the text file is scanned');
+    assertEqual(report.filesScanned, 2, 'check dir: the binary file is not scanned');
     assertEqual(
       report.skipped.map((s) => `${s.path.replace(/\\/g, '/')}:${s.reason}`).join(','),
-      'd/img.bin:binary,d/latin1.txt:not UTF-8',
+      'd/img.bin:binary',
       'check dir: skipped files listed with reasons'
     );
-    assertEqual(run(['check', 'd'], { cwd }).stderr, '', 'check dir: skipped files are silent in text mode');
+    assertEqual(report.notUtf8.map((p) => p.replace(/\\/g, '/')).join(','), 'd/latin1.txt', 'check dir: non-UTF-8 file checked and listed under notUtf8');
+    const dirText = run(['check', 'd'], { cwd });
+    assertEqual(dirText.stderr.includes('img.bin'), false, 'check dir: skipped binary files are silent in text mode');
+    assertEqual(dirText.stderr.includes('latin1.txt: not valid UTF-8'), true, 'check dir: non-UTF-8 file noted on stderr');
     assertEqual(run(['check', join('d', 'img.bin')], { cwd }).stderr.includes('skipped (binary)'), true, 'check: named binary file noted on stderr');
+
+    // One invalid byte must not hide the rest of the file
+    writeFileSync(join(cwd, 'bad.txt'), Buffer.concat([Buffer.from(`a${ZWSP}b\n`), Buffer.from([0xFF])]));
+    const bad = run(['check', '--json', 'bad.txt'], { cwd });
+    assertEqual(`${bad.code}:${JSON.parse(bad.stdout).total}`, '1:1', 'check: findings in a non-UTF-8 file are reported');
 
     writeFileSync(join(cwd, 'd', 'latin1.txt'), Buffer.from([0x63, 0x61, 0x66, 0xE9, 0xA0]));
     run(['fix', 'd'], { cwd });
     assertEqual(readFileSync(join(cwd, 'd', 'latin1.txt')).toString('hex'), '636166e9a0', 'fix: non-UTF-8 file left untouched');
+    const fixBad = run(['fix', '--json', 'bad.txt'], { cwd });
+    assertEqual(JSON.parse(fixBad.stdout).skipped.map((s) => s.reason).join(','), 'not UTF-8', 'fix: non-UTF-8 file skipped with its reason');
+
+    const nul = run(['check', '--json', '-'], { cwd, input: `ok\0${ZWSP}` });
+    assertEqual(`${nul.code}:${JSON.parse(nul.stdout).total}`, '1:2', 'check -: stdin with a NUL is checked, not skipped as binary');
   }
 
   // --- fix ---
@@ -496,7 +509,12 @@ try {
     const none = run(['check', '--ai-config', 'skills/review/nothing'], { cwd });
     assertEqual(none.code, 2, 'ai-config: missing path exits 2');
     const emptyDir = tempDir();
-    assertEqual(run(['check', '--ai-config'], { cwd: emptyDir }).stdout.trim(), 'No AI configuration files found.', 'ai-config: nothing to scan');
+    const nothing = run(['check', '--ai-config'], { cwd: emptyDir, input: `x${tags("A")}` });
+    assertEqual(nothing.stdout.split('\n')[0], 'No AI configuration files found.', 'ai-config: nothing to scan');
+    assertEqual(nothing.code, 0, 'ai-config: no paths searches the directory even with piped input');
+    assertEqual(nothing.stdout.includes('pass "-"'), true, 'ai-config: piped input without "-" gets a hint');
+    const dashAi = run(['check', '--ai-config', '-'], { cwd: emptyDir, input: `x${tags("A")}` });
+    assertEqual(dashAi.code, 1, 'ai-config -: reads stdin');
   }
 } finally {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });

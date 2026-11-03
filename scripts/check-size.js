@@ -25,7 +25,8 @@ const ROOT = resolve('.');
 // must not contain them. inspectText reports emoji, so it may contain the emoji table,
 // but not the sanitizer.
 const SANITIZER = 'sanctifyText expects';
-const EMOJI_TABLE = 'Extended_Pictographic';
+// Text only the emoji regex in src/textPatterns.js has; a lone Extended_Pictographic property escape is fine.
+const EMOJI_TABLE = 'Extended_Pictographic}(?:';
 
 /** @type {Array<{ name: string, code: string, budget: number, mustNotContain?: string[] }>} */
 export const PROBES = [
@@ -39,8 +40,9 @@ export const PROBES = [
     { name: 'sanctifyPasted', code: "import { sanctifyPasted } from './src/index.js'; sanctifyPasted('');", budget: 1250 },
     { name: 'sanctifyStrict', code: "import { sanctifyStrict } from './src/index.js'; sanctifyStrict('');", budget: 1250 },
     // 593 -> 912 for line/column, maxRuns, maxDecodedLength and exact counts on each run;
-    // 943 -> 996 for the reserved_tag_plane kind and code-point totals.
-    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1100, mustNotContain: [SANITIZER, EMOJI_TABLE] },
+    // 943 -> 996 for the reserved_tag_plane kind and code-point totals;
+    // 996 -> 1106 for the emoji/keycap rule on presentation selectors (as in context.js).
+    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes;
     // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the 69-code-point virama table.
     { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 2250, mustNotContain: [SANITIZER] },

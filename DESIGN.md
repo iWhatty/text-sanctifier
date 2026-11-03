@@ -102,7 +102,7 @@ The goal is for the web and server tracks to move forward together without drift
 Capability over size.
 
 - **A dedicated server entry point** (for example `text-sanctifier/server`) for features that don't belong in the browser bundle.
-- **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector are left out. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
+- **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector after an emoji or in a keycap are left out (after a letter, one selector per letter can carry a bit, so it is reported). Files that are not valid UTF-8 are checked with U+FFFD for invalid bytes, and AI configuration files are never skipped as binary, so neither can hide a file from the check. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
 - **Done: integration that runs locally.** `check --format sarif` (SARIF 2.1.0, a level per category, set in the command line) and `.pre-commit-hooks.yaml` with two hooks. No cloud CI.
 - **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
 - **Context-aware findings**, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones. Built: see "Context-aware findings" below.
@@ -138,7 +138,7 @@ Gzipped bytes per import in the source on `main`, written by `npm run gen` (the 
 | `summonSanctifier.pasted` | 1458 | 1600 | 142 |
 | `sanctifyPasted` | 1116 | 1250 | 134 |
 | `sanctifyStrict` | 1110 | 1250 | 140 |
-| `text-sanctifier/hidden` | 996 | 1100 | 104 |
+| `text-sanctifier/hidden` | 1106 | 1250 | 144 |
 | `text-sanctifier/context` | 2074 | 2250 | 176 |
 | `VERSION` | 50 | 60 | 10 |
 | `everything` | 3035 | 3072 | 37 |
