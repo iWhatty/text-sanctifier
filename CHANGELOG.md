@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.9 — 2026-11-03
 
 - `findHiddenRuns` and `check --ai-config` treat a lone U+FE0E or U+FE0F as benign only after an emoji or in a keycap, as `text-sanctifier/context` does. Before, any non-space character counted, so a selector after each letter could carry hidden data unreported.
 - `check` and `reveal` read files that are not valid UTF-8 instead of skipping them, with each invalid byte as U+FFFD, so one bad byte no longer hides the rest of a file. They are noted on stderr and listed under `notUtf8` in `--json`. `fix` still never writes them.
