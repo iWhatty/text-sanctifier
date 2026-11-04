@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.10 — 2026-11-04
 
 - `fix --keep-benign` preserves recognized legitimate joiners, selectors and flag tags while purging other invisible characters.
 - Behavior change: `findHiddenRuns` and `decodeTagText` throw `TypeError` for non-string input.
