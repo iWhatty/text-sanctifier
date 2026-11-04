@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.11 — 2026-11-04
 
 - `check` no longer reports a clean result when it read nothing. A path or glob that matches no files, or a run that only skipped files, exits 2, and summaries count skipped files.
 - `check` with no paths reads piped input, and scans the current directory when stdin is a terminal, the null device or empty; before, empty stdin was read and reported clean.
