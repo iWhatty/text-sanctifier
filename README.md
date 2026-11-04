@@ -349,6 +349,7 @@ skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
 - `ruleId` is the category, and `tool.driver.rules` lists every category.
 - `level`: `error` for `bidi_control` and `tag`, `note` for `nonbreaking_space`, `warning` for the rest.
 - Each location has the file (relative to `%SRCROOT%`, the current directory), `startLine`, `startColumn` and `endColumn`. Columns count UTF-16 code units, as in `inspectTextDetailed` (`columnKind: "utf16CodeUnits"`).
+- Each result has a `partialFingerprints` hash based on its rule, relative path, line content and occurrence on that line. Adding unrelated lines above does not change it.
 - With `--ai-config`, the message of the first result in a run describes the run and its decoded text.
 - `--max-findings` caps results per file as usual. `runs[0].properties` holds `total`, `filesScanned`, `filesWithFindings`, `truncated` (files with findings left out) and `skipped`.
 
@@ -376,6 +377,7 @@ Rewrites files in place and reports what it replaced and removed.
 
 - `--normalize-spaces`: `normalizeSpaces` (look-alike spaces become ordinary spaces)
 - `--purge-invisible`: `purgeInvisibleChars`
+- `--keep-benign`: preserve contextually legitimate joiners, selectors and flag tags when purging invisible characters. Works with the default cleaning flags too.
 - `--nuke-controls`: `nukeControls`
 - `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
 - With none of these, `fix` uses `--normalize-spaces --purge-invisible --nuke-controls`: look-alike spaces become ordinary spaces, and everything else `check` reports is removed.
@@ -383,7 +385,7 @@ Rewrites files in place and reports what it replaced and removed.
 - `--dry-run`: write nothing; report what would change.
 - `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, spacesReplaced, removed, removedTotal, newlinesNormalized }`.
 
-Apart from look-alike spaces, `fix` deletes characters. Emoji lose their zero width joiners and variation selectors, and so does Mongolian text. Run `check` or `fix --dry-run` first on prose. To make hidden characters visible without changing a file, use `reveal`.
+Apart from look-alike spaces, `fix` deletes characters. By default, emoji lose their zero width joiners and variation selectors, and so does Mongolian text. Use `--keep-benign` to preserve recognized legitimate sequences, or run `check` or `fix --dry-run` first on prose. To make hidden characters visible without changing a file, use `reveal`.
 
 ### `reveal [paths...]`
 

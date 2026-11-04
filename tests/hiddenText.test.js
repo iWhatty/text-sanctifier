@@ -5,7 +5,7 @@
 // catch large temporary allocations, not only what the result keeps.
 
 import { readFileSync } from 'node:fs';
-import { findHiddenRuns, VERSION as HIDDEN_VERSION } from '../src/hiddenText.js';
+import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from '../src/hiddenText.js';
 import { inspectTextDetailed, VERSION } from '../src/index.js';
 
 
@@ -25,6 +25,14 @@ const WALES = cp(0x1F3F4) + tags('gbwls') + CANCEL;
 const VS16 = cp(0xFE0F);
 const OP = cp(0x2061);
 const HEART = cp(0x2764); // HEAVY BLACK HEART, Extended_Pictographic
+
+for (const fn of [findHiddenRuns, decodeTagText]) {
+  for (const value of [42, null, undefined, {}, []]) {
+    let error;
+    try { fn(value); } catch (e) { error = e; }
+    assertEqual(error instanceof TypeError && error.message === `${fn.name} expects a string input.`, true, `${fn.name} rejects non-string input`);
+  }
+}
 
 function heapGrowthMb(fn) {
   if (globalThis.gc) globalThis.gc();

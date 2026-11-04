@@ -14,10 +14,13 @@ import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from '
 import { resolve, join, sep, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 import { inspectTextDetailed, summonSanctifier, revealInvisible } from '../src/index.js';
 import { getNewlineStats } from '../src/inspectText.js';
 import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
-import { findHiddenRuns } from '../src/hiddenText.js';
+import { scanHiddenSpans } from '../src/hiddenScan.js';
+import { inspectTextInContext } from '../src/context.js';
+import { classifyCodeUnit, classifyAstral } from '../src/categories.generated.js';
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -46,6 +49,7 @@ fix options:
   --normalize-spaces   replace look-alike spaces (NBSP, narrow NBSP, typographic
                        spaces) with an ordinary space instead of removing them
   --purge-invisible    remove zero-width, non-breaking space, bidi and BOM characters
+  --keep-benign        keep contextually legitimate joiners and selectors when purging
   --nuke-controls      remove C0/C1 control characters and bidi controls
   --normalize-newlines convert CRLF and CR to LF
   --strip-bom          also remove a BOM at the start of a file (kept by default)
@@ -86,11 +90,12 @@ const BOOLEAN_FLAGS = {
     '--strip-bom': 'stripBom',
     '--normalize-spaces': 'normalizeSpaces',
     '--purge-invisible': 'purgeInvisible',
+    '--keep-benign': 'keepBenign',
     '--nuke-controls': 'nukeControls',
     '--normalize-newlines': 'normalizeNewlines',
     '--dry-run': 'dryRun',
 };
-const FIX_ONLY_FLAGS = new Set(['normalizeSpaces', 'purgeInvisible', 'nukeControls', 'normalizeNewlines', 'dryRun']);
+const FIX_ONLY_FLAGS = new Set(['normalizeSpaces', 'purgeInvisible', 'keepBenign', 'nukeControls', 'normalizeNewlines', 'dryRun']);
 const CHECK_ONLY_FLAGS = new Set(['aiConfig']);
 const FORMATS = new Set(['text', 'json', 'sarif']);
 
@@ -106,6 +111,7 @@ function parseArgs(argv) {
         stripBom: false,
         normalizeSpaces: false,
         purgeInvisible: false,
+        keepBenign: false,
         nukeControls: false,
         normalizeNewlines: false,
         dryRun: false,
@@ -458,46 +464,56 @@ const RUN_NOUNS = { tag: 'tag character', variation_selector: 'variation selecto
  * @param {boolean} stripBom
  */
 function inspectAiConfig(text, maxFindings, stripBom) {
-    const full = inspect(text, Infinity, stripBom);
-    const { runs, benign } = findHiddenRuns(text);
-
-    const kept = [];
-    let b = 0;
-    for (const f of full.findings) {
-        while (b < benign.length && benign[b][1] <= f.offset) b++;
-        if (b < benign.length && benign[b][0] <= f.offset) { full.counts[f.category]--; continue; }
-        kept.push(f);
-    }
-
-    // Every run character is a finding, so each run starts at a kept finding
-    const hiddenRuns = [];
+    const full = inspect(text, 0, stripBom);
+    const findings = [];
     const loose = [];
-    let r = 0;
-    for (const f of kept) {
-        while (r < runs.length && runs[r].end <= f.offset) r++;
-        const run = runs[r];
-        if (!run || f.offset < run.offset) { loose.push(f); continue; }
-        if (f.offset !== run.offset) continue;
-        const entry = { kind: run.kind, offset: run.offset, line: f.line, column: f.column, codePoint: f.codePoint, count: run.count };
+    let looseCount = 0;
+    let position = 0, line = 1, lineStart = 0;
+    const scan = (end, inRun, benign) => {
+        while (position < end) {
+            const offset = position;
+            const codePoint = text.codePointAt(position);
+            position += codePoint > 0xFFFF ? 2 : 1;
+            if (codePoint === 10 || (codePoint === 13 && text.charCodeAt(position) !== 10)) {
+                line++; lineStart = position; continue;
+            }
+            const category = codePoint > 0xFFFF ? classifyAstral(codePoint) : classifyCodeUnit(codePoint);
+            if (!category || (offset === 0 && codePoint === BOM && !stripBom)) continue;
+            if (benign) { full.counts[category]--; full.total--; continue; }
+            if (findings.length < maxFindings || (!inRun && loose.length < maxFindings)) {
+                const f = { offset, line, column: offset - lineStart + 1, codePoint, category };
+                if (category === 'bom') f.atStart = offset === 0;
+                if (findings.length < maxFindings) findings.push(f);
+                if (!inRun && loose.length < maxFindings) loose.push(f);
+            }
+            if (!inRun) looseCount++;
+        }
+    };
+    // Decode beyond the cut point by one marker so slicing matches the original output.
+    const hidden = scanHiddenSpans(text, { maxRuns: maxFindings, maxDecodedLength: MAX_DECODED + 10 }, (span) => {
+        scan(span.offset, false, false);
+        scan(span.end, !span.benign, span.benign);
+    });
+    scan(text.length, false, false);
+    const hiddenRuns = hidden.runs.map((run) => {
+        const entry = { kind: run.kind, offset: run.offset, line: run.line, column: run.column, codePoint: text.codePointAt(run.offset), count: run.count };
         if (run.decoded !== undefined) {
             entry.decoded = run.decoded.slice(0, MAX_DECODED);
-            entry.decodedTruncated = run.decoded.length > MAX_DECODED;
+            entry.decodedTruncated = run.decodedTruncated || run.decoded.length > MAX_DECODED;
         }
-        hiddenRuns.push(entry);
-    }
-
-    const findings = kept.slice(0, maxFindings);
+        return entry;
+    });
     return {
         report: {
             ...full,
             findings,
-            total: kept.length,
-            truncated: kept.length > findings.length,
-            hiddenRuns: hiddenRuns.slice(0, maxFindings),
-            hiddenRunCount: hiddenRuns.length,
+            truncated: full.total > findings.length,
+            hiddenRuns,
+            hiddenRunCount: hidden.total,
         },
         hiddenRuns,
         loose,
+        entryCount: hidden.total + looseCount,
     };
 }
 
@@ -530,6 +546,30 @@ const CATEGORY_RULES = {
 const SARIF_SCHEMA = 'https://json.schemastore.org/sarif-2.1.0.json';
 const INFORMATION_URI = 'https://github.com/iWhatty/text-sanctifier';
 const ABSOLUTE_PATH = /^(?:[a-zA-Z]:)?[\\/]/;
+const fingerprints = new WeakMap();
+
+function fingerprintFindings(label, text, findings, cwd) {
+    const path = label === STDIN_LABEL ? 'stdin' : toSlash(relative(cwd, resolve(cwd, label)));
+    let previousLine = 0, start = 0, end = 0;
+    let occurrences = new Map();
+    const hashOccurrences = new Map();
+    for (const finding of findings) {
+        if (finding.line !== previousLine) {
+            start = finding.offset - finding.column + 1;
+            end = start;
+            while (end < text.length && text.charCodeAt(end) !== 10 && text.charCodeAt(end) !== 13) end++;
+            occurrences = new Map();
+            previousLine = finding.line;
+        }
+        const index = occurrences.get(finding.category) || 0;
+        occurrences.set(finding.category, index + 1);
+        const hash = createHash('sha256').update(JSON.stringify([finding.category, path, text.slice(start, end), index])).digest('hex');
+        const count = (hashOccurrences.get(hash) || 0) + 1;
+        hashOccurrences.set(hash, count);
+        fingerprints.set(finding, count === 1 ? hash :
+            createHash('sha256').update(JSON.stringify([hash, count])).digest('hex'));
+    }
+}
 
 /** @param {string} label */
 function sarifArtifact(label) {
@@ -559,6 +599,7 @@ function sarifLog(files, { cwd, total, filesScanned, skipped, succeeded }) {
             const run = runAt.get(x.offset);
             results.push({
                 ruleId: x.category,
+                partialFingerprints: { 'textSanctifier/v1': fingerprints.get(x) },
                 ruleIndex: ruleIds.indexOf(x.category),
                 level: CATEGORY_RULES[x.category][0],
                 message: { text: `${hex(x.codePoint)} ${x.category}${run ? `, start of a ${describeRun(run)}` : ''}` },
@@ -689,16 +730,18 @@ async function main(argv) {
                 const report = inspect(text, opts.maxFindings, opts.stripBom);
                 total += report.total;
                 if (report.total === 0) return;
+                if (opts.format === 'sarif') fingerprintFindings(label, text, report.findings, cwd);
                 files.push({ path: label, ...report });
                 for (const x of report.findings) lines.push(findingLine(label, x));
                 if (report.truncated) lines.push(`${label}: ${report.total - report.findings.length} more not listed (--max-findings)`);
                 return;
             }
 
-            const { report, hiddenRuns, loose } = inspectAiConfig(text, opts.maxFindings, opts.stripBom);
+            const { report, hiddenRuns, loose, entryCount } = inspectAiConfig(text, opts.maxFindings, opts.stripBom);
             total += report.total;
             hiddenRunCount += report.hiddenRunCount;
             if (report.total === 0) return;
+            if (opts.format === 'sarif') fingerprintFindings(label, text, report.findings, cwd);
             files.push({ path: label, ...report });
             // Text output lists each run once, in place of its characters
             const entries = [
@@ -706,7 +749,7 @@ async function main(argv) {
                 ...loose.map((x) => ({ offset: x.offset, text: findingLine(label, x) })),
             ].sort((a, b) => a.offset - b.offset);
             for (const e of entries.slice(0, opts.maxFindings)) lines.push(e.text);
-            if (entries.length > opts.maxFindings) lines.push(`${label}: ${entries.length - opts.maxFindings} more not listed (--max-findings)`);
+            if (entryCount > opts.maxFindings) lines.push(`${label}: ${entryCount - opts.maxFindings} more not listed (--max-findings)`);
         });
 
         const kind = opts.aiConfig ? 'AI configuration file' : 'file';
@@ -757,7 +800,21 @@ async function main(argv) {
         scanned++;
         // The BOM at offset 0 is set aside so purgeInvisibleChars cannot take it
         const leadingBom = text.charCodeAt(0) === BOM;
-        let cleaned = clean(leadingBom ? text.slice(1) : text);
+        const body = leadingBom ? text.slice(1) : text;
+        let cleaned;
+        if (opts.keepBenign && opts.purgeInvisible) {
+            const benign = inspectTextInContext(body, { maxFindings: Infinity }).findings.filter((f) => f.benign);
+            let start = 0;
+            const parts = [];
+            for (const f of benign) {
+                parts.push(clean(body.slice(start, f.offset)));
+                const end = f.offset + (f.codePoint > 0xFFFF ? 2 : 1);
+                parts.push(body.slice(f.offset, end));
+                start = end;
+            }
+            parts.push(clean(body.slice(start)));
+            cleaned = parts.join('');
+        } else cleaned = clean(body);
         if (leadingBom && !opts.stripBom) cleaned = String.fromCharCode(BOM) + cleaned;
 
         if (input.path === STDIN && !opts.dryRun) process.stdout.write(cleaned);

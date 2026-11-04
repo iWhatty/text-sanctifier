@@ -516,6 +516,54 @@ try {
     const dashAi = run(['check', '--ai-config', '-'], { cwd: emptyDir, input: `x${tags("A")}` });
     assertEqual(dashAi.code, 1, 'ai-config -: reads stdin');
   }
+  {
+    const cwd = tempDir();
+    const family = cp(0x1F468) + ch(0x200D) + cp(0x1F469) + ch(0x200D) + cp(0x1F467);
+    const heart = cp(0x2764) + VS16;
+    const indic = cp(0x915) + cp(0x94D) + ch(0x200D) + cp(0x937);
+    const input = family + heart + indic + ZWSP;
+    const fixed = run(['fix', '--keep-benign', '--json', '-'], { cwd, input });
+    assertEqual(fixed.stdout, family + heart + indic, 'fix --keep-benign preserves legitimate sequences on stdin');
+    assertEqual(JSON.parse(fixed.stderr).files[0].removedTotal, 1, 'fix --keep-benign counts only removals');
+    writeFileSync(join(cwd, 'input.txt'), input);
+    const dry = run(['fix', '--keep-benign', '--dry-run', '--json', 'input.txt'], { cwd });
+    assertEqual(dry.code, 1, 'fix --keep-benign dry run detects changes');
+    assertEqual(read(cwd, 'input.txt'), input, 'fix --keep-benign dry run leaves file intact');
+    assertEqual(JSON.parse(dry.stdout).files[0].removedTotal, 1, 'fix --keep-benign dry run counts removals');
+    assertEqual(run(['check', '--keep-benign', '-'], { cwd }).code, 2, 'keep-benign is fix-only');
+
+    const sarif = (input) => JSON.parse(run(['check', '--format', 'sarif', '-'], { cwd, input }).stdout).runs[0].results;
+    const first = sarif('a' + ZWSP + 'b' + ZWSP);
+    const shifted = sarif('unrelated\n' + 'a' + ZWSP + 'b' + ZWSP);
+    assertEqual(first[0].partialFingerprints['textSanctifier/v1'], shifted[0].partialFingerprints['textSanctifier/v1'], 'sarif fingerprint survives added lines');
+    assertEqual(first[0].partialFingerprints['textSanctifier/v1'] !== first[1].partialFingerprints['textSanctifier/v1'], true, 'sarif fingerprints distinguish findings on one line');
+
+    const repeatedLine = 'a' + ZWSP + 'b';
+    const fileSarif = (text) => {
+      writeFileSync(join(cwd, 'repeated.txt'), text);
+      const result = run(['check', '--format', 'sarif', 'repeated.txt'], { cwd });
+      assertEqual(result.code, 1, 'sarif repeated lines report findings');
+      return JSON.parse(result.stdout).runs[0].results;
+    };
+    const single = fileSarif(repeatedLine);
+    const repeated = fileSarif(repeatedLine + '\n' + repeatedLine);
+    const repeatedShifted = fileSarif('unrelated clean line\n' + repeatedLine + '\n' + repeatedLine);
+    const fingerprint = (finding) => finding.partialFingerprints['textSanctifier/v1'];
+    assertEqual(repeated.length, 2, 'sarif reports both identical lines');
+    assertEqual(fingerprint(repeated[0]) !== fingerprint(repeated[1]), true, 'sarif fingerprints distinguish identical lines');
+    assertEqual(fingerprint(repeated[0]), fingerprint(single[0]), 'sarif first occurrence keeps its original fingerprint');
+    assertEqual(fingerprint(repeated[0]), fingerprint(repeatedShifted[0]), 'sarif first repeated fingerprint survives added clean line');
+
+    const sample = (heart + ZWSP + tags('x') + 'a').repeat(120);
+    const capped = JSON.parse(run(['check', '--ai-config', '--json', '--max-findings', '3', '-'], { cwd, input: sample }).stdout);
+    const all = JSON.parse(run(['check', '--ai-config', '--json', '--max-findings', 'all', '-'], { cwd, input: sample }).stdout);
+    assertEqual(JSON.stringify(capped.files[0].findings), JSON.stringify(all.files[0].findings.slice(0, 3)), 'ai-config cap excludes benign spans before selecting findings');
+    assertEqual(capped.total + '/' + capped.hiddenRunCount, all.total + '/' + all.hiddenRunCount, 'ai-config capped counts remain exact');
+
+    writeFileSync(join(cwd, 'large.txt'), (ZWSP + 'x').repeat(3_000_000));
+    const limited = spawnSync(process.execPath, ['--max-old-space-size=96', BIN, 'check', '--ai-config', '--max-findings', '3', 'large.txt'], { cwd, encoding: 'utf8' });
+    assertEqual(limited.status, 1, 'ai-config scans millions of findings within a bounded heap');
+  }
 } finally {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });
 }

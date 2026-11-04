@@ -40,6 +40,10 @@ import { inspectTextInContext } from 'text-sanctifier/context';
 import type { ContextReport, ContextFinding } from 'text-sanctifier/context';
 
 const scan: HiddenTextScan = findHiddenRuns('x');
+// @ts-expect-error non-string input is rejected
+findHiddenRuns(42);
+// @ts-expect-error non-string input is rejected
+decodeTagText(42);
 const firstRun: HiddenRun | undefined = scan.runs[0];
 const scanOptions: HiddenScanOptions = { maxRuns: 100, maxDecodedLength: 1000 };
 const capped: HiddenTextScan = findHiddenRuns('x', scanOptions);

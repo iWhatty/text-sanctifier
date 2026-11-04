@@ -138,7 +138,7 @@ Gzipped bytes per import in the source on `main`, written by `npm run gen` (the 
 | `summonSanctifier.pasted` | 1458 | 1600 | 142 |
 | `sanctifyPasted` | 1116 | 1250 | 134 |
 | `sanctifyStrict` | 1110 | 1250 | 140 |
-| `text-sanctifier/hidden` | 1106 | 1250 | 144 |
+| `text-sanctifier/hidden` | 1196 | 1250 | 54 |
 | `text-sanctifier/context` | 2074 | 2250 | 176 |
 | `VERSION` | 50 | 60 | 10 |
 | `everything` | 3035 | 3072 | 37 |

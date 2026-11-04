@@ -2,6 +2,13 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- `fix --keep-benign` preserves recognized legitimate joiners, selectors and flag tags while purging other invisible characters.
+- Behavior change: `findHiddenRuns` and `decodeTagText` throw `TypeError` for non-string input.
+- `check --ai-config` bounds stored findings and decoded tag text when a finding limit is set, while retaining exact counts.
+- SARIF results include stable partial fingerprints for code-scanning tools.
+
 ## 1.3.9 — 2026-11-03
 
 - `findHiddenRuns` and `check --ai-config` treat a lone U+FE0E or U+FE0F as benign only after an emoji or in a keycap, as `text-sanctifier/context` does. Before, any non-space character counted, so a selector after each letter could carry hidden data unreported.
