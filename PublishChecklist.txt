@@ -4,21 +4,24 @@ The steps that are the same every time are scripted (scripts/release.js).
 
 Once per checkout
 - [ ] `npm run hooks:install`: a pre-push hook refuses pushes that name a private project.
-- [ ] Put those names in .git/info/private-names, one per line (never committed; see scripts/check-names.js).
+- [ ] Put those names in .git/info/private-names in the common git directory, one per line (never committed; see scripts/check-names.js). Plain entries match whole words, ignoring case; prefix with * for substring matching. Spaces also match line breaks. Prep requires a nonempty file and core.hooksPath exactly scripts/hooks, including during dry runs.
 
 While working
 - [ ] Put CHANGELOG entries under "## Unreleased" as changes land (what changed for someone using the package; see CLAUDE.md).
-- [ ] `npm run ci` passes. Sizes, budgets, counts, the release line, the pre-commit `rev:` and the size badge in README.md and DESIGN.md are generated: if ci says they are stale, run `npm run gen`.
+- [ ] `npm run ci` passes locally. It checks names in paths, working files, staged additions, unpushed messages and added lines of each unpushed commit; the push hook also checks every pushed range, including additions later removed. A missing remote object falls back to the local tip excluding remote refs. No cloud CI is used.
+- [ ] Keep ProjectLayout.txt current for src/, scripts/ and tests/; grouped directories may cover their contents. Add every tests/*.test.js file to npm test. `npm run check:repo` enforces both in ci. Tooling tests need no network. Keep devDependencies exact and package-lock.json gitignored.
+- [ ] Sizes, budgets, counts and the release line in README.md and DESIGN.md, plus README.md's pre-commit `rev:` and size badge, are generated: if ci says they are stale, run `npm run gen`. Malformed or unhandled gen openings fail with exit 2 and a line number; missing README rev and badge anchors also fail. Do not hand-edit current figures.
 - [ ] Changed something on a hot path? `npm run bench`, and update the speed figures in README.md and DESIGN.md if they moved.
 
 Release (patch bump only; work done close together goes out as one release)
-- [ ] `npm run release:prep -- --dry-run`: checks main is clean and pushed, npm has the current version, and "## Unreleased" has entries; prints the next version.
-- [ ] `npm run release:prep`: bumps the patch number, dates the CHANGELOG heading, runs `npm run gen` and `npm run ci`, commits "chore(release): X.Y.Z" and pushes.
-- [ ] Maintainer: `npm publish --access public` (needs npm two-factor credentials), from the same checkout.
+- [ ] `npm run release:prep -- --dry-run`: checks local list/hook setup, main is clean and pushed, npm has the current version, and "## Unreleased" has entries; prints the next version. Changes nothing and does not run ci.
+- [ ] `npm run release:prep`: runs `npm run ci` before bumping, bumps the patch number, dates the CHANGELOG heading, runs `npm run gen` and `npm run ci` again (rebuilding the browser VERSION), commits "chore(release): X.Y.Z" and pushes. Pre-bump CI failure leaves the version unchanged. Later failures print the failed step, changed files, commit state and exact undo command, without a stack; no automatic undo. After a push failure check origin before retrying.
+- [ ] Maintainer: `npm publish --access public` (needs npm two-factor credentials), from the same checkout. The prepublishOnly guard fetches origin, requires clean main with HEAD equal to origin/main, a dated CHANGELOG heading for package.json's version, and a successful npm lookup proving that version is unpublished. Network errors stop the publish with an explanation. It then rebuilds dist/ and types to prevent stale packages. `release:verify` uses `npm pack --ignore-scripts` unchanged; that does not invoke the publish guard.
 - [ ] `npm run release:verify -- --github-release`: waits for npm, checks the published gitHead, shasum and file count against the release commit, tags vX.Y.Z on that commit, pushes the tag, and creates the GitHub release with the CHANGELOG section as notes (needs `gh`; leave the flag off to skip it).
 
 Changing the minor or major number is a deliberate decision, not a semver default; the scripts only bump the patch number.
 
 If a release went wrong
+- Prep failures leave changes for inspection. Use the printed git status and commit state, then either fix and finish deliberately or use the printed git reset --hard command to discard the local release changes. That command discards tracked changes; run it only after review. Rebuild ignored output using the printed commands. A failed push may have reached origin; local undo does not undo a remote commit.
 - Within 72 hours: `npm unpublish text-sanctifier@X.Y.Z` (npm also requires few downloads).
 - Any time: `npm deprecate text-sanctifier@X.Y.Z "Use X.Y.Z+1 or later."`, then fix and release the next patch.

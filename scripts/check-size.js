@@ -44,7 +44,7 @@ export const PROBES = [
     // 996 -> 1106 for the emoji/keycap rule on presentation selectors (as in context.js).
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes;
-    // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the 69-code-point virama table.
+    // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the virama table.
     { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 2250, mustNotContain: [SANITIZER] },
     { name: 'VERSION', code: "import { VERSION } from './src/index.js'; console.log(VERSION);", budget: 60, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'everything', code: "export * from './src/index.js';", budget: 3072 },

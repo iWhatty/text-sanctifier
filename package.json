@@ -48,15 +48,17 @@
     "build": "node scripts/build.js",
     "build:types": "tsc -p tsconfig.types.json",
     "test:types": "tsc -p tests/types/tsconfig.json",
-    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js && node tests/release.test.js",
+    "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js && node tests/release.test.js && node tests/names.test.js && node tests/docs.test.js && node tests/repo.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "check:self": "node bin/text-sanctifier.js check .",
     "check:names": "node scripts/check-names.js",
-    "ci": "npm run gen:check && npm run check:names && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
+    "check:repo": "node scripts/check-repo.js",
+    "ci": "npm run gen:check && npm run check:names && npm run check:repo && npm run check:self && npm run test && npm run build && npm run size && npm run build:types && npm run test:types && npm run test-min",
     "size": "node scripts/check-size.js",
     "bench": "node --expose-gc scripts/bench.js",
     "release:prep": "node scripts/release.js prep",
     "release:verify": "node scripts/release.js verify",
+    "prepublishOnly": "node scripts/release.js check-publish",
     "hooks:install": "git config core.hooksPath scripts/hooks"
   },
   "keywords": [
@@ -83,7 +85,7 @@
     "test": "tests"
   },
   "devDependencies": {
-    "esbuild": "^0.25.3",
-    "typescript": "^5.9.3"
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3"
   }
 }

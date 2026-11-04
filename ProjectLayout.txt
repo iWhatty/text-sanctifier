@@ -1,9 +1,10 @@
 text-sanctifier/
 ├── src/
 │   ├── index.js              entry point
-│   ├── index.d.ts            type declarations
 │   ├── sanctifyText.js       core normalizer
 │   ├── inspectText.js        diagnostics helper
+│   ├── reveal.js             visible code-point markers
+│   ├── version.generated.js  package version (generated; do not edit)
 │   ├── textPatterns.js       emoji, keyboard and typographic patterns shared by both
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   ├── hiddenScan.js         internal streaming hidden-span scanner
@@ -15,23 +16,36 @@ text-sanctifier/
 ├── scripts/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check
+│   ├── gen-version.js        npm run gen / gen:check: package version
 │   ├── gen-virama.js         npm run gen / gen:check: the virama table from Node's Unicode data
 │   ├── gen-docs.js           npm run gen / gen:check: sizes, budgets, counts and release figures in README and DESIGN
 │   ├── browser-build.js      build options and size budget of the browser file
 │   ├── build.js              esbuild build of dist/text-sanctifier.min.js
 │   ├── check-size.js         per-import size budgets and leak checks
 │   ├── check-names.js        npm run check:names: no private names (list in .git/info/private-names)
+│   ├── check-repo.js         npm run check:repo: layout and test-command coverage
 │   ├── bench.js              npm run bench: the speed figures quoted in the docs (not in ci)
-│   ├── release.js            npm run release:prep / release:verify
+│   ├── release.js            release:prep / release:verify / prepublishOnly guard
 │   └── hooks/pre-push        runs check-names on a push (npm run hooks:install)
 ├── tests/
 │   ├── sanctifyText.test.js
 │   ├── cli.test.js
-│   └── sanctifyText.test.min.js
+│   ├── inspectTextDetailed.test.js
+│   ├── hiddenText.test.js
+│   ├── context.test.js
+│   ├── release.test.js
+│   ├── names.test.js
+│   ├── docs.test.js
+│   ├── repo.test.js
+│   ├── sanctifyText.test.min.js
+│   └── types/                strict TypeScript consumer and configuration
 ├── dist/                     build output (gitignored; shipped to npm)
 │   └── text-sanctifier.min.js
 ├── package.json
 ├── README.md
+├── DESIGN.md                 design, release and local development rules
+├── CHANGELOG.md              changes for package users
+├── CLAUDE.md                 contributor instructions
 ├── CREDITS.md
 ├── LICENSE                   AGPL-3.0 + WATT3D preamble (see ADDITIONAL_TERMS.md)
 ├── ADDITIONAL_TERMS.md       AI Training Rider (AGPL §7 additional terms)
