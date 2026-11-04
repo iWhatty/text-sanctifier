@@ -48,7 +48,7 @@ These are tested. Keep them true.
 
 - **What inspection reports equals what purging removes.** The categories in `inspectTextDetailed` cover exactly `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX`, checked over every code point U+0000–U+10FFFF.
 - **Nothing a renderer hides goes unreported.** Every Default_Ignorable_Code_Point in the running Node's Unicode data is in a category.
-- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables, and `inspectText`, which reports emoji, must not contain the sanitizer. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/build.js`).
+- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables, and `inspectText`, which reports emoji, must not contain the sanitizer. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`).
 - **One pass, no copies** for inspection and newline counting; performance claims in the docs are measured.
 - **Zero runtime dependencies.**
 - **Public field names survive the minifier.** The browser file is built with esbuild, which does not rename properties; the dist tests check every public field.
@@ -114,7 +114,7 @@ Capability over size.
 
 Size over features.
 
-- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js`, plus leak checks. The prebuilt browser file, for pages with no build step, keeps a 3072-byte budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`). Raising a budget is a deliberate decision made in the same commit as the growth. Current sizes are in "Sizes now" below; `npm run gen` writes them, and `npm run ci` fails while they are stale.
+- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js`, plus leak checks. The prebuilt browser file, for pages with no build step, keeps a <!-- gen:budget:browser -->3 KiB<!-- /gen --> gzipped budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`). Raising a budget is a deliberate decision made in the same commit as the growth. Current sizes are in "Sizes now" below; `npm run gen` writes them, and `npm run ci` fails while they are stale.
 - **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
 - **Presets for cleaning form input.**
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
@@ -180,21 +180,11 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 
 `counts` is unchanged, so `counts[c] - benignCounts[c]` is the number of suspicious characters in category `c`. Exact benign counts are the point: a consumer that warns from counts beyond the listed findings can't use a flag on listed findings alone.
 
-**Rules** (conservative: when in doubt, not benign):
-- U+200D between two `Extended_Pictographic` code points, allowing a skin-tone modifier or VS16 after the first: an emoji ZWJ sequence.
-- U+FE0E or U+FE0F directly after a code point that has an emoji presentation (`Extended_Pictographic`, or a keycap base followed by U+20E3).
-- U+E0100–U+E01EF, one selector directly after an `Ideographic` code point: an ideographic variation sequence.
-- U+180B–U+180D, U+180F directly after a Mongolian letter.
-- Tag characters forming the England, Scotland or Wales flag, as `findHiddenRuns` already decides.
-- U+200C or U+200D directly after a virama, and U+200C between two Arabic-script letters: see "Script joiners" below.
-- Never benign: U+200B, U+2060, U+FEFF (a BOM at offset 0 already has `atStart`), bidi controls, other tags, everything else.
+**Rules.** The [README context section](README.md#text-sanctifiercontext-inspecttextincontexttext-options) defines the benign sequences and the script-joiner approximation. Keep those rules there.
 
 **Implementation.** The same single pass as `inspectTextDetailed`, checking only the neighbours of each finding with sticky regexes (`/\p{Extended_Pictographic}/yu` at an index), so nothing is allocated per character and memory stays flat with `maxFindings` set. Neighbour checks match the rules above exactly and need no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster and decide nothing these rules don't. It needs Unicode property escapes in regexes (ES2018: Node 10+, every current browser).
 
-**Script joiners.** Persian needs ZWNJ between letters, and Indic scripts need ZWJ and ZWNJ after a virama to choose conjunct, half and explicit-virama forms. The rules follow IDNA ContextJ (RFC 5892, appendix A.1 and A.2), the established standard for where joiners are legitimate:
-- U+200C or U+200D directly after a code point with Canonical_Combining_Class 9 (Virama). JavaScript regexes have no property for combining classes, so `scripts/gen-virama.js` derives the <!-- gen:count:viramas -->69<!-- /gen --> viramas from Node's own normalization data (canonical reordering puts a class 9 mark after class 8 and before class 10) and writes `src/virama.generated.js`. `npm run gen:check` fails when Node's Unicode data changes the set. Exact.
-- U+200C between two Arabic-script letters (`(?=\p{Script=Arabic})\p{L}`), skipping nonspacing marks (`\p{Mn}`) on both sides. The RFC asks for Joining_Type L or D before and R or D after, with transparent marks between; Joining_Type is not a regex property, and shipping ArabicShaping.txt as a table would cost bytes and could not be checked against Node. So this rule is approximate: it also accepts a ZWNJ after a right-joining or non-joining Arabic letter, and it accepts none in the other joining scripts (Syriac, N'Ko, Mongolian, Adlam and others).
-- ZWJ between Arabic letters is not benign; the RFC allows ZWJ only after a virama.
+**Script-joiner implementation.** JavaScript regexes have no property for combining classes, so `scripts/gen-virama.js` derives the <!-- gen:count:viramas -->69<!-- /gen --> viramas from Node's normalization data (canonical reordering puts a class 9 mark after class 8 and before class 10) and writes `src/virama.generated.js`. `npm run gen:check` fails when Node's Unicode data changes the set. Joining_Type is also unavailable as a regex property; shipping ArabicShaping.txt would cost bytes and could not be checked against Node. The approximation and its limits are documented in the README rules linked above.
 
 **Supplementary selectors, exactly.** `benignSupplementarySelectorCount` counts the benign U+E0100–U+E01EF, part of `benignCounts.variation_selector`. `findHiddenRuns(text).supplementarySelectorCount` counts every one of them (it never marks them benign), so the difference is the exact number of suspicious ones, which `benignCounts.variation_selector` alone can't give because it also counts emoji selectors.
 
@@ -203,7 +193,7 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 **Size and tests.** Its own size probe and budget; core probes unchanged. Tests: every rule with positive and negative cases, `benignCounts` equal to the benign listed findings when nothing is truncated, `benignCounts[c] <= counts[c]`, and the 16 M-unit heap check.
 
 **Known limits.** Each errs in one known direction, and none has been reported as a problem in real text:
-- The Arabic-script ZWNJ rule is approximate (see "Script joiners"): it accepts a ZWNJ after letters that don't join to the left, such as alef, reh and waw, so a few suspicious characters read as benign.
+- The Arabic-script ZWNJ rule is approximate (see "Script-joiner implementation"): it accepts a ZWNJ after letters that don't join to the left, such as alef, reh and waw, so a few suspicious characters read as benign.
 - Joiners in the other joining scripts (Syriac, N'Ko, Mongolian, Adlam, Hanifi Rohingya and others) are never benign, so legitimate ones read as suspicious.
 - `Extended_Pictographic` includes text-default symbols such as © and ® and unassigned code points in the emoji ranges, so a joiner or selector next to one reads as benign. `Ideographic` includes U+3006, U+3007, U+3021–U+3029 and Tangut, so a supplementary selector after one reads as benign.
 - Speed: memory stays flat, but every joiner costs a few sticky-regex tests. On 16 M UTF-16 units with `maxFindings: 20` (Node 24, `npm run bench`): clean text 62 ms, 5.6 M virama joiners 0.5 s, 8 M Arabic-script ZWNJ 1.6 s.

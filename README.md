@@ -7,28 +7,13 @@
 [![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Brutal text normalizer and invisible Unicode scrubber for modern web projects. The prebuilt browser file stays under <!-- gen:budget:browser -->3 KiB<!-- /gen --> gzipped, a budget `npm run ci` enforces; with a bundler you pay only for what you import.
+Find and remove invisible Unicode in web input, model-bound text and repositories. The prebuilt browser file stays under <!-- gen:budget:browser -->3 KiB<!-- /gen --> gzipped; bundlers include only the imports you use.
 
 ## Features
 
-- Purges zero-width Unicode garbage
-- Purges bidi controls, including the isolates (U+2066–U+2069) and the Arabic letter mark (U+061C) used in Trojan Source attacks
-- Purges Unicode tag characters (U+E0000–U+E007F), the "ASCII smuggling" channel for hiding instructions from humans in text an LLM reads, plus variation selectors, Hangul fillers, soft hyphens and invisible operators
-- Locates invisible and control characters by offset, line and column (`inspectTextDetailed`)
-- Shows hidden characters as visible markers such as `<U+200B>` (`revealInvisible`, `text-sanctifier reveal`)
-- Cleans pasted text and model output without gluing words together: look-alike spaces such as the narrow no-break space (U+202F) become ordinary spaces (`summonSanctifier.pasted`)
-- `text-sanctifier check` / `fix` command line for CI and coding agents, with JSON or SARIF output, exit codes and pre-commit hooks
-- `check --ai-config` finds and decodes hidden text in agent instruction files (`CLAUDE.md`, `AGENTS.md`, Cursor rules, `SKILL.md`, MCP configuration)
-- Normalizes line endings (CRLF, CR, LF) to LF
-- Collapses unwanted spaces and paragraphs
-- Nukes control characters (if enabled)
-- Smart normalization of typographic junk (quotes, dashes, bullets, full-width punctuation)
-- Keyboard-only filtering (retain printable ASCII + full emoji sequences)
-  - Preserves ZWJ emoji clusters (the family emoji, U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466)
-  - Preserves VS16 emoji presentation variants (U+270C U+FE0F, U+203C U+FE0F)
-- Configurable via fine-grained flags or ready-made presets
-- Includes strict, loose, and keyboard-only modes
-- Deterministic RegExp usage (no global `lastIndex` state leaks)
+- **Clean:** presets and options for invisible and control characters, including the bidi controls behind Trojan Source attacks and the tag characters behind "ASCII smuggling" to LLMs, plus look-alike spaces, emoji and newlines.
+- **Inspect:** exact offsets, lines, columns and categories; visible markers; context-aware findings and decoded hidden tag text.
+- **CLI:** repository and AI configuration checks, fixes, JSON or SARIF output, exit codes and local pre-commit hooks.
 
 ---
 
@@ -36,65 +21,48 @@ Brutal text normalizer and invisible Unicode scrubber for modern web projects. T
 
 ```sh
 pnpm add text-sanctifier
+# or
+npm i text-sanctifier
 ```
 
----
+## Which import do I use?
+
+| Job | Import or command |
+| --- | --- |
+| Sanitize text with presets | `import { sanctifyPasted, sanctifyStrict } from 'text-sanctifier'` |
+| Find and locate characters | `import { inspectTextDetailed } from 'text-sanctifier'` |
+| Emoji-aware findings | `import { inspectTextInContext } from 'text-sanctifier/context'` |
+| Text headed to a model | `import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden'` |
+| No build step | `import { sanctifyPasted } from 'text-sanctifier/browser'` (CDN example below) |
+| Repository checks | `npx text-sanctifier check` |
 
 ## Quick start
 
-**Custom config:**
+### Web
 
 ```js
-import { summonSanctifier } from 'text-sanctifier';
-
-const clean = summonSanctifier({
-  purgeInvisibleChars: true,
-  purgeEmojis: true,
-  collapseSpaces: true,
-  collapseNewLines: true,
-  preserveParagraphs: true,
-  finalTrim: true,
-});
-
-const output = clean(rawText);
+import { sanctifyPasted } from 'text-sanctifier';
+const input = 'Hello\u202Fworld\u200B';
+const clean = sanctifyPasted(input); // 'Hello world'
+document.querySelector('#preview').textContent = clean;
 ```
 
-**Strict preset:**
+Without a build step, use the browser file from a CDN:
 
-```js
-const output = summonSanctifier.strict(rawText);
+```html
+<div id="preview"></div>
+<script type="module">
+  import { sanctifyPasted } from 'https://cdn.jsdelivr.net/npm/text-sanctifier/dist/text-sanctifier.min.js';
+  document.querySelector('#preview').textContent = sanctifyPasted('Hello\u200B world');
+</script>
 ```
 
-**Loose preset:**
+### Agents/CI
 
-```js
-const output = summonSanctifier.loose(rawText);
-```
-
-**Keyboard-only (no emojis):**
-
-```js
-const output = summonSanctifier.keyboardOnly(userInput);
-```
-
-**Keyboard-only (with emojis):**
-
-```js
-const output = summonSanctifier.keyboardOnlyEmoji(commentText);
-```
-
-**Pasted text and model output:**
-
-```js
-const output = summonSanctifier.pasted(clipboardText);
-```
-
-**Show what is hidden:**
-
-```js
-import { revealInvisible } from 'text-sanctifier';
-
-revealInvisible(text); // 'Hello<U+200B>world'
+```sh
+npx text-sanctifier check src docs
+npx text-sanctifier check --ai-config
+# check exits: 0 clean, 1 findings, 2 usage or I/O error
 ```
 
 ---
@@ -104,7 +72,7 @@ revealInvisible(text); // 'Hello<U+200B>world'
 - **Not an HTML/XSS sanitizer.** This library normalizes and filters plain text.
 - If you need to render **untrusted content**, render it as text (e.g. `textContent`), not HTML (`innerHTML`).
 - If you need to sanitize **HTML**, use a dedicated HTML sanitizer (e.g. DOMPurify / sanitize-html).
-- Like any text-processing library, extremely large untrusted inputs can be used for CPU/DoS pressure; consider input size limits in high-risk environments.
+- Like any text-processing library, extremely large untrusted inputs can be used for CPU/DoS pressure; set input size limits with [`maxLength` and `onMaxLength`](#sanctifyoptions) in high-risk environments. Inspection caps limit output, not input length or scan time.
 
 ---
 
@@ -119,6 +87,36 @@ Two options handle spaces and zero-width characters gently, and both run before 
 - `normalizeSpaces`: replace look-alike spaces with an ordinary space. These are U+00A0, U+2000–U+200A, U+202F and U+205F: the `nonbreaking_space` category except U+3000, the ordinary space of CJK text. With `purgeInvisibleChars` alone, a non-breaking space between two words is deleted and the words run together; with `normalizeSpaces` as well, they stay apart.
 - `purgeZeroWidthSpaces`: remove the zero width space U+200B, the word joiner U+2060 and U+FEFF, and nothing else. Emoji joiners, ZWNJ, variation selectors and bidi marks are kept.
 
+### `SanctifyOptions`
+
+Used by `summonSanctifier(options)`. All boolean options default to `false`. Processing follows table order after the input-length check.
+
+| Option | Behavior |
+| --- | --- |
+| `normalizeSpaces` | Replace U+00A0, U+2000-U+200A, U+202F and U+205F with ordinary spaces; keep U+3000. |
+| `purgeZeroWidthSpaces` | Remove only U+200B, U+2060 and U+FEFF. |
+| `purgeInvisibleChars` | Remove characters marked `purgeInvisibleChars` in the category table, including emoji joiners and selectors. |
+| `purgeEmojis` | Remove matched emoji sequences. |
+| `nukeControls` | Remove NUL, non-whitespace C0 controls, DEL, C1 controls and bidi controls; keep tab, LF and CR. |
+| `keyboardOnlyFilter` | Normalize typographic punctuation, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters. |
+| `normalizeNewlines` | Convert CRLF and CR to LF. |
+| `trimSpacesAroundNewlines` | Remove spaces and tabs immediately around LF runs. |
+| `collapseNewLines` | Collapse runs of two or more LFs to one, or three or more to two with `preserveParagraphs`. |
+| `preserveParagraphs` | Keep double LF breaks when `collapseNewLines` is enabled; otherwise no effect. |
+| `collapseSpaces` | Collapse runs of ordinary spaces to one; keep tabs and newlines. |
+| `finalTrim` | Apply JavaScript `.trim()` to the result. |
+| `maxLength` | Input cap in UTF-16 code units, checked before processing. Default `Infinity`; negative, non-finite or non-number values mean no cap. |
+| `onMaxLength` | Default `'throw'`: throw `RangeError` above the cap. `'truncate'`: slice input to the cap before processing (may split a surrogate pair). `'noop'`: return original input unchanged. Invalid values use `'throw'`. |
+
+```js
+import { summonSanctifier } from 'text-sanctifier';
+const clean = summonSanctifier({ purgeInvisibleChars: true, maxLength: 10000, onMaxLength: 'throw' });
+```
+
+### Errors
+
+All text-processing exports throw `TypeError` on non-string input, including the preset functions, the sanitizer returned by `summonSanctifier`, `findHiddenRuns` and `decodeTagText`. Inputs are not coerced to strings. Sanitizers also throw `RangeError` when input exceeds `maxLength` with `onMaxLength: 'throw'`.
+
 ### Presets as standalone imports
 
 Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->).
@@ -131,19 +129,19 @@ const output = sanctifyPasted(clipboardText);
 
 ### `summonSanctifier.strict`
 
-Aggressively purges: emojis, control characters, extra spacing, and newlines.
+Purges invisible characters, emoji and non-whitespace controls. Normalizes CRLF and CR to LF, removes spaces/tabs around LF, collapses blank lines to a single LF, collapses ordinary spaces and trims the ends. Single line breaks remain.
 
 ### `summonSanctifier.loose`
 
-Gently normalizes spacing and newlines while preserving emojis and paragraphs.
+Normalizes spacing and newlines while preserving emoji and paragraph breaks (LF runs collapse to at most two). Keeps zero-width characters such as U+200B, U+200C, U+200D and U+2060; it does not enable `purgeInvisibleChars`.
 
 ### `summonSanctifier.keyboardOnly`
 
-Restricts to printable ASCII only (removes emojis).
+Normalizes typographic punctuation, then keeps printable ASCII and line breaks; removes emoji and non-ASCII letters.
 
 ### `summonSanctifier.keyboardOnlyEmoji`
 
-Restricts to printable ASCII + full emoji sequences. Preserves ZWJ emoji clusters and emoji presentation variants.
+Normalizes typographic punctuation, then keeps printable ASCII, line breaks and matched emoji sequences, including ZWJ clusters and emoji presentation variants. Both keyboard-only presets delete non-ASCII letters: `sanctifyKeyboardOnlyEmoji('caf\u00E9')` returns `'caf'`, not an ASCII transliteration.
 
 ### `summonSanctifier.pasted`
 
@@ -228,7 +226,11 @@ truncated: false
 | `tag` | U+E0000–U+E007F (tag characters, used for "ASCII smuggling" of hidden instructions) | `purgeInvisibleChars` |
 <!-- categories:end -->
 
-`codePoint` is the full code point, so a tag character reports `0xE0041`, not a surrogate. `offset` is a 0-based UTF-16 index (for a code point above U+FFFF, that of its high surrogate); `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
+`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as U+1F468 U+200D U+1F469 U+200D U+1F467, so a finding there is not necessarily hidden text. Use [`text-sanctifier/context`](#text-sanctifiercontext-inspecttextincontexttext-options) to mark supported legitimate sequences as benign. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as U+270C U+FE0F and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16. The Mongolian free variation selectors (U+180B–U+180D, U+180F) are also `variation_selector`: they are legitimate in Mongolian text, which `purgeInvisibleChars` can change, so don't purge Mongolian text with it.
+
+The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip. Every code point with the Unicode property Default_Ignorable_Code_Point (characters renderers must draw as nothing) is in a category, and a test checks this against the running Node's Unicode data.
+
+`codePoint` is the full code point, so a tag character reports `0xE0041`, not a surrogate. `offset` is a 0-based UTF-16 index (for a code point above U+FFFF, that of its high surrogate); `line` and `column` are 1-based, with columns in UTF-16 code units and lines ending at LF, CR or CRLF. Every occurrence is counted; only the first `maxFindings` (default 100, `Infinity` for all; invalid values such as negative numbers, fractions, strings, `NaN` or `null` fall back to 100) are listed, and `truncated` says when some were not. The scan is one pass with no regex and no copy of the input.
 
 **Choosing `maxFindings`:** the scan itself uses almost no memory, but every listed finding is an object, so the cost of `maxFindings` grows with the number of findings, not the size of the input. 16 MB of non-breaking spaces is 16.7 million findings. With a cap of 20, it scans in about 80 ms and uses 0.2 MB (`npm run bench` measures it on your machine). With `Infinity`, expect roughly 100–200 bytes per finding: about 1.5 GB for 8 million. On untrusted input, keep a cap. Use `maxFindings: 0` for a counts-only report: it builds no finding objects, and `counts`, `total` and `truncated` stay exact.
 
@@ -241,10 +243,6 @@ import { getNewlineStats } from 'text-sanctifier';
 
 getNewlineStats('a\r\nb\n'); // { crlf: 1, cr: 0, lf: 1, types: ['CRLF', 'LF'], mixed: true }
 ```
-
-`zero_width` also flags U+200D (zero width joiner) inside emoji ZWJ sequences such as U+1F468 U+200D U+1F469 U+200D U+1F467, so a finding there is not necessarily hidden text. Filter by neighbouring code points if you need to tell them apart. (`purgeInvisibleChars` removes those joiners too, splitting the emoji; `keyboardOnlyEmoji` keeps the sequences whole.) The same holds for `variation_selector`, which flags VS16 (U+FE0F) in emoji such as U+270C U+FE0F and the ideographic variation selectors in CJK names, and for `tag`, which flags the tag characters inside subdivision flags such as the England flag (U+1F3F4 followed by tags). `purgeInvisibleChars` strips them all; `keyboardOnlyEmoji` keeps VS16. The Mongolian free variation selectors (U+180B–U+180D, U+180F) are also `variation_selector`: they are legitimate in Mongolian text, which `purgeInvisibleChars` can change, so don't purge Mongolian text with it.
-
-The categories cover exactly what `nukeControls` and `purgeInvisibleChars` strip. Every code point with the Unicode property Default_Ignorable_Code_Point (characters renderers must draw as nothing) is in a category, and a test checks this against the running Node's Unicode data.
 
 ### `text-sanctifier/hidden`: `findHiddenRuns(text, options?)` and `decodeTagText(text)`
 
@@ -261,7 +259,7 @@ const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRun
 
 - `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F) `invisible_operator` (U+2061–U+2064) or `reserved_tag_plane` (U+E0080–U+E00FF, U+E01F0–U+E0FFF: unassigned, default ignorable, so they render as nothing and can carry data). Consecutive characters of one kind form one run.
 - `offset` and `end` are UTF-16 indexes, `[offset, end)`; `count` is in code points. `line` and `column` are counted exactly as in `inspectTextDetailed` (1-based, columns in UTF-16 units, CRLF is one line break). Only tag runs have `decoded` and `decodedTruncated`.
-- `maxRuns` caps the `runs` list and, separately, the `benign` list; `counts`, `total` and `benignTotal` count everything, and `truncated` is true when either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units and never cuts a `<U+XXXX>` marker. Both default to no cap, and an invalid value (negative, fractional, a string) also means no cap, so set them explicitly for untrusted input. With both set, memory stays flat on any input: on 16 M characters (32 MB) of hidden text the heap grows by under 1 MB, against hundreds of MB with no caps.
+- `maxRuns` caps the `runs` list and, separately, the `benign` list; `counts`, `total` and `benignTotal` count everything, and `truncated` is true when either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units and never cuts a `<U+XXXX>` marker. Both default to no cap. Only non-negative integers and `Infinity` are valid; invalid values (negative, fractional, a string, `NaN` or `null`) also mean no cap, so set them explicitly for untrusted input. With both set, memory stays flat on any input: on 16 M characters (32 MB) of hidden text the heap grows by under 1 MB, against hundreds of MB with no caps.
 - `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
 - Zero-width, bidi and other invisible characters are not runs; use `inspectTextDetailed` for those.
 - `codePointCounts` has the same keys as `counts` and counts the code points in those runs, so long runs weigh more than short ones; `supplementarySelectorCount` counts U+E0100–U+E01EF on their own, apart from the emoji selectors U+FE00–U+FE0F. Both leave out benign spans and stay exact under `maxRuns`.
@@ -299,6 +297,8 @@ U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and n
 The package ships a `text-sanctifier` command for CI and coding agents, which cannot see invisible characters in their own tool output. It runs on Node 18+ and has no dependencies.
 
 ```sh
+npx text-sanctifier --help
+npx text-sanctifier --version
 npx text-sanctifier check src docs "**/*.md"
 npx text-sanctifier fix --dry-run src
 npx text-sanctifier reveal notes.md
