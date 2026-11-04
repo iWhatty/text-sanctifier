@@ -32,8 +32,9 @@ Usage:
   text-sanctifier reveal [paths...]
 
 Paths may be files, directories or globs (quote globs so the shell leaves them
-alone). "-" reads stdin. With no paths, check scans the current directory, and fix
-and reveal read piped input. Directories and globs skip files ignored by git (inside
+alone). "-" reads stdin. With no paths, check reads piped input, or scans the current
+directory when stdin is a terminal, the null device or empty. Fix and reveal read
+piped input. Directories and globs skip files ignored by git (inside
 a git work tree). Binary files are skipped; files that are text apart from a stray
 NUL or bad byte are not, and UTF-16 files with a BOM are decoded. A path or glob that
 matches no files, or a run that checks nothing, exits 2.
@@ -443,8 +444,9 @@ function decode(bytes, sniff) {
 }
 
 /**
- * True when stdin may hold input that a run with no paths would ignore: anything but a
- * terminal, the null device or an empty file. Windows pipes do not report isFIFO().
+ * True when stdin may hold input for check with no paths: anything but a terminal,
+ * the null device or an empty file. Pipes must be read to detect empty input;
+ * Windows pipes do not report isFIFO().
  */
 function stdinHasInput() {
     try {
@@ -710,11 +712,21 @@ async function main(argv) {
     const cwd = process.cwd();
     const warn = (msg) => err(`text-sanctifier: ${msg}`);
     let paths = opts.paths;
-    // check with no paths searches the current directory even when stdin is not a
-    // terminal, so a CI job with no stdin still scans the repository; `-` reads stdin.
+    /** @type {Buffer | undefined} */
+    let stdinBytes;
+    // check with no paths reads nonempty stdin once, otherwise scans the current
+    // directory. AI configuration discovery always defaults to the directory.
     if (paths.length === 0 && opts.command === 'check') {
         paths = ['.'];
-        if (!opts.aiConfig && stdinHasInput()) warn('no paths given, so checking "." and not stdin; pass "-" to check stdin.');
+        if (!opts.aiConfig && stdinHasInput()) {
+            try {
+                stdinBytes = await readStdin();
+            } catch (e) {
+                warn(`${STDIN_LABEL}: ${e.code || e.message}`);
+                return 2;
+            }
+            if (stdinBytes.length > 0) paths = [STDIN];
+        }
     } else if (paths.length === 0) {
         if (process.stdin.isTTY) {
             err('text-sanctifier: no paths given and nothing piped on stdin.\nRun "text-sanctifier --help" for usage.');
@@ -740,7 +752,7 @@ async function main(argv) {
             const label = input.path === STDIN ? STDIN_LABEL : input.path;
             let bytes;
             try {
-                bytes = input.path === STDIN ? await readStdin() : readFileSync(resolve(cwd, input.path));
+                bytes = input.path === STDIN ? (stdinBytes ?? await readStdin()) : readFileSync(resolve(cwd, input.path));
             } catch (e) {
                 warn(`${label}: ${e.code || e.message}`);
                 errors++;

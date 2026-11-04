@@ -5,7 +5,7 @@ What changed for people using the package, per release. Entries before 1.1.0 wer
 ## Unreleased
 
 - `check` no longer reports a clean result when it read nothing. A path or glob that matches no files, or a run that only skipped files, exits 2, and summaries count skipped files.
-- `check` with no paths scans the current directory, including when input is piped; pass `-` to check stdin.
+- `check` with no paths reads piped input, and scans the current directory when stdin is a terminal, the null device or empty; before, empty stdin was read and reported clean.
 - Brace globs such as `*.{js,ts}` match inside a git work tree. Before, they matched nothing.
 - A stray NUL or bad byte no longer hides a text file from `check` or `reveal`: only files that are not UTF-8 and are mostly control bytes count as binary. UTF-16 files with a BOM are decoded and checked.
 - `fix` exits 2 when it refuses stdin or a file you named, and it never rewrites UTF-16. It cleans a named UTF-8 file with a NUL; in a directory or glob it still leaves files with a NUL alone.
@@ -16,7 +16,7 @@ What changed for people using the package, per release. Entries before 1.1.0 wer
 - `getRecommendedSanctifierOptions` no longer recommends `keyboardOnlyFilter` or `purgeEmojis`, which deleted non-English text and emoji. It adds `normalizeSpaces` when it recommends purging, so words don't run together.
 - The `text-sanctifier-ai-config` pre-commit hook no longer limits itself to files pre-commit considers text, so control bytes can't hide a configuration file from it.
 
-Behavior change: `check` with no paths no longer reads piped input, `check` and `fix` can exit 2 where they exited 0, `check` can exit 1 on files it skipped as binary, the sanitizer changes unpaired surrogates even with no flags set, and `getRecommendedSanctifierOptions` returns different flags.
+Behavior change: `check` with no paths and empty stdin now scans the current directory instead of reporting stdin clean, `check` and `fix` can exit 2 where they exited 0, `check` can exit 1 on files it skipped as binary, the sanitizer changes unpaired surrogates even with no flags set, and `getRecommendedSanctifierOptions` returns different flags.
 
 ## 1.3.10 — 2026-11-04
 

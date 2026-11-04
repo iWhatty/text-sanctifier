@@ -406,7 +406,7 @@ git diff | npx text-sanctifier reveal
 - Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when it is not valid UTF-8 and its first 8000 bytes hold a NUL and more than 5% control bytes, so a stray NUL or bad byte does not hide a text file: the NUL is reported as `nul`. Stdin and AI configuration files are never treated as binary. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
 - UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Files that are not valid UTF-8 are still checked, with each invalid byte read as U+FFFD, so one bad byte cannot hide the rest of the file. `check` notes them on stderr and lists them under `notUtf8` in JSON; `fix` never writes them and lists them under `skipped`.
-- `-` reads stdin. With no paths, `check` scans the current directory, even when input is piped, and `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
+- `-` reads stdin. With no paths, `check` reads piped input, and scans the current directory when stdin is a terminal, the null device or empty. `check --ai-config` always searches the current directory with no paths. `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
 - A path or glob that matches no files, or a run that checks nothing, exits 2 instead of reporting a clean result. So does `fix` when it refuses stdin or a file you named. Files it skips in a directory or glob don't fail the run.
 
 ### Exit codes

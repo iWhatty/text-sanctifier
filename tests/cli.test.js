@@ -214,9 +214,17 @@ try {
   {
     const cwd = tempDir();
     writeFileSync(join(cwd, 'dirty.txt'), `a${ZWSP}b`);
-    const noPaths = run(['check'], { cwd, input: 'fine' });
-    assertEqual(noPaths.code + ' ' + lines(noPaths.stdout)[0], '1 dirty.txt:1:2  U+200B  zero_width', 'check: no paths scans the current directory, even with piped input');
-    assertEqual(noPaths.stderr.includes('pass "-"'), true, 'check: no paths says piped input was not read');
+    const noPaths = run(['check'], { cwd, input: `a${ZWSP}b` });
+    assertEqual(noPaths.code + ' ' + lines(noPaths.stdout)[0], '1 <stdin>:1:2  U+200B  zero_width', 'check: no paths reads piped input');
+    assertEqual(noPaths.stdout.includes('dirty.txt'), false, 'check: piped input does not scan the directory');
+    assertEqual(noPaths.stderr, '', 'check: piped input needs no note');
+    const clean = run(['check', '--json'], { cwd, input: 'fine' });
+    assertEqual(clean.code, 0, 'check: clean piped input exits 0 despite dirty file');
+    assertEqual(clean.stdout, run(['check', '--json', '-'], { cwd, input: 'fine' }).stdout, 'check: clean piped input reports exactly as explicit stdin');
+    assertEqual(JSON.parse(clean.stdout).filesScanned, 1, 'check: clean piped input scans stdin only');
+    const empty = run(['check'], { cwd, input: '' });
+    assertEqual(empty.code + ' ' + lines(empty.stdout)[0], '1 dirty.txt:1:2  U+200B  zero_width', 'check: empty piped input scans the directory');
+    assertEqual(empty.stderr, '', 'check: empty piped input needs no note');
 
     const noInput = spawnSync(process.execPath, [BIN, 'check'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     assertEqual(noInput.status + ':' + noInput.stderr.includes('pass "-"'), '1:false', 'check: no paths and no stdin scans the directory without a note');
@@ -608,6 +616,9 @@ try {
     const none = run(['check', '--ai-config', 'skills/review/nothing'], { cwd });
     assertEqual(none.code, 2, 'ai-config: missing path exits 2');
     const emptyDir = tempDir();
+    const pipedAi = run(['check', '--ai-config', '--json'], { cwd, input: 'fine' });
+    assertEqual(pipedAi.code, 1, 'ai-config: clean piped data does not hide directory findings');
+    assertEqual(pipedAi.stdout, run(['check', '--ai-config', '--json', '.'], { cwd }).stdout, 'ai-config: piped data still searches the directory');
     const nothing = run(['check', '--ai-config'], { cwd: emptyDir, input: `x${tags("A")}` });
     assertEqual(nothing.stdout.split('\n')[0], 'No AI configuration files found.', 'ai-config: nothing to scan');
     assertEqual(nothing.code, 0, 'ai-config: no paths searches the directory even with piped input');
