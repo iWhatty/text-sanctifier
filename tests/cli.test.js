@@ -5,7 +5,7 @@
 // invisible characters.
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, truncateSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -213,11 +213,22 @@ try {
   // --- stdin ---
   {
     const cwd = tempDir();
-    const piped = run(['check'], { cwd, input: `a${ZWSP}b` });
-    assertEqual(piped.code + ' ' + lines(piped.stdout)[0], '1 <stdin>:1:2  U+200B  zero_width', 'check: no paths reads piped stdin');
+    writeFileSync(join(cwd, 'dirty.txt'), `a${ZWSP}b`);
+    const noPaths = run(['check'], { cwd, input: 'fine' });
+    assertEqual(noPaths.code + ' ' + lines(noPaths.stdout)[0], '1 dirty.txt:1:2  U+200B  zero_width', 'check: no paths scans the current directory, even with piped input');
+    assertEqual(noPaths.stderr.includes('pass "-"'), true, 'check: no paths says piped input was not read');
+
+    const noInput = spawnSync(process.execPath, [BIN, 'check'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    assertEqual(noInput.status + ':' + noInput.stderr.includes('pass "-"'), '1:false', 'check: no paths and no stdin scans the directory without a note');
 
     const dash = run(['check', '-'], { cwd, input: 'fine' });
     assertEqual(dash.code, 0, 'check -: clean stdin exits 0');
+    const dashDirty = run(['check', '-'], { cwd, input: `a${ZWSP}b` });
+    assertEqual(dashDirty.code + ' ' + lines(dashDirty.stdout)[0], '1 <stdin>:1:2  U+200B  zero_width', 'check -: reads stdin');
+
+    assertEqual(run(['fix'], { cwd, input: `a${ZWSP}b` }).stdout, 'ab', 'fix: no paths still reads piped input');
+    assertEqual(read(cwd, 'dirty.txt'), `a${ZWSP}b`, 'fix: no paths does not touch the directory');
+    assertEqual(run(['reveal'], { cwd, input: `a${ZWSP}b` }).stdout, 'a<U+200B>b', 'reveal: no paths still reads piped input');
 
     const fixed = run(['fix', '-'], { cwd, input: `${BOM}a${ZWSP}b${CRLF}` });
     assertEqual(fixed.stdout, `${BOM}ab${CRLF}`, 'fix -: cleaned text on stdout, BOM and CRLF kept');
@@ -260,6 +271,82 @@ try {
 
     const nul = run(['check', '--json', '-'], { cwd, input: `ok\0${ZWSP}` });
     assertEqual(`${nul.code}:${JSON.parse(nul.stdout).total}`, '1:2', 'check -: stdin with a NUL is checked, not skipped as binary');
+  }
+
+  // --- a clean result means something was read ---
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'ok.txt'), 'ok\n');
+    writeFileSync(join(cwd, 'img.bin'), Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x00, 0x01, 0x02]));
+    mkdirSync(join(cwd, 'empty'));
+
+    for (const args of [['nope/*.txt'], ['empty']]) {
+      const none = run(['check', ...args], { cwd });
+      assertEqual(none.code, 2, `check ${args[0]}: matching no files exits 2`);
+      assertEqual(none.stdout.trim(), 'Nothing checked.', `check ${args[0]}: does not claim a clean result`);
+    }
+    assertEqual(run(['check', 'ok.txt', 'nope/*.txt'], { cwd }).code, 2, 'check: one path matching nothing fails the run');
+    assertEqual(JSON.parse(run(['check', '--json', 'nope/*.txt'], { cwd }).stdout).filesScanned, 0, 'check --json: still prints a report');
+    assertEqual(JSON.parse(run(['check', '--format', 'sarif', 'nope/*.txt'], { cwd }).stdout).runs[0].invocations[0].executionSuccessful, false, 'check --format sarif: execution marked unsuccessful');
+    assertEqual(run(['fix', 'nope/*.txt'], { cwd }).code, 2, 'fix: matching no files exits 2');
+    assertEqual(run(['reveal', 'nope/*.txt'], { cwd }).code, 2, 'reveal: matching no files exits 2');
+
+    const onlyBinary = run(['check', 'img.bin'], { cwd });
+    assertEqual(`${onlyBinary.code}:${onlyBinary.stdout.trim()}`, '2:Nothing checked; 1 file skipped.', 'check: a run that only skipped files exits 2');
+    const someBinary = run(['check', 'img.bin', 'ok.txt'], { cwd });
+    assertEqual(`${someBinary.code}:${someBinary.stdout.trim()}`, '0:No invisible or control characters in 1 file; 1 file skipped.', 'check: the summary counts skipped files');
+  }
+
+  // --- a NUL or a wide encoding does not hide a file ---
+  {
+    const cwd = tempDir();
+    mkdirSync(join(cwd, 'd'));
+    const payload = `// x\0\nconst a = "x${RLO}y";\n`;
+    writeFileSync(join(cwd, 'd', 'nul.js'), payload);
+    writeFileSync(join(cwd, 'd', 'nulbad.js'), Buffer.concat([Buffer.from(payload), Buffer.from([0xFF])]));
+    const le = Buffer.from(`${BOM}a${ZWSP}b\n`, 'utf16le');
+    const be = Buffer.from(le).swap16();
+    writeFileSync(join(cwd, 'd', 'le.txt'), le);
+    writeFileSync(join(cwd, 'd', 'be.txt'), be);
+    writeFileSync(join(cwd, 'd', 'ok.txt'), 'ok\n');
+
+    const dir = JSON.parse(run(['check', '--json', 'd'], { cwd }).stdout);
+    const perFile = Object.fromEntries(dir.files.map((f) => [f.path.replace(/\\/g, '/'), f.total]));
+    assertEqual(perFile['d/nul.js'], 2, 'check dir: a text file with a NUL is scanned');
+    assertEqual(perFile['d/nulbad.js'], 2, 'check dir: a NUL and a bad byte do not hide a text file');
+    assertEqual(perFile['d/le.txt'], 1, 'check dir: UTF-16 LE with a BOM is decoded');
+    assertEqual(perFile['d/be.txt'], 1, 'check dir: UTF-16 BE with a BOM is decoded');
+    assertEqual(dir.skipped.length, 0, 'check dir: none of them skipped');
+    assertEqual(lines(run(['check', join('d', 'le.txt')], { cwd }).stdout)[0].endsWith(':1:3  U+200B  zero_width'), true, 'check: UTF-16 positions count the BOM like UTF-8');
+
+    run(['fix', 'd'], { cwd });
+    assertEqual(read(cwd, 'd/nul.js'), payload, 'fix dir: a file with a NUL is left alone');
+    const fixDir = run(['fix', '--json', 'd'], { cwd });
+    assertEqual(fixDir.code, 0, 'fix dir: skipping discovered files does not fail the run');
+    assertEqual(JSON.parse(fixDir.stdout).skipped.length, 4, 'fix dir: skipped files are listed');
+
+    const fixWide = run(['fix', join('d', 'le.txt')], { cwd });
+    assertEqual(fixWide.code, 2, 'fix: a named UTF-16 file it will not rewrite exits 2');
+    assertEqual(readFileSync(join(cwd, 'd', 'le.txt')).equals(le), true, 'fix: UTF-16 file left untouched');
+
+    assertEqual(run(['fix', join('d', 'nul.js')], { cwd }).code, 0, 'fix: a named text file with a NUL is cleaned');
+    assertEqual(read(cwd, 'd/nul.js'), '// x\nconst a = "xy";\n', 'fix: NUL and bidi control removed from it');
+
+    const stdinBad = spawnSync(process.execPath, [BIN, 'fix'], { cwd, input: Buffer.from([0x61, 0xA0, 0x62]) });
+    assertEqual(`${stdinBad.status}:${stdinBad.stdout.length}`, '2:0', 'fix: stdin it refuses exits 2, so an empty result is not mistaken for success');
+    assertEqual(run(['fix', '--json', join('d', 'nulbad.js')], { cwd }).code, 2, 'fix: a named non-UTF-8 file exits 2');
+  }
+
+  // --- an input too large for a string does not end the run ---
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'after.txt'), `a${ZWSP}b`);
+    writeFileSync(join(cwd, 'huge.bin'), '');
+    truncateSync(join(cwd, 'huge.bin'), 0x20000000);
+    const huge = run(['check', '--json', 'huge.bin', 'after.txt'], { cwd });
+    assertEqual(huge.code, 2, 'check: an input too large to decode exits 2');
+    assertEqual(huge.stderr.includes('huge.bin'), true, 'check: the input is named on stderr');
+    assertEqual(JSON.parse(huge.stdout).total, 1, 'check: files after it are still checked and reported');
   }
 
   // --- fix ---
@@ -358,6 +445,18 @@ try {
     assertEqual(paths(['.']), 'kept.txt', 'git: directory scan honours .gitignore');
     assertEqual(paths(['*.txt']), 'kept.txt', 'git: glob honours .gitignore');
     assertEqual(paths(['ignored.txt']), 'ignored.txt', 'git: a file named explicitly is checked anyway');
+
+    writeFileSync(join(cwd, 'kept.md'), `y${ZWSP}\n`);
+    assertEqual(paths(['*.{txt,md}']), 'kept.md,kept.txt', 'git: brace globs match');
+    assertEqual(paths(['{kept,other}.{txt,md}']), 'kept.md,kept.txt', 'git: several brace groups');
+    assertEqual(run(['check', '*.{rs,go}'], { cwd }).code, 2, 'git: a brace glob matching nothing exits 2');
+
+    // A submodule is a directory in the index; a scan must not try to read it as a file
+    mkdirSync(join(cwd, 'sub'));
+    const gitlink = spawnSync('git', ['update-index', '--add', '--cacheinfo', `160000,${'a'.repeat(40)},sub`], { cwd });
+    assertEqual(gitlink.status, 0, 'git: test setup added a gitlink');
+    const withSub = run(['check', '.'], { cwd });
+    assertEqual(withSub.code + ':' + withSub.stderr.includes('EISDIR'), '1:false', 'git: a submodule does not make a directory scan fail');
   } else {
     console.log('git not found; .gitignore tests skipped');
   }

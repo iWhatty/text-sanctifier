@@ -2,8 +2,8 @@
 
 
 import { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEmoji, sanctifyKeyboardOnly, sanctifyPasted } from '../src/index.js';
-import { inspectText, inspectTextDetailed, revealInvisible } from '../src/index.js';
-import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
+import { inspectText, inspectTextDetailed, revealInvisible, getRecommendedSanctifierOptions } from '../src/index.js';
+import { SPACE_LOOKALIKES_REGEX, sanctifyText } from '../src/sanctifyText.js';
 
 
 function assertEqual(actual, expected, message) {
@@ -355,6 +355,65 @@ assertEqual(
   assertEqual(summonSanctifier.pasted === sanctifyPasted, true, '29. summonSanctifier.pasted is sanctifyPasted');
   assertEqual(sanctifyPasted('a' + String.fromCharCode(0xA0) + 'b'), 'a b', '29. sanctifyPasted cleans text');
   assertEqual(typeof summonSanctifier({}), 'function', '29. summonSanctifier still builds a sanctifier');
+}
+
+
+// 30. Unpaired surrogates cannot join into a new character when what separates them is removed
+{
+  const cc = (n) => String.fromCharCode(n);
+  const split = (low, filler) => cc(0xDB40) + cc(filler) + cc(low);
+  const payload = split(0xDC68, 0x200B) + split(0xDC69, 0x200B);
+  const fffd = cc(0xFFFD);
+  const strict = sanctifyStrict(payload);
+  assertEqual(strict, fffd.repeat(4), '30. strict: split tag halves stay apart');
+  assertEqual(sanctifyStrict(strict), strict, '30. strict: idempotent on split halves');
+  assertEqual(inspectTextDetailed(strict).counts.tag, 0, '30. strict: no tag characters created');
+  assertEqual(inspectTextDetailed(sanctifyPasted(payload)).counts.tag, 0, '30. pasted: no tag characters created');
+  assertEqual(inspectTextDetailed(summonSanctifier({ nukeControls: true })(split(0xDC68, 0))).counts.tag, 0, '30. nukeControls: no tag characters created');
+  const emoji = String.fromCodePoint(0x1F600);
+  assertEqual(sanctifyLoose('a' + emoji + 'b'), 'a' + emoji + 'b', '30. a real surrogate pair is untouched');
+}
+
+// 31. Truncation never cuts through a surrogate pair
+{
+  const emoji = String.fromCodePoint(0x1F600);
+  const cut = (n) => summonSanctifier({ maxLength: n, onMaxLength: 'truncate' })(emoji + 'x');
+  assertEqual(cut(1), '', '31. a cut through a pair drops the whole character');
+  assertEqual(cut(2), emoji, '31. a cut after a pair keeps it');
+  assertEqual(cut(0), '', '31. maxLength 0');
+  assertEqual(summonSanctifier({ maxLength: 1, onMaxLength: 'truncate' })('abc'), 'a', '31. plain text is cut at the cap');
+  let threw = '';
+  try { summonSanctifier({ maxLength: 1, onMaxLength: 'bogus' })('abc'); } catch (e) { threw = e.name; }
+  assertEqual(threw, 'RangeError', '31. an invalid onMaxLength throws');
+  threw = '';
+  try { sanctifyText('abc', false, false, false, false, false, false, false, false, false, false, 1, 'bogus'); } catch (e) { threw = e.name; }
+  assertEqual(threw, 'RangeError', '31. an invalid onMaxLength throws from sanctifyText too');
+}
+
+// 32. Trimming around newlines takes linear time and keeps its meaning
+{
+  assertEqual(sanctifyLoose('a  \n\t b'), 'a\nb', '32. spaces and tabs around a newline are trimmed');
+  assertEqual(summonSanctifier({ trimSpacesAroundNewlines: true })('a  b\t c \n \n d'), 'a  b\t c\n\nd', '32. other runs are kept');
+  assertEqual(summonSanctifier({ trimSpacesAroundNewlines: true })('a   '), 'a   ', '32. a trailing run with no newline is kept');
+  const started = performance.now();
+  for (const clean of [sanctifyLoose, sanctifyStrict, sanctifyKeyboardOnly]) clean(' '.repeat(2_000_000));
+  sanctifyStrict('  x'.repeat(700_000));
+  assertEqual(performance.now() - started < 5000, true, '32. long runs of spaces take linear time');
+}
+
+// 33. Recommended options do not delete content
+{
+  const recommended = (s) => summonSanctifier(getRecommendedSanctifierOptions(inspectText(s)))(s);
+  const cc = (n) => String.fromCharCode(n);
+  const russian = cc(0x41F) + cc(0x440) + cc(0x438);
+  const emoji = String.fromCodePoint(0x1F600);
+  assertEqual(recommended('a\tb'), 'a\tb', '33. a tab is kept');
+  assertEqual(recommended('caf' + cc(0xE9) + ' ok'), 'caf' + cc(0xE9) + ' ok', '33. accented letters are kept');
+  assertEqual(recommended(russian + cc(0x200B)), russian, '33. non-Latin text is kept, the zero-width space goes');
+  assertEqual(recommended(emoji + ' ok'), emoji + ' ok', '33. emoji are kept');
+  assertEqual(recommended('a' + cc(0xA0) + 'b'), 'a b', '33. a look-alike space becomes a space');
+  assertEqual(recommended('a' + cc(0x7) + 'b'), 'ab', '33. control characters still go');
+  assertEqual(recommended('a\r\nb'), 'a\nb', '33. CRLF is still normalized');
 }
 
 

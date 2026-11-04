@@ -106,12 +106,14 @@ Used by `summonSanctifier(options)`. All boolean options default to `false`. Pro
 | `collapseSpaces` | Collapse runs of ordinary spaces to one; keep tabs and newlines. |
 | `finalTrim` | Apply JavaScript `.trim()` to the result. |
 | `maxLength` | Input cap in UTF-16 code units, checked before processing. Default `Infinity`; negative, non-finite or non-number values mean no cap. |
-| `onMaxLength` | Default `'throw'`: throw `RangeError` above the cap. `'truncate'`: slice input to the cap before processing (may split a surrogate pair). `'noop'`: return original input unchanged. Invalid values use `'throw'`. |
+| `onMaxLength` | Default `'throw'`: throw `RangeError` above the cap. `'truncate'`: slice input to at most the cap before processing, never through a surrogate pair. `'noop'`: return original input unchanged. Invalid values use `'throw'`. |
 
 ```js
 import { summonSanctifier } from 'text-sanctifier';
 const clean = summonSanctifier({ purgeInvisibleChars: true, maxLength: 10000, onMaxLength: 'throw' });
 ```
+
+Every sanitizer replaces unpaired surrogates with U+FFFD before anything else, so removing a character between two halves cannot join them into a new one.
 
 ### Errors
 
@@ -119,7 +121,7 @@ All text-processing exports throw `TypeError` on non-string input, including the
 
 ### Presets as standalone imports
 
-Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->).
+Each preset is also its own export: `sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji` and `sanctifyPasted`. They are the same functions as `summonSanctifier.strict` and the rest. Import one directly and a bundler leaves out `summonSanctifier` and the other presets (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.5 KiB<!-- /gen -->).
 
 ```js
 import { sanctifyPasted } from 'text-sanctifier';
@@ -187,7 +189,7 @@ const report = inspectText(input);
 */
 ```
 
-Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs. Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`.
+Use `inspectText` to preflight text content before rendering, storing, or linting. It's a diagnostic tool to help inform sanitization needs. Pass the report to `getRecommendedSanctifierOptions(report)` to auto-generate config flags for `summonSanctifier()`. It turns on what removes trash without losing meaning; `purgeEmojis` and `keyboardOnlyFilter` delete content, so you opt in to those yourself.
 
 ### `inspectTextDetailed(text: string, options?: { maxFindings?: number }): DetailedTrashReport`
 
@@ -299,6 +301,7 @@ The package ships a `text-sanctifier` command for CI and coding agents, which ca
 ```sh
 npx text-sanctifier --help
 npx text-sanctifier --version
+npx text-sanctifier check
 npx text-sanctifier check src docs "**/*.md"
 npx text-sanctifier fix --dry-run src
 npx text-sanctifier reveal notes.md
@@ -367,7 +370,7 @@ repos:
       - id: text-sanctifier-ai-config  # agent instruction files, with --ai-config
 ```
 
-- `text-sanctifier` runs `text-sanctifier check` on staged text files. Use `exclude:` for files that legitimately contain these characters, or `args: [--strip-bom]` and the other `check` options.
+- `text-sanctifier` runs `text-sanctifier check` on staged text files, as pre-commit defines them: it can drop a file with control bytes near its start before the hook sees it, so scan the repository with `check` as well if that matters to you. Use `exclude:` for files that legitimately contain these characters, or `args: [--strip-bom]` and the other `check` options.
 - `text-sanctifier-ai-config` runs `text-sanctifier check --ai-config` on staged files that match the `--ai-config` file list.
 - A hook fails the commit when it finds something (exit code 1). Neither hook changes files; run `text-sanctifier fix` yourself.
 
@@ -400,9 +403,11 @@ git diff | npx text-sanctifier reveal
 
 - Paths can be files, directories or globs (`*`, `**`, `?`, `[...]`, `{a,b}`). Quote globs so the shell passes them through.
 - Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read.
-- Binary files (a NUL byte in the first 8000 bytes) are skipped and listed under `skipped` in JSON. Stdin and AI configuration files are never treated as binary: a NUL in them is reported as `nul`.
+- Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when it is not valid UTF-8 and its first 8000 bytes hold a NUL and more than 5% control bytes, so a stray NUL or bad byte does not hide a text file: the NUL is reported as `nul`. Stdin and AI configuration files are never treated as binary. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
+- UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Files that are not valid UTF-8 are still checked, with each invalid byte read as U+FFFD, so one bad byte cannot hide the rest of the file. `check` notes them on stderr and lists them under `notUtf8` in JSON; `fix` never writes them and lists them under `skipped`.
-- `-`, or no paths with piped input, reads stdin (with `--ai-config`, only `-` does). `fix` writes the cleaned text to stdout and the report to stderr.
+- `-` reads stdin. With no paths, `check` scans the current directory, even when input is piped, and `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
+- A path or glob that matches no files, or a run that checks nothing, exits 2 instead of reporting a clean result. So does `fix` when it refuses stdin or a file you named. Files it skips in a directory or glob don't fail the run.
 
 ### Exit codes
 
@@ -410,7 +415,7 @@ git diff | npx text-sanctifier reveal
 | --- | --- | --- | --- |
 | 0 | nothing found | done (or nothing to do) | done |
 | 1 | findings | `--dry-run` with changes pending | not used |
-| 2 | usage error, missing path or unreadable file | same | same |
+| 2 | usage error, missing or unreadable input, a path matching no files, or nothing checked | same, or an input you named that it refused to rewrite | same as `check` |
 
 ---
 

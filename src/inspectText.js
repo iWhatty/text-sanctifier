@@ -322,16 +322,20 @@ export function getNewlineStats(text) {
 }
 
 /**
- * Creates defaultOptions for summonSanctifier based on inspectText result
+ * Creates defaultOptions for summonSanctifier based on inspectText result.
+ * Recommends only what removes trash without losing meaning: non-ASCII text and emoji are
+ * content, so `purgeEmojis` and `keyboardOnlyFilter` stay opt-in, and look-alike spaces
+ * become ordinary spaces so that words do not run together.
  * @param {!UnicodeTrashReport} report
  * @return {!SanctifyOptions}
  */
 export function getRecommendedSanctifierOptions(report) {
     return {
+        normalizeSpaces: report.hasInvisibleChars,
         purgeInvisibleChars: report.hasInvisibleChars,
-        purgeEmojis: report.hasEmojis,
+        purgeEmojis: false,
         nukeControls: report.hasControlChars,
-        keyboardOnlyFilter: report.hasNonKeyboardChars,
+        keyboardOnlyFilter: false,
         normalizeNewlines:
             report.hasMixedNewlines || report.newlineStyle === 'CRLF' || report.newlineStyle === 'CR',
     };

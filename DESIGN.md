@@ -93,7 +93,7 @@ The goal is for the web and server tracks to move forward together without drift
 
 - **Done: one table of categories and code-point ranges, used everywhere.** `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
 - **Done: complete coverage of Default_Ignorable_Code_Point**, the Unicode property for characters renderers must draw as nothing. A test checks it against the running Node's Unicode data, so a Node upgrade with newer Unicode fails until the table catches up.
-- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the `nonbreaking_space` name; the emoji joiner and the two kinds of variation selector are now answered without a category change, by `text-sanctifier/context` and the `findHiddenRuns` totals) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates, noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
+- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the `nonbreaking_space` name; the emoji joiner and the two kinds of variation selector are now answered without a category change, by `text-sanctifier/context` and the `findHiddenRuns` totals) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates (the sanitizer already replaces them with U+FFFD, so they can't join into a hidden character, but inspection doesn't report them yet), noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
 - **Done: a reveal helper.** `revealInvisible` and `text-sanctifier reveal` render hidden characters visibly as `<U+XXXX>` markers, as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output. Unicode character names in markers would need a name table, so they belong in the server track.
 - **One test corpus run against both builds**, so the source build and the browser build can never report differently.
 
@@ -119,7 +119,7 @@ Size over features.
 - **Presets for cleaning form input.**
 - **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
 - **Done: `inspectText` no longer pulls in the sanitizer.** The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) live in `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `inspectText` went from 1882 to 1106 bytes gzipped, and its size probe now fails if the sanitizer leaks back in.
-- **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file. With little headroom left in the browser file's budget (see "Sizes now"), the next addition to it needs a decision about its budget or what it includes.
+- **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.5 KiB<!-- /gen -->. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file. With little headroom left in the browser file's budget (see "Sizes now"), the next addition to it needs a decision about its budget or what it includes.
 - **Done: bounded hidden-run scans.** `findHiddenRuns` takes `maxRuns` and `maxDecodedLength`, keeps `counts`, `total` and `benignTotal` exact, and gives each run `line` and `column` counted as `inspectTextDetailed` counts them, so callers no longer need their own scan limit or position code. The reserved code points of the tag plane (U+E0080–U+E00FF, U+E01F0–U+E0FFF) are a run kind of their own, `reserved_tag_plane`, so hidden-text scans cover the whole block up to U+E0FFF without a new category. With both caps set, 16 M characters (32 MB) of hidden text grow the heap by under 1 MB. `VERSION` is exported (generated from `package.json`), costing 19 bytes in the browser file. Still open: `check --ai-config` takes run positions from an uncapped `inspectTextDetailed` call and could use the run fields instead.
 
 ### Sizes now
@@ -130,19 +130,19 @@ Gzipped bytes per import in the source on `main`, written by `npm run gen` (the 
 | Import | Gzipped bytes | Budget | Headroom |
 | --- | ---: | ---: | ---: |
 | `inspectTextDetailed` | 959 | 1100 | 141 |
-| `revealInvisible` | 1102 | 1250 | 148 |
+| `revealInvisible` | 1104 | 1250 | 146 |
 | `getNewlineStats` | 272 | 350 | 78 |
-| `getRecommendedSanctifierOptions` | 173 | 250 | 77 |
+| `getRecommendedSanctifierOptions` | 175 | 250 | 75 |
 | `inspectText` | 1106 | 1250 | 144 |
-| `summonSanctifier` | 1457 | 1600 | 143 |
-| `summonSanctifier.pasted` | 1458 | 1600 | 142 |
-| `sanctifyPasted` | 1116 | 1250 | 134 |
-| `sanctifyStrict` | 1110 | 1250 | 140 |
+| `summonSanctifier` | 1493 | 1600 | 107 |
+| `summonSanctifier.pasted` | 1493 | 1600 | 107 |
+| `sanctifyPasted` | 1152 | 1250 | 98 |
+| `sanctifyStrict` | 1146 | 1250 | 104 |
 | `text-sanctifier/hidden` | 1196 | 1250 | 54 |
 | `text-sanctifier/context` | 2074 | 2250 | 176 |
 | `VERSION` | 51 | 60 | 9 |
-| `everything` | 3036 | 3072 | 36 |
-| prebuilt browser file | 3036 | 3072 | 36 |
+| `everything` | 3059 | 3072 | 13 |
+| prebuilt browser file | 3059 | 3072 | 13 |
 <!-- gen:sizes:end -->
 
 ### Not planned here

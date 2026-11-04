@@ -10,7 +10,7 @@
 // Plain Node (>=18), no dependencies. Exit codes: 0 clean, 1 findings (check,
 // or fix --dry-run with changes pending), 2 usage or I/O error.
 
-import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, statSync, fstatSync, readdirSync } from 'node:fs';
 import { resolve, join, sep, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -32,8 +32,11 @@ Usage:
   text-sanctifier reveal [paths...]
 
 Paths may be files, directories or globs (quote globs so the shell leaves them
-alone). "-", or no paths with piped input, reads stdin. Directories and globs
-skip files ignored by git (inside a git work tree) and skip binary files.
+alone). "-" reads stdin. With no paths, check scans the current directory, and fix
+and reveal read piped input. Directories and globs skip files ignored by git (inside
+a git work tree). Binary files are skipped; files that are text apart from a stray
+NUL or bad byte are not, and UTF-16 files with a BOM are decoded. A path or glob that
+matches no files, or a run that checks nothing, exits 2.
 
 check options:
   --format F           text (default), json or sarif (SARIF 2.1.0)
@@ -77,6 +80,7 @@ const BOM = 0xFEFF;
 const STDIN = '-';
 const STDIN_LABEL = '<stdin>';
 const BINARY_SNIFF_BYTES = 8000;
+const BINARY_CONTROL_SHARE = 0.05;
 const WALK_SKIP_DIRS = new Set(['.git', 'node_modules']);
 const CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
 
@@ -206,21 +210,36 @@ function isGitWorkTree(cwd) {
 }
 
 /**
- * Lists tracked and untracked-but-not-ignored files under one pathspec.
+ * Lists tracked and untracked-but-not-ignored files under the given pathspecs.
  * Returns null when git cannot answer (for example a path outside the work tree).
  * @param {string} cwd
- * @param {string} pathspec
+ * @param {string[]} pathspecs
  * @returns {string[]|null}
  */
-function gitListFiles(cwd, pathspec) {
+function gitListFiles(cwd, pathspecs) {
     const r = spawnSync(
         'git',
-        ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', pathspec],
+        ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...pathspecs],
         { cwd, encoding: 'utf8', maxBuffer: 1 << 28 }
     );
     if (r.error || r.status !== 0) return null;
-    // --cached lists tracked files deleted from the work tree; drop them
-    return r.stdout.split('\0').filter((f) => f && existsSync(resolve(cwd, f)));
+    // --cached also lists tracked files deleted from the work tree, submodules and
+    // symlinks to directories; keep only what can be read as a file
+    return r.stdout.split('\0').filter((f) => {
+        if (!f) return false;
+        try { return statSync(resolve(cwd, f)).isFile(); } catch { return false; }
+    });
+}
+
+/**
+ * Expands `{a,b}` into one glob per alternative: git pathspecs have no brace syntax.
+ * @param {string} glob
+ * @returns {string[]}
+ */
+function expandBraces(glob) {
+    const m = /\{([^{}]*)\}/.exec(glob);
+    if (!m) return [glob];
+    return m[1].split(',').flatMap((alt) => expandBraces(glob.slice(0, m.index) + alt + glob.slice(m.index + m[0].length)));
 }
 
 /**
@@ -366,7 +385,7 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
 
         if (inGit === undefined) inGit = isGitWorkTree(cwd);
         let listed =
-            (inGit && gitListFiles(cwd, isGlob ? `:(glob)${toSlash(arg)}` : toSlash(arg))) ||
+            (inGit && gitListFiles(cwd, isGlob ? expandBraces(toSlash(arg)).map((g) => `:(glob)${g}`) : [toSlash(arg)])) ||
             (isGlob ? walkGlob(cwd, arg) : walk(cwd, arg));
 
         if (aiConfig && !isGlob) {
@@ -374,6 +393,7 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
             listed = listed.filter((f) => isAiConfigPath(toSlash(relative(base, resolve(cwd, f)))));
         } else if (listed.length === 0) {
             warn(`${arg}: no files matched`);
+            errors++;
         }
         for (const f of listed) add(f, false);
     }
@@ -385,21 +405,53 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
 
 const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const utf8Lenient = new TextDecoder('utf-8', { ignoreBOM: true });
+const utf16 = new TextDecoder('utf-16le', { ignoreBOM: true });
 
 /**
- * Decodes UTF-8, keeping a leading BOM. With `sniff`, data with a NUL in its first
- * BINARY_SNIFF_BYTES is binary and not decoded. Bytes that are not UTF-8 become U+FFFD
- * and set `lossy`, so one bad byte cannot hide the rest of a file from `check`.
+ * A NUL plus a share of control bytes that text does not have, in the first
+ * BINARY_SNIFF_BYTES. One stray NUL is not enough, or it would hide a file from `check`.
  * @param {Uint8Array} bytes
+ */
+function looksBinary(bytes) {
+    const sample = bytes.subarray(0, BINARY_SNIFF_BYTES);
+    if (!sample.includes(0)) return false;
+    let controls = 0;
+    for (const b of sample) if (b < 9 || (b > 13 && b < 32)) controls++;
+    return controls / sample.length > BINARY_CONTROL_SHARE;
+}
+
+/**
+ * Decodes UTF-8, or UTF-16 with a BOM (setting `wide`), keeping a leading BOM. With
+ * `sniff`, data that is not UTF-8 and looks binary is not decoded. Other bytes that are
+ * not UTF-8 become U+FFFD and set `lossy`, so one bad byte cannot hide the rest of a file.
+ * @param {Buffer} bytes
  * @param {boolean} sniff
- * @returns {{ text: string|null, reason?: string, lossy?: boolean }}
+ * @returns {{ text: string|null, reason?: string, lossy?: boolean, wide?: boolean }}
  */
 function decode(bytes, sniff) {
-    if (sniff && bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { text: null, reason: 'binary' };
+    if (bytes[0] === 0xFF && bytes[1] === 0xFE) return { text: utf16.decode(bytes), wide: true };
+    if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
+        return { text: utf16.decode(Buffer.from(bytes.subarray(0, bytes.length & ~1)).swap16()), wide: true };
+    }
     try {
         return { text: utf8.decode(bytes) };
-    } catch {
+    } catch (e) {
+        if (!(e instanceof TypeError)) throw e; // too large for a string, not bad UTF-8
+        if (sniff && looksBinary(bytes)) return { text: null, reason: 'binary' };
         return { text: utf8Lenient.decode(bytes), lossy: true };
+    }
+}
+
+/**
+ * True when stdin may hold input that a run with no paths would ignore: anything but a
+ * terminal, the null device or an empty file. Windows pipes do not report isFIFO().
+ */
+function stdinHasInput() {
+    try {
+        const stat = fstatSync(0);
+        return !stat.isCharacterDevice() && !(stat.isFile() && stat.size === 0);
+    } catch {
+        return false;
     }
 }
 
@@ -656,11 +708,13 @@ async function main(argv) {
     if (opts.version) { out(VERSION); return 0; }
 
     const cwd = process.cwd();
+    const warn = (msg) => err(`text-sanctifier: ${msg}`);
     let paths = opts.paths;
-    // --ai-config with no paths searches the current directory even when stdin is not a
+    // check with no paths searches the current directory even when stdin is not a
     // terminal, so a CI job with no stdin still scans the repository; `-` reads stdin.
-    if (paths.length === 0 && opts.aiConfig) {
+    if (paths.length === 0 && opts.command === 'check') {
         paths = ['.'];
+        if (!opts.aiConfig && stdinHasInput()) warn('no paths given, so checking "." and not stdin; pass "-" to check stdin.');
     } else if (paths.length === 0) {
         if (process.stdin.isTTY) {
             err('text-sanctifier: no paths given and nothing piped on stdin.\nRun "text-sanctifier --help" for usage.');
@@ -669,7 +723,6 @@ async function main(argv) {
         paths = [STDIN];
     }
 
-    const warn = (msg) => err(`text-sanctifier: ${msg}`);
     const { inputs, errors: pathErrors } = collectInputs(paths, cwd, warn, opts.aiConfig);
     let errors = pathErrors;
     /** @type {Array<{ path: string, reason: string }>} */
@@ -682,6 +735,7 @@ async function main(argv) {
      * @param {(label: string, text: string, input: { path: string, explicit: boolean }) => void} visit
      */
     const forEachText = async (visit) => {
+        let visited = 0;
         for (const input of inputs) {
             const label = input.path === STDIN ? STDIN_LABEL : input.path;
             let bytes;
@@ -694,25 +748,44 @@ async function main(argv) {
             }
             // Files that look binary are skipped. Stdin and AI configuration files are text
             // by intent, so a NUL in one is a finding, not a reason to skip it.
-            const { text, reason, lossy } = decode(bytes, input.path !== STDIN && !opts.aiConfig);
-            if (text === null) {
+            let decoded;
+            try {
+                decoded = decode(bytes, input.path !== STDIN && !opts.aiConfig);
+            } catch (e) {
+                warn(`${label}: ${e.message}`);
+                errors++;
+                continue;
+            }
+            const { text, lossy, wide } = decoded;
+            let { reason } = decoded;
+            // fix writes UTF-8 in place, so it never rewrites what it could not decode or
+            // what was not UTF-8. A directory scan also leaves any file with a NUL alone;
+            // a file you name is cleaned if it is otherwise UTF-8.
+            if (opts.command === 'fix' && !reason) {
+                if (lossy) reason = 'not UTF-8';
+                else if (wide) reason = 'UTF-16';
+                else if (!input.explicit && bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) reason = 'binary';
+            }
+            if (reason) {
                 skipped.push({ path: label, reason });
-                if (input.explicit) warn(`${label}: skipped (${reason})`);
+                if (input.explicit || reason !== 'binary') warn(`${label}: skipped (${reason})`);
+                // Asked to clean this input and did not: that must not look like success
+                if (opts.command === 'fix' && input.explicit) errors++;
                 continue;
             }
             if (lossy) {
-                // fix never rewrites bytes it could not decode
-                if (opts.command === 'fix') {
-                    skipped.push({ path: label, reason: 'not UTF-8' });
-                    warn(`${label}: skipped (not UTF-8)`);
-                    continue;
-                }
                 notUtf8.push(label);
                 warn(`${label}: not valid UTF-8; checked with invalid bytes read as U+FFFD`);
             }
+            visited++;
             visit(label, text, input);
         }
+        // A clean result must mean something was read. Finding no AI configuration files is
+        // an answer; --ai-config reports that itself.
+        if (visited === 0 && errors === 0 && !opts.aiConfig) errors++;
     };
+
+    const skippedNote = () => (skipped.length > 0 ? `; ${plural(skipped.length, 'file')} skipped` : '');
 
     if (opts.command === 'check') {
         const files = [];
@@ -765,8 +838,9 @@ async function main(argv) {
                 out('No AI configuration files found.');
                 if (opts.paths.length === 0 && !process.stdin.isTTY) out('To check piped text, pass "-": text-sanctifier check --ai-config -');
             }
-            else if (total === 0) out(`No ${opts.aiConfig ? 'hidden text, ' : ''}invisible or control characters in ${plural(scanned, kind)}.`);
-            else out(`${plural(total, 'finding')}${opts.aiConfig ? ` (${plural(hiddenRunCount, 'hidden run')})` : ''} in ${files.length} of ${plural(scanned, kind)}.`);
+            else if (scanned === 0) out(`Nothing checked${skippedNote()}.`);
+            else if (total === 0) out(`No ${opts.aiConfig ? 'hidden text, ' : ''}invisible or control characters in ${plural(scanned, kind)}${skippedNote()}.`);
+            else out(`${plural(total, 'finding')}${opts.aiConfig ? ` (${plural(hiddenRunCount, 'hidden run')})` : ''} in ${files.length} of ${plural(scanned, kind)}${skippedNote()}.`);
         }
         return errors > 0 ? 2 : total > 0 ? 1 : 0;
     }
@@ -858,9 +932,11 @@ async function main(argv) {
             if (f.newlinesNormalized) parts.push('normalized newlines');
             report(`${verb} ${f.path}: ${parts.join('; ')}`);
         }
-        report(files.length === 0
-            ? `Nothing to fix in ${scanned} file${scanned === 1 ? '' : 's'}.`
-            : `${opts.dryRun ? 'Would change' : 'Changed'} ${files.length} of ${scanned} file${scanned === 1 ? '' : 's'}.`);
+        report(scanned === 0
+            ? `Nothing checked${skippedNote()}.`
+            : files.length === 0
+                ? `Nothing to fix in ${plural(scanned, 'file')}${skippedNote()}.`
+                : `${opts.dryRun ? 'Would change' : 'Changed'} ${files.length} of ${plural(scanned, 'file')}${skippedNote()}.`);
     }
     return errors > 0 ? 2 : opts.dryRun && files.length > 0 ? 1 : 0;
 }

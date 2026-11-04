@@ -15,5 +15,4 @@
   description: Report tag characters, variation selectors, invisible operators and other hidden characters in agent instruction files, decoding hidden tag text.
   entry: text-sanctifier check --ai-config
   language: node
-  types: [text]
   files: '(?i)((^|/)(claude(\.local)?|agents?|gemini|skill)\.md$|^\.claude/|^\.(cursorrules|windsurfrules|clinerules|roorules|mcp\.json)$|^mcp\.json$|^\.(cursor/rules|windsurf/rules|clinerules|roo/rules)/|^\.(cursor|vscode)/mcp\.json$|^\.github/copilot-instructions\.md$|^\.github/(instructions|prompts|chatmodes|agents)/)'

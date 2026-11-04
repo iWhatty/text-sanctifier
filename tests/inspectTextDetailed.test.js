@@ -186,7 +186,7 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
     'ab',
     '5c. format, filler and variation-selector characters purged'
   );
-  assertEqual(purge('x' + ch(0xDB40) + 'y'), 'x' + ch(0xDB40) + 'y', '5c. a lone surrogate is left alone');
+  assertEqual(purge('x' + ch(0xDB40) + 'y'), 'x' + ch(0xFFFD) + 'y', '5c. a lone surrogate becomes U+FFFD');
 }
 
 

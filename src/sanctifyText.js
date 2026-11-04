@@ -294,7 +294,7 @@ export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, 
  * @param {number} [maxLength=Infinity] - Hard input length cap (UTF-16 code units via `text.length`).
  * @param {'throw'|'truncate'|'noop'} [onMaxLength='throw'] - Behavior when `text.length` exceeds `maxLength`:
  *   - `'throw'`: throw a `RangeError`
- *   - `'truncate'`: slice to `maxLength` before processing
+ *   - `'truncate'`: slice to at most `maxLength` before processing, never through a surrogate pair
  *   - `'noop'`: return the original input unchanged (skips processing)
  * @param {boolean} [normalizeSpaces=false] - Replace look-alike spaces with an ordinary space. Runs first,
  *   so `purgeInvisibleChars` no longer joins the words around them.
@@ -324,26 +324,27 @@ export function sanctifyText(
         throw new TypeError('sanctifyText expects a string input.');
     }
 
-    if (onMaxLength !== 'truncate' && onMaxLength !== 'noop' && onMaxLength !== 'throw') {
-        onMaxLength = 'throw';
-    }
-
     if (text.length > maxLength) {
         switch (onMaxLength) {
             case 'truncate':
-                text = text.slice(0, maxLength);
+                {
+                    // Cut before a surrogate pair, not through it
+                    const last = text.charCodeAt(maxLength - 1);
+                    text = text.slice(0, last >= 0xD800 && last <= 0xDBFF ? maxLength - 1 : maxLength);
+                }
                 break;
             case 'noop':
                 return text;
-            case 'throw':
-            default:
+            default: // 'throw', and any invalid value
                 throw new RangeError(
                     `sanctifyText input length ${text.length} exceeds maxLength ${maxLength}.`
                 );
         }
     }
 
-    let cleaned = text;
+    // Unpaired surrogates become U+FFFD first, so removing a character between two
+    // halves cannot join them into a new character, such as a hidden tag.
+    let cleaned = text.replace(LONE_SURROGATES_REGEX, '\uFFFD');
 
     // Look-alike spaces become ordinary spaces, before anything can delete them
     if (normalizeSpaces) cleaned = cleaned.replace(SPACE_LOOKALIKES_REGEX, ' ');
@@ -388,6 +389,9 @@ export function sanctifyText(
  * space of CJK text. A test checks this against the category table.
  */
 export const SPACE_LOOKALIKES_REGEX = /[\u00A0\u2000-\u200A\u202F\u205F]/g;
+
+/** With the `u` flag a surrogate pair is one character, so this matches only unpaired halves. */
+const LONE_SURROGATES_REGEX = /[\uD800-\uDFFF]/gu;
 
 /** Zero-width space, word joiner and BOM: invisible and never needed in plain text. */
 export const ZERO_WIDTH_SPACES_REGEX = /[\u200B\u2060\uFEFF]/g;
@@ -497,9 +501,11 @@ function normalizeNewlineChars(text, normalized = '\n') {
  * @param {string} text
  * @returns {string}
  */
-const TRIM_SPACES_AROUND_NEWLINES_REGEX = /[ \t]*(\n+)[ \t]*/g;
+// The second branch consumes a run with no newline after it, so matching resumes past the
+// run instead of retrying from each of its characters, which took quadratic time.
+const TRIM_SPACES_AROUND_NEWLINES_REGEX = /[ \t]*(\n+)[ \t]*|([ \t]+)/g;
 function trimSpacesAroundNewlineChars(text) {
-    return text.replace(TRIM_SPACES_AROUND_NEWLINES_REGEX, '$1');
+    return text.replace(TRIM_SPACES_AROUND_NEWLINES_REGEX, '$1$2');
 }
 
 
