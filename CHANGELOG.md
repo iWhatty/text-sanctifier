@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.12 — 2026-11-05
 
 - Pure ASCII files with many NUL or control bytes are skipped as binary again; valid UTF-8 files containing non-ASCII bytes remain checked.
 - `check` and `fix` accept repeatable `--exclude` patterns. JSON reports now include `errors` and `excluded`; JSON usage errors also print JSON to stdout.
