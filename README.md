@@ -317,7 +317,8 @@ src/auth.js:40:3  U+202E  bidi_control
 2 findings in 2 of 31 files.
 ```
 
-- `--json` (or `--format json`): one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped, notUtf8 }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed.
+- `--json` (or `--format json`): one JSON object on stdout, `{ files, total, filesScanned, filesWithFindings, skipped, excluded, notUtf8, errors }`. Each entry in `files` is `{ path, ...inspectTextDetailed(text) }`; only files with findings are listed. Usage errors also produce JSON on stdout.
+- `--exclude GLOB`: exclude matching paths; repeatable. See [Inputs](#inputs). Not available with `--ai-config`.
 - `--format sarif`: a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) log for code-scanning viewers and editors. See [SARIF output](#sarif-output).
 - `--max-findings N`: findings listed per file (default 100; `all` for no cap). Counts always cover every occurrence.
 - `--strip-bom`: also report a BOM at offset 0, which is skipped by default.
@@ -354,7 +355,7 @@ skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
 - Each location has the file (relative to `%SRCROOT%`, the current directory), `startLine`, `startColumn` and `endColumn`. Columns count UTF-16 code units, as in `inspectTextDetailed` (`columnKind: "utf16CodeUnits"`).
 - Each result has a `partialFingerprints` hash based on its rule, relative path, line content and occurrence on that line. Adding unrelated lines above does not change it.
 - With `--ai-config`, the message of the first result in a run describes the run and its decoded text.
-- `--max-findings` caps results per file as usual. `runs[0].properties` holds `total`, `filesScanned`, `filesWithFindings`, `truncated` (files with findings left out) and `skipped`.
+- `--max-findings` caps results per file as usual. `runs[0].properties` holds `total`, `filesScanned`, `filesWithFindings`, `truncated` (files with findings left out), `skipped` and `excluded`.
 
 ### pre-commit
 
@@ -386,7 +387,8 @@ Rewrites files in place and reports what it replaced and removed.
 - With none of these, `fix` uses `--normalize-spaces --purge-invisible --nuke-controls`: look-alike spaces become ordinary spaces, and everything else `check` reports is removed.
 - `--strip-bom`: also remove a BOM at offset 0. It is kept by default.
 - `--dry-run`: write nothing; report what would change.
-- `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped }`, where each file is `{ path, spacesReplaced, removed, removedTotal, newlinesNormalized }`.
+- `--exclude GLOB`: exclude matching paths; repeatable. See [Inputs](#inputs).
+- `--json` (or `--format json`): `{ files, dryRun, filesScanned, filesChanged, skipped, excluded, errors }`, where each file is `{ path, spacesReplaced, removed, removedTotal, newlinesNormalized }`. Usage errors also produce JSON on stdout.
 
 Apart from look-alike spaces, `fix` deletes characters. By default, emoji lose their zero width joiners and variation selectors, and so does Mongolian text. Use `--keep-benign` to preserve recognized legitimate sequences, or run `check` or `fix --dry-run` first on prose. To make hidden characters visible without changing a file, use `reveal`.
 
@@ -402,12 +404,14 @@ git diff | npx text-sanctifier reveal
 ### Inputs
 
 - Paths can be files, directories or globs (`*`, `**`, `?`, `[...]`, `{a,b}`). Quote globs so the shell passes them through.
-- Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read.
-- Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when it is not valid UTF-8 and its first 8000 bytes hold a NUL and more than 5% control bytes, so a stray NUL or bad byte does not hide a text file: the NUL is reported as `nul`. Stdin and AI configuration files are never treated as binary. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
+- Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read, unless `--exclude` matches it.
+- `--exclude GLOB` matches paths relative to the current directory, or any parent directory. Leading `./` and trailing `/` are ignored. `*` does not cross `/`: `*.tar` matches only the top level, while `**/*.tar` matches any depth. Excluded paths are listed in JSON and SARIF and counted in text summaries. Stdin is never excluded. There is no config file, ignore file or inline comment form; scanned text cannot silence the scanner.
+- Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when its first 8000 bytes hold a NUL and more than 5% control bytes, and it is either invalid UTF-8 or entirely ASCII with at least 8 control bytes. Any non-ASCII byte in valid UTF-8 keeps the file checked, even beyond the sample. A stray NUL or bad byte does not hide a text file. Stdin and AI configuration files are never treated as binary. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
 - UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Files that are not valid UTF-8 are still checked, with each invalid byte read as U+FFFD, so one bad byte cannot hide the rest of the file. `check` notes them on stderr and lists them under `notUtf8` in JSON; `fix` never writes them and lists them under `skipped`.
 - `-` reads stdin. With no paths, `check` reads piped input, and scans the current directory when stdin is a terminal, the null device or empty. `check --ai-config` always searches the current directory with no paths. `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
 - A path or glob that matches no files, or a run that checks nothing, exits 2 instead of reporting a clean result. So does `fix` when it refuses stdin or a file you named. Files it skips in a directory or glob don't fail the run.
+- JSON `errors` entries have `path` (or null), `code` and `message`; read and write failures may also include a system `cause`. Codes are `usage`, `not_found`, `no_match`, `read_failed`, `decode_failed`, `write_failed`, `refused` and `nothing_checked`. Exit 2 means `errors` is nonempty.
 
 ### Exit codes
 

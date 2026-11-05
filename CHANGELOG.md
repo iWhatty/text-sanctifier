@@ -2,6 +2,14 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- Pure ASCII files with many NUL or control bytes are skipped as binary again; valid UTF-8 files containing non-ASCII bytes remain checked.
+- `check` and `fix` accept repeatable `--exclude` patterns. JSON reports now include `errors` and `excluded`; JSON usage errors also print JSON to stdout.
+- Closed output pipes, as in `check | head -1`, no longer produce an EPIPE stack trace. AI configuration scans with errors and no files now say `Nothing checked.`
+
+Behavior change: `check` skips pure ASCII files with many NUL or control bytes, which 1.3.11 reported, and `--json` usage errors now print JSON to stdout.
+
 ## 1.3.11 — 2026-11-04
 
 - `check` no longer reports a clean result when it read nothing. A path or glob that matches no files, or a run that only skipped files, exits 2, and summaries count skipped files.

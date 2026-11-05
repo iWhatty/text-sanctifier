@@ -4,8 +4,8 @@
 // Characters are built with String.fromCharCode so this file holds no raw
 // invisible characters.
 
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, truncateSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, truncateSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -132,6 +132,92 @@ function validateSarif(log) {
 
 
 try {
+  {
+    const cwd = tempDir();
+    mkdirSync(join(cwd, 'nested'));
+    writeFileSync(join(cwd, 'tar'), Buffer.concat([Buffer.from('header'), Buffer.alloc(9000)]));
+    writeFileSync(join(cwd, 'zeros'), Buffer.alloc(9000));
+    writeFileSync(join(cwd, 'wide'), Buffer.from('hello world', 'utf16le'));
+    writeFileSync(join(cwd, 'tag'), Buffer.concat([Buffer.alloc(8100), Buffer.from(cp(0xE0041))]));
+    writeFileSync(join(cwd, 'zwsp'), Buffer.concat([Buffer.alloc(8100), Buffer.from(ZWSP)]));
+    writeFileSync(join(cwd, 'stray'), 'ordinary text with one stray ' + ch(0) + ' byte');
+    const r = run(['check', '--json', '.'], { cwd });
+    const data = JSON.parse(r.stdout);
+    assertEqual(r.code, 1, 'ASCII binary skipped while Unicode payloads checked');
+    assertEqual(data.skipped.length, 3, 'tar, zeros and BOM-less UTF-16 skipped');
+    assertEqual(data.files.length, 3, 'late Unicode and stray NUL reported');
+    const binary = run(['check', '--json', 'tar'], { cwd });
+    assertEqual(binary.code === 2 && binary.stderr.includes('skipped (binary)') && JSON.parse(binary.stdout).errors[0].code === 'nothing_checked', true, 'named binary warns and nothing checked fails');
+    for (const command of ['check', 'fix']) {
+      const missing = run([command, '--json', 'missing'], { cwd });
+      assertEqual(missing.code === 2 && JSON.parse(missing.stdout).errors[0].code === 'not_found', true, `${command} reports missing path`);
+      const usage = run([command, '--bad', '--json'], { cwd });
+      assertEqual(usage.code === 2 && JSON.parse(usage.stdout).errors[0].code === 'usage', true, `${command} reports usage as JSON`);
+      const noMatch = run([command, '--json', '*.missing'], { cwd });
+      assertEqual(noMatch.code === 2 && JSON.parse(noMatch.stdout).errors[0].code === 'no_match', true, `${command} reports unmatched glob`);
+      const all = run([command, '--json', '--exclude', 'tar', 'tar'], { cwd });
+      const result = JSON.parse(all.stdout);
+      assertEqual(all.code === 2 && result.errors[0].code === 'nothing_checked' && result.excluded.length === 1, true, `${command} reports all excluded`);
+      assertEqual(run([command, '--exclude='], { cwd }).code, 2, `${command} rejects empty exclusion`);
+      assertEqual(run([command, '--exclude', '[z-a]'], { cwd }).code, 2, `${command} rejects invalid exclusion`);
+    }
+    writeFileSync(join(cwd, 'nested', 'keep.txt'), ZWSP);
+    for (const git of [false, true]) {
+      if (git && gitAvailable) spawnSync('git', ['init', '-q'], { cwd });
+      if (git && !gitAvailable) continue;
+      for (const command of ['check', 'fix']) {
+        const result = run([command, '--json', '--exclude=./nested/', 'nested/keep.txt', 'stray'], { cwd });
+        const json = JSON.parse(result.stdout);
+        assertEqual(json.excluded.length === 1 && read(cwd, 'nested/keep.txt') === ZWSP, true, `${command} excludes named file in ${git ? 'git' : 'non-git'} directory`);
+        const directory = run([command, '--json', ...(command === 'fix' ? ['--dry-run'] : []), '--exclude', 'nested', '.'], { cwd });
+        assertEqual(JSON.parse(directory.stdout).excluded.includes('nested/keep.txt'), true, `${command} excludes directory contents`);
+        const glob = run([command, '--json', '--exclude', '**/*.txt', 'nested/*.txt'], { cwd });
+        assertEqual(JSON.parse(glob.stdout).errors[0].code, 'nothing_checked', `${command} glob matched before exclusion`);
+        const topOnly = run([command, '--json', ...(command === 'fix' ? ['--dry-run'] : []), '--exclude', '*.txt', 'nested/keep.txt'], { cwd });
+        assertEqual(JSON.parse(topOnly.stdout).excluded.length, 0, `${command} star does not cross directories`);
+      }
+      const sarif = JSON.parse(run(['check', '--format', 'sarif', '--exclude', 'nested', '.'], { cwd }).stdout);
+      assertEqual(sarif.runs[0].properties.excluded.length, 1, 'SARIF lists excluded files');
+      assertEqual(run(['check', '--exclude', 'nested', '.'], { cwd }).stdout.includes('1 file excluded'), true, 'text counts excluded files');
+    }
+    assertEqual(run(['check', '--ai-config', '--exclude', 'x'], { cwd }).code, 2, 'AI config rejects excludes');
+    assertEqual(run(['reveal', '--exclude', 'x'], { cwd }).code, 2, 'reveal rejects excludes');
+    assertEqual(run(['check', '--ai-config', 'missing'], { cwd }).stdout.trim(), 'Nothing checked.', 'AI config errors do not claim no files found');
+
+    writeFileSync(join(cwd, 'many'), ZWSP.repeat(100000));
+    const child = spawn(process.execPath, [BIN, 'check', '--max-findings', 'all', 'many'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.once('data', () => child.stdout.destroy());
+    const exit = await new Promise((resolve) => child.on('close', resolve));
+    assertEqual(exit === 1 && !stderr.includes('Error:') && !stderr.includes(' at '), true, 'closed stdout preserves exit code without stack');
+  }
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'short'), 'a' + ch(0) + 'b\n');
+    const short = JSON.parse(run(['check', '--json', 'short'], { cwd }).stdout);
+    assertEqual(short.total === 1 && short.skipped.length === 0, true, 'a short ASCII file with a stray NUL is checked');
+    writeFileSync(join(cwd, 'ascii-controls'), Buffer.alloc(8));
+    assertEqual(JSON.parse(run(['check', '--json', '.'], { cwd }).stdout).skipped.length, 1, 'eight control bytes in ASCII count as binary');
+
+    writeFileSync(join(cwd, 'locked'), 'x' + ZWSP);
+    chmodSync(join(cwd, 'locked'), 0o444);
+    const locked = run(['fix', '--json', 'locked'], { cwd });
+    chmodSync(join(cwd, 'locked'), 0o644);
+    // Root ignores the read-only bit, so this only asserts when the write really failed
+    if (read(cwd, 'locked') !== 'x') {
+      const error = JSON.parse(locked.stdout).errors[0];
+      assertEqual(locked.code === 2 && error.code === 'write_failed' && typeof error.cause === 'string', true, 'fix reports a failed write with its cause');
+    }
+
+    if (process.platform === 'win32') {
+      mkdirSync(join(cwd, 'sub'));
+      writeFileSync(join(cwd, 'sub', 'f.txt'), ZWSP);
+      const slash = JSON.parse(run(['check', '--json', '--exclude', 'sub' + String.fromCharCode(92) + 'f.txt', 'sub/f.txt'], { cwd }).stdout);
+      assertEqual(slash.excluded.length, 1, 'a backslash exclude pattern matches on Windows');
+    }
+  }
   // --- Usage ---
   {
     const cwd = tempDir();

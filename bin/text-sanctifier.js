@@ -22,6 +22,10 @@ import { scanHiddenSpans } from '../src/hiddenScan.js';
 import { inspectTextInContext } from '../src/context.js';
 import { classifyCodeUnit, classifyAstral } from '../src/categories.generated.js';
 
+for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (e) => { if (e.code !== 'EPIPE') throw e; });
+}
+
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const USAGE = `text-sanctifier ${VERSION}
@@ -42,6 +46,7 @@ matches no files, or a run that checks nothing, exits 2.
 check options:
   --format F           text (default), json or sarif (SARIF 2.1.0)
   --json               same as --format json
+  --exclude GLOB       exclude matching paths (repeatable)
   --max-findings N     findings listed per file (default 100, "all" for no cap)
   --strip-bom          also report a BOM at the start of a file
   --ai-config          check agent instruction files (CLAUDE.md, AGENTS.md,
@@ -58,6 +63,7 @@ fix options:
   --normalize-newlines convert CRLF and CR to LF
   --strip-bom          also remove a BOM at the start of a file (kept by default)
   --dry-run            report what would change; write nothing
+  --exclude GLOB       exclude matching paths (repeatable)
   --format F           text (default) or json
   --json               same as --format json
   With no cleaning flag, fix uses --normalize-spaces --purge-invisible --nuke-controls.
@@ -82,6 +88,7 @@ const STDIN = '-';
 const STDIN_LABEL = '<stdin>';
 const BINARY_SNIFF_BYTES = 8000;
 const BINARY_CONTROL_SHARE = 0.05;
+const BINARY_MIN_ASCII_CONTROLS = 8;
 const WALK_SKIP_DIRS = new Set(['.git', 'node_modules']);
 const CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
 
@@ -111,6 +118,7 @@ function parseArgs(argv) {
     const opts = {
         command: null,
         paths: [],
+        excludes: [],
         format: null,
         aiConfig: false,
         stripBom: false,
@@ -139,6 +147,14 @@ function parseArgs(argv) {
         if (arg === '-v' || arg === '--version') { opts.version = true; continue; }
 
         const [name, inline] = arg.split(/=(.*)/s, 2);
+        if (name === '--exclude') {
+            const value = inline !== undefined ? inline : argv[++i];
+            if (!value || value.startsWith('-')) throw new UsageError('--exclude expects a non-empty glob.');
+            try { excludeRegExp(value); }
+            catch (e) { if (e instanceof SyntaxError) throw new UsageError(`Invalid --exclude pattern: ${value}`); throw e; }
+            opts.excludes.push(value);
+            continue;
+        }
         if (name === '--max-findings') {
             const value = inline !== undefined ? inline : argv[++i];
             opts.maxFindings = parseMaxFindings(value);
@@ -165,6 +181,7 @@ function parseArgs(argv) {
         throw new UsageError(opts.command === null ? 'Missing command.' : `Unknown command: ${opts.command}`);
     }
     if (opts.command === 'reveal') {
+        if (opts.excludes.length) throw new UsageError('--exclude does not apply to reveal.');
         for (const [flag, key] of Object.entries(BOOLEAN_FLAGS)) {
             if (opts[key]) throw new UsageError(`${flag} does not apply to reveal.`);
         }
@@ -176,6 +193,7 @@ function parseArgs(argv) {
         if (opts.command === 'check' && FIX_ONLY_FLAGS.has(key) && opts[key]) throw new UsageError(`${flag} only applies to fix.`);
         if (opts.command === 'fix' && CHECK_ONLY_FLAGS.has(key) && opts[key]) throw new UsageError(`${flag} only applies to check.`);
     }
+    if (opts.aiConfig && opts.excludes.length) throw new UsageError('--exclude does not apply to --ai-config.');
     if (opts.format === null) opts.format = 'text';
     if (opts.command === 'fix' && opts.format === 'sarif') throw new UsageError('--format sarif only applies to check.');
     if (opts.command === 'fix' && !opts.normalizeSpaces && !opts.purgeInvisible && !opts.nukeControls && !opts.normalizeNewlines) {
@@ -277,7 +295,7 @@ function walk(cwd, dir) {
  * Glob to RegExp for the non-git fallback: `**`, `*`, `?`, `[...]` and `{a,b}`.
  * @param {string} glob
  */
-function globToRegExp(glob) {
+function globToRegExp(glob, flags = '') {
     let re = '';
     for (let i = 0; i < glob.length; i++) {
         const c = glob[i];
@@ -308,8 +326,11 @@ function globToRegExp(glob) {
             re += c.replace(/[.+^$()|\\\]}]/g, '\\$&');
         }
     }
-    return new RegExp(`^${re}$`);
+    return new RegExp(`^${re}$`, flags);
 }
+
+/** @param {string} glob - an --exclude pattern */
+const excludeRegExp = (glob) => globToRegExp(toSlash(glob).replace(/^\.\//, '').replace(/\/$/, ''), CASE_INSENSITIVE_FS ? 'i' : '');
 
 /**
  * @param {string} cwd
@@ -351,14 +372,13 @@ const isAiConfigPath = (rel) => AI_CONFIG_RES.some((re) => re.test(rel));
  * directories contribute only agent instruction files (AI_CONFIG_GLOBS).
  * @param {string[]} args
  * @param {string} cwd
- * @param {(msg: string) => void} warn
+ * @param {(path: string|null, code: string, message: string) => void} addError
  * @param {boolean} [aiConfig]
- * @returns {{ inputs: Array<{ path: string, explicit: boolean }>, errors: number }}
+ * @returns {Array<{ path: string, explicit: boolean }>}
  */
-function collectInputs(args, cwd, warn, aiConfig = false) {
+function collectInputs(args, cwd, addError, aiConfig = false) {
     const inputs = [];
     const seen = new Set();
-    let errors = 0;
     let inGit;
 
     const add = (path, explicit) => {
@@ -379,8 +399,7 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
 
         const isGlob = !stat && GLOB_CHARS.test(arg);
         if (!stat && !isGlob) {
-            warn(`${arg}: no such file or directory`);
-            errors++;
+            addError(arg, 'not_found', `${arg}: no such file or directory`);
             continue;
         }
 
@@ -393,12 +412,11 @@ function collectInputs(args, cwd, warn, aiConfig = false) {
             const base = resolve(cwd, arg);
             listed = listed.filter((f) => isAiConfigPath(toSlash(relative(base, resolve(cwd, f)))));
         } else if (listed.length === 0) {
-            warn(`${arg}: no files matched`);
-            errors++;
+            addError(arg, 'no_match', `${arg}: no files matched`);
         }
         for (const f of listed) add(f, false);
     }
-    return { inputs, errors };
+    return inputs;
 }
 
 
@@ -412,19 +430,23 @@ const utf16 = new TextDecoder('utf-16le', { ignoreBOM: true });
  * A NUL plus a share of control bytes that text does not have, in the first
  * BINARY_SNIFF_BYTES. One stray NUL is not enough, or it would hide a file from `check`.
  * @param {Uint8Array} bytes
+ * @param {number} [minControls] - fewest control bytes that count
  */
-function looksBinary(bytes) {
+function looksBinary(bytes, minControls = 0) {
     const sample = bytes.subarray(0, BINARY_SNIFF_BYTES);
     if (!sample.includes(0)) return false;
     let controls = 0;
     for (const b of sample) if (b < 9 || (b > 13 && b < 32)) controls++;
-    return controls / sample.length > BINARY_CONTROL_SHARE;
+    return controls >= minControls && controls / sample.length > BINARY_CONTROL_SHARE;
 }
 
 /**
  * Decodes UTF-8, or UTF-16 with a BOM (setting `wide`), keeping a leading BOM. With
- * `sniff`, data that is not UTF-8 and looks binary is not decoded. Other bytes that are
- * not UTF-8 become U+FFFD and set `lossy`, so one bad byte cannot hide the rest of a file.
+ * `sniff`, data that looks binary is not decoded if it is not UTF-8, or if it is entirely
+ * ASCII with at least BINARY_MIN_ASCII_CONTROLS control bytes, so a short file with a stray
+ * NUL is still read. Invisible Unicode needs non-ASCII bytes in UTF-8, so ASCII-only data has
+ * only controls to hide. Other bytes that are not UTF-8 become U+FFFD and set `lossy`, so
+ * one bad byte cannot hide the rest of a file.
  * @param {Buffer} bytes
  * @param {boolean} sniff
  * @returns {{ text: string|null, reason?: string, lossy?: boolean, wide?: boolean }}
@@ -435,7 +457,9 @@ function decode(bytes, sniff) {
         return { text: utf16.decode(Buffer.from(bytes.subarray(0, bytes.length & ~1)).swap16()), wide: true };
     }
     try {
-        return { text: utf8.decode(bytes) };
+        const text = utf8.decode(bytes);
+        if (sniff && looksBinary(bytes, BINARY_MIN_ASCII_CONTROLS) && bytes.every((b) => b < 0x80)) return { text: null, reason: 'binary' };
+        return { text };
     } catch (e) {
         if (!(e instanceof TypeError)) throw e; // too large for a string, not bad UTF-8
         if (sniff && looksBinary(bytes)) return { text: null, reason: 'binary' };
@@ -635,9 +659,9 @@ function sarifArtifact(label) {
 /**
  * Builds a SARIF 2.1.0 log with one result per listed finding; the rule is the category.
  * @param {Array<{ path: string, findings: Array<{ offset: number, line: number, column: number, codePoint: number, category: string }>, hiddenRuns?: Array<{ offset: number, kind: string, count: number, decoded?: string }>, truncated: boolean }>} files
- * @param {{ cwd: string, total: number, filesScanned: number, skipped: Array<{ path: string, reason: string }>, succeeded: boolean }} info
+ * @param {{ cwd: string, total: number, filesScanned: number, skipped: Array<{ path: string, reason: string }>, excluded: string[], succeeded: boolean }} info
  */
-function sarifLog(files, { cwd, total, filesScanned, skipped, succeeded }) {
+function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, succeeded }) {
     const ruleIds = Object.keys(inspectTextDetailed('', { maxFindings: 0 }).counts);
     const rules = ruleIds.map((id) => ({
         id,
@@ -682,6 +706,7 @@ function sarifLog(files, { cwd, total, filesScanned, skipped, succeeded }) {
                 filesWithFindings: files.length,
                 truncated: files.filter((f) => f.truncated).map((f) => f.path),
                 skipped,
+                excluded,
             },
         }],
     };
@@ -704,6 +729,9 @@ async function main(argv) {
     } catch (e) {
         if (!(e instanceof UsageError)) throw e;
         err(`text-sanctifier: ${e.message}\nRun "text-sanctifier --help" for usage.`);
+        if (argv.some((arg, i) => arg === '--json' || arg === '--format=json' || (arg === '--format' && argv[i + 1] === 'json'))) {
+            out(JSON.stringify({ errors: [{ path: null, code: 'usage', message: e.message }] }));
+        }
         return 2;
     }
     if (opts.help) { out(USAGE); return 0; }
@@ -711,6 +739,13 @@ async function main(argv) {
 
     const cwd = process.cwd();
     const warn = (msg) => err(`text-sanctifier: ${msg}`);
+    const errors = [];
+    const addError = (path, code, message, cause, emit = true) => {
+        const entry = { path, code, message };
+        if (cause) entry.cause = cause;
+        errors.push(entry);
+        if (emit) warn(message);
+    };
     let paths = opts.paths;
     /** @type {Buffer | undefined} */
     let stdinBytes;
@@ -722,21 +757,33 @@ async function main(argv) {
             try {
                 stdinBytes = await readStdin();
             } catch (e) {
-                warn(`${STDIN_LABEL}: ${e.code || e.message}`);
+                addError(STDIN_LABEL, 'read_failed', `${STDIN_LABEL}: ${e.code || e.message}`, e.code);
+                if (opts.format === 'json') out(JSON.stringify({ errors }));
                 return 2;
             }
             if (stdinBytes.length > 0) paths = [STDIN];
         }
     } else if (paths.length === 0) {
         if (process.stdin.isTTY) {
+            addError(null, 'usage', 'no paths given and nothing piped on stdin.', undefined, false);
             err('text-sanctifier: no paths given and nothing piped on stdin.\nRun "text-sanctifier --help" for usage.');
+            if (opts.format === 'json') out(JSON.stringify({ errors }));
             return 2;
         }
         paths = [STDIN];
     }
 
-    const { inputs, errors: pathErrors } = collectInputs(paths, cwd, warn, opts.aiConfig);
-    let errors = pathErrors;
+    const collected = collectInputs(paths, cwd, addError, opts.aiConfig);
+    const excluded = [];
+    const excludePatterns = opts.excludes.map(excludeRegExp);
+    const inputs = collected.filter((input) => {
+        if (input.path === STDIN) return true;
+        const path = toSlash(relative(cwd, resolve(cwd, input.path)));
+        const parts = path.split('/');
+        const matches = parts.some((_, i) => excludePatterns.some((re) => re.test(parts.slice(0, i + 1).join('/'))));
+        if (matches) excluded.push(input.path);
+        return !matches;
+    });
     /** @type {Array<{ path: string, reason: string }>} */
     const skipped = [];
     /** @type {string[]} */
@@ -754,8 +801,7 @@ async function main(argv) {
             try {
                 bytes = input.path === STDIN ? (stdinBytes ?? await readStdin()) : readFileSync(resolve(cwd, input.path));
             } catch (e) {
-                warn(`${label}: ${e.code || e.message}`);
-                errors++;
+                addError(label, 'read_failed', `${label}: ${e.code || e.message}`, e.code);
                 continue;
             }
             // Files that look binary are skipped. Stdin and AI configuration files are text
@@ -764,8 +810,7 @@ async function main(argv) {
             try {
                 decoded = decode(bytes, input.path !== STDIN && !opts.aiConfig);
             } catch (e) {
-                warn(`${label}: ${e.message}`);
-                errors++;
+                addError(label, 'decode_failed', `${label}: ${e.message}`);
                 continue;
             }
             const { text, lossy, wide } = decoded;
@@ -782,7 +827,7 @@ async function main(argv) {
                 skipped.push({ path: label, reason });
                 if (input.explicit || reason !== 'binary') warn(`${label}: skipped (${reason})`);
                 // Asked to clean this input and did not: that must not look like success
-                if (opts.command === 'fix' && input.explicit) errors++;
+                if (opts.command === 'fix' && input.explicit) addError(label, 'refused', `${label}: skipped (${reason})`, undefined, false);
                 continue;
             }
             if (lossy) {
@@ -794,10 +839,10 @@ async function main(argv) {
         }
         // A clean result must mean something was read. Finding no AI configuration files is
         // an answer; --ai-config reports that itself.
-        if (visited === 0 && errors === 0 && !opts.aiConfig) errors++;
+        if (visited === 0 && errors.length === 0 && !opts.aiConfig) addError(null, 'nothing_checked', 'Nothing checked.', undefined, false);
     };
 
-    const skippedNote = () => (skipped.length > 0 ? `; ${plural(skipped.length, 'file')} skipped` : '');
+    const skippedNote = () => (skipped.length > 0 ? `; ${plural(skipped.length, 'file')} skipped` : '') + (excluded.length > 0 ? `; ${plural(excluded.length, 'file')} excluded` : '');
 
     if (opts.command === 'check') {
         const files = [];
@@ -839,14 +884,14 @@ async function main(argv) {
 
         const kind = opts.aiConfig ? 'AI configuration file' : 'file';
         if (opts.format === 'json') {
-            const summary = { files, total, filesScanned: scanned, filesWithFindings: files.length, skipped, notUtf8 };
+            const summary = { files, total, filesScanned: scanned, filesWithFindings: files.length, skipped, excluded, notUtf8, errors };
             if (opts.aiConfig) summary.hiddenRunCount = hiddenRunCount;
             out(JSON.stringify(summary, null, 2));
         } else if (opts.format === 'sarif') {
-            out(JSON.stringify(sarifLog(files, { cwd, total, filesScanned: scanned, skipped, succeeded: errors === 0 }), null, 2));
+            out(JSON.stringify(sarifLog(files, { cwd, total, filesScanned: scanned, skipped, excluded, succeeded: errors.length === 0 }), null, 2));
         } else {
             for (const line of lines) out(line);
-            if (opts.aiConfig && scanned === 0 && skipped.length === 0) {
+            if (opts.aiConfig && scanned === 0 && skipped.length === 0 && errors.length === 0) {
                 out('No AI configuration files found.');
                 if (opts.paths.length === 0 && !process.stdin.isTTY) out('To check piped text, pass "-": text-sanctifier check --ai-config -');
             }
@@ -854,7 +899,7 @@ async function main(argv) {
             else if (total === 0) out(`No ${opts.aiConfig ? 'hidden text, ' : ''}invisible or control characters in ${plural(scanned, kind)}${skippedNote()}.`);
             else out(`${plural(total, 'finding')}${opts.aiConfig ? ` (${plural(hiddenRunCount, 'hidden run')})` : ''} in ${files.length} of ${plural(scanned, kind)}${skippedNote()}.`);
         }
-        return errors > 0 ? 2 : total > 0 ? 1 : 0;
+        return errors.length > 0 ? 2 : total > 0 ? 1 : 0;
     }
 
     if (opts.command === 'reveal') {
@@ -867,7 +912,7 @@ async function main(argv) {
             }
             process.stdout.write(revealInvisible(text));
         });
-        return errors > 0 ? 2 : 0;
+        return errors.length > 0 ? 2 : 0;
     }
 
     // fix
@@ -925,8 +970,7 @@ async function main(argv) {
             try {
                 writeFileSync(resolve(cwd, input.path), cleaned, 'utf8');
             } catch (e) {
-                warn(`${label}: ${e.code || e.message}`);
-                errors++;
+                addError(label, 'write_failed', `${label}: ${e.code || e.message}`, e.code);
                 return;
             }
         }
@@ -934,7 +978,7 @@ async function main(argv) {
     });
 
     if (opts.format === 'json') {
-        report(JSON.stringify({ files, dryRun: opts.dryRun, filesScanned: scanned, filesChanged: files.length, skipped }, null, 2));
+        report(JSON.stringify({ files, dryRun: opts.dryRun, filesScanned: scanned, filesChanged: files.length, skipped, excluded, errors }, null, 2));
     } else {
         const verb = opts.dryRun ? 'would fix' : 'fixed';
         for (const f of files) {
@@ -950,7 +994,7 @@ async function main(argv) {
                 ? `Nothing to fix in ${plural(scanned, 'file')}${skippedNote()}.`
                 : `${opts.dryRun ? 'Would change' : 'Changed'} ${files.length} of ${plural(scanned, 'file')}${skippedNote()}.`);
     }
-    return errors > 0 ? 2 : opts.dryRun && files.length > 0 ? 1 : 0;
+    return errors.length > 0 ? 2 : opts.dryRun && files.length > 0 ? 1 : 0;
 }
 
 main(process.argv.slice(2)).then(
