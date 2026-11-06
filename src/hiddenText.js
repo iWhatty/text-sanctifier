@@ -15,6 +15,8 @@ export { VERSION } from './version.generated.js';
 
 /** @typedef {'tag' | 'variation_selector' | 'invisible_operator' | 'reserved_tag_plane'} HiddenRunKind */
 
+/** @typedef {'ideographic' | 'mongolian'} HiddenRunSequence */
+
 /**
  * @typedef {Object} HiddenRun
  * @property {HiddenRunKind} kind
@@ -26,6 +28,9 @@ export { VERSION } from './version.generated.js';
  * @property {string} [decoded] - tag runs only: the ASCII the tags spell (see decodeTagText),
  *   at most `maxDecodedLength` UTF-16 units
  * @property {boolean} [decodedTruncated] - tag runs only: true when `decoded` stops short of the run
+ * @property {HiddenRunSequence} [sequence] - a lone selector in a form text-sanctifier/context calls
+ *   benign: U+E0100–U+E01EF after an ideograph, or U+180B–U+180D or U+180F after a Mongolian letter.
+ *   Still a run, because these can carry data: up to a byte per ideograph.
  */
 
 /**
@@ -81,6 +86,7 @@ export function decodeTagText(text) {
  *    Extended_Pictographic character, or between #, * or a digit and U+20E3 (a keycap),
  *    the same rule as text-sanctifier/context. After a letter it is a run: one selector
  *    per letter can carry a bit each.
+ * Lone ideographic and Mongolian selectors stay runs, marked with `sequence`.
  *
  * `line` and `column` are counted as in inspectTextDetailed. Every run and benign
  * span is counted; only the first `maxRuns` of each are listed. With the caps set,

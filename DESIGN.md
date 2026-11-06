@@ -138,7 +138,7 @@ Gzipped bytes per import in the source on `main`, written by `npm run gen` (the 
 | `summonSanctifier.pasted` | 1493 | 1600 | 107 |
 | `sanctifyPasted` | 1152 | 1250 | 98 |
 | `sanctifyStrict` | 1146 | 1250 | 104 |
-| `text-sanctifier/hidden` | 1196 | 1250 | 54 |
+| `text-sanctifier/hidden` | 1335 | 1400 | 65 |
 | `text-sanctifier/context` | 2074 | 2250 | 176 |
 | `VERSION` | 51 | 60 | 9 |
 | `everything` | 3059 | 3072 | 13 |
@@ -187,6 +187,8 @@ const report = inspectTextInContext(text, { maxFindings: 20 });
 **Script-joiner implementation.** JavaScript regexes have no property for combining classes, so `scripts/gen-virama.js` derives the <!-- gen:count:viramas -->69<!-- /gen --> viramas from Node's normalization data (canonical reordering puts a class 9 mark after class 8 and before class 10) and writes `src/virama.generated.js`. `npm run gen:check` fails when Node's Unicode data changes the set. Joining_Type is also unavailable as a regex property; shipping ArabicShaping.txt would cost bytes and could not be checked against Node. The approximation and its limits are documented in the README rules linked above.
 
 **Supplementary selectors, exactly.** `benignSupplementarySelectorCount` counts the benign U+E0100–U+E01EF, part of `benignCounts.variation_selector`. `findHiddenRuns(text).supplementarySelectorCount` counts every one of them (it never marks them benign), so the difference is the exact number of suspicious ones, which `benignCounts.variation_selector` alone can't give because it also counts emoji selectors.
+
+**Why the scanners differ on these selectors.** `inspectTextInContext` calls a lone ideographic or Mongolian selector benign, and `findHiddenRuns` keeps it as a run marked with `sequence`. An emoji selector carries about a bit, but an ideographic selector has 240 values, so one per ideograph can spell ASCII. Moving these to `benign` would make `check --ai-config` pass such a payload and would break the subtraction above. Stay in `runs`; add to `sequence` if a consumer needs another form.
 
 **Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; built as proposed.
 

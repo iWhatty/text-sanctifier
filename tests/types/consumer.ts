@@ -58,6 +58,7 @@ const benignFlag: boolean | undefined = contextFinding?.benign;
 const suspiciousZeroWidth: number = inContext.counts.zero_width - inContext.benignCounts.zero_width + inContext.benignTotal;
 const benignSupplementary: number = inContext.benignSupplementarySelectorCount;
 const runKind: HiddenRunKind | undefined = firstRun?.kind;
+const runSequence: 'ideographic' | 'mongolian' | undefined = firstRun?.sequence;
 const decodedTags: string = decodeTagText('x');
 
 const options: InspectDetailedOptions = { maxFindings: 10 };

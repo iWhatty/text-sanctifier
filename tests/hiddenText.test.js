@@ -198,4 +198,28 @@ function heapGrowthMb(fn) {
 }
 
 
+// 8. Lone ideographic and Mongolian selectors stay runs, marked with `sequence`
+{
+  const only = (text) => findHiddenRuns(text).runs.map((run) => run.sequence).join(',');
+  const KUZU = cp(0x845B);
+  const MONGOLIAN_A = cp(0x1820);
+  assertEqual(only(KUZU + cp(0xE0100)), 'ideographic', '8. VS17 after an ideograph');
+  assertEqual(only(cp(0x20000) + cp(0xE01EF)), 'ideographic', '8. VS256 after a supplementary-plane ideograph');
+  assertEqual(only(MONGOLIAN_A + cp(0x180B)) + only(MONGOLIAN_A + cp(0x180F)), 'mongolianmongolian', '8. FVS after a Mongolian letter');
+  assertEqual(only('a' + cp(0xE0100)), '', '8. VS17 after a letter is unmarked');
+  assertEqual(only(cp(0xE0100)), '', '8. VS17 at the start is unmarked');
+  assertEqual(only('a' + cp(0x180B)), '', '8. FVS after a Latin letter is unmarked');
+  assertEqual(only(cp(0x180B)), '', '8. FVS at the start is unmarked');
+  assertEqual(only(KUZU + cp(0xE0100) + cp(0xE0101)), '', '8. a stack is unmarked');
+  assertEqual(only(KUZU + cp(0xFE00)), '', '8. a low selector after an ideograph is unmarked');
+  assertEqual('sequence' in findHiddenRuns(KUZU + cp(0xFE00)).runs[0], false, '8. the key is absent when unmarked');
+
+  // A payload stays visible: one selector per ideograph spells a byte each
+  const secret = 'ignore';
+  const payload = [...secret].map((ch, i) => cp(0x4E00 + i) + cp(0xE0100 + ch.charCodeAt(0))).join('');
+  const scan = findHiddenRuns(payload);
+  assertEqual(`${scan.total}:${scan.benignTotal}:${scan.supplementarySelectorCount}`, '6:0:6', '8. every selector of a payload is a counted run');
+}
+
+
 console.log('All hidden-text tests finished.');

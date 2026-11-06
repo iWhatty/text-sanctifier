@@ -42,7 +42,8 @@ export const PROBES = [
     // 593 -> 912 for line/column, maxRuns, maxDecodedLength and exact counts on each run;
     // 943 -> 996 for the reserved_tag_plane kind and code-point totals;
     // 996 -> 1106 for the emoji/keycap rule on presentation selectors (as in context.js).
-    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1250, mustNotContain: [SANITIZER, EMOJI_TABLE] },
+    // 1196 -> 1335 for `sequence` on ideographic and Mongolian selector runs.
+    { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1400, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes;
     // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the virama table.
     { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", budget: 2250, mustNotContain: [SANITIZER] },

@@ -3,6 +3,7 @@
 /**
  * @typedef {import('./hiddenText.js').HiddenRunKind} HiddenRunKind
  * @typedef {import('./hiddenText.js').HiddenRun} HiddenRun
+ * @typedef {import('./hiddenText.js').HiddenRunSequence} HiddenRunSequence
  * @typedef {import('./hiddenText.js').HiddenRunCounts} HiddenRunCounts
  * @typedef {import('./hiddenText.js').HiddenTextScan} HiddenTextScan
  * @typedef {import('./hiddenText.js').HiddenScanOptions} HiddenScanOptions
@@ -74,6 +75,32 @@ function isPresentationBase(text, index) {
     if ((before === 0x23 || before === 0x2A || (before >= 0x30 && before <= 0x39)) && text.charCodeAt(index + 1) === 0x20E3) return true;
     PICTOGRAPHIC_AT.lastIndex = p;
     return PICTOGRAPHIC_AT.test(text);
+}
+
+const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
+
+/**
+ * The legitimate sequence a lone selector at `index` could belong to, by the same rules
+ * as text-sanctifier/context. It stays a run: unlike U+FE0E and U+FE0F, these selectors
+ * have enough values to spell data, up to a byte per ideograph.
+ * @param {string} text
+ * @param {number} index
+ * @param {number} cp - the selector
+ * @returns {HiddenRunSequence | null}
+ */
+function sequenceOf(text, index, cp) {
+    if (cp >= 0xE0100 && cp <= 0xE01EF) {
+        if (index === 0) return null;
+        const low = text.charCodeAt(index - 1);
+        IDEOGRAPHIC_AT.lastIndex = low >= 0xDC00 && low <= 0xDFFF && index >= 2 &&
+            (text.charCodeAt(index - 2) & 0xFC00) === 0xD800 ? index - 2 : index - 1;
+        return IDEOGRAPHIC_AT.test(text) ? 'ideographic' : null;
+    }
+    if (cp > 0x180F) return null;
+    const c = text.charCodeAt(index - 1);
+    return (c >= 0x1820 && c <= 0x1878) || (c >= 0x1880 && c <= 0x1884) || (c >= 0x1887 && c <= 0x18A8) || c === 0x18AA
+        ? 'mongolian'
+        : null;
 }
 
 /**
@@ -163,6 +190,9 @@ export function scanHiddenSpans(text, options = {}, onSpan) {
                 const { decoded, truncated } = decodeRange(text, offset, end, maxDecodedLength);
                 run.decoded = decoded;
                 run.decodedTruncated = truncated;
+            } else if (kind === 'variation_selector' && count === 1) {
+                const sequence = sequenceOf(text, offset, cp);
+                if (sequence) run.sequence = sequence;
             }
             runs.push(run);
         }

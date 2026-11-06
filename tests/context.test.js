@@ -223,6 +223,19 @@ function heapGrowthMb(fn) {
   const scan = findHiddenRuns(text);
   assertEqual(scan.supplementarySelectorCount - ctx.benignSupplementarySelectorCount, 2, '11. findHiddenRuns supplementarySelectorCount minus it is the suspicious count');
   assertEqual(inspectTextInContext('plain').benignSupplementarySelectorCount, 0, '11. zero on clean text');
+
+  // A run's `sequence` agrees with the benign mark on the same selector
+  const bases = ['', 'a', ' ', cp(0x845B), cp(0x20000), cp(0x1820), cp(0x18AA), cp(0x18A9), cp(0x270C)];
+  const selectors = [0xFE00, 0xE0100, 0xE01EF, 0x180B, 0x180D, 0x180F];
+  let disagreements = 0;
+  for (const base of bases) {
+    for (const selector of selectors) {
+      const sample = base + cp(selector);
+      const finding = inspectTextInContext(sample).findings[0];
+      if (findHiddenRuns(sample).runs[0].sequence !== undefined !== finding.benign) disagreements++;
+    }
+  }
+  assertEqual(disagreements, 0, '11. sequence matches context on lone selectors');
 }
 
 
