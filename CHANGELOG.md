@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.13 — 2026-11-06
 
 - `findHiddenRuns` marks a lone ideographic or Mongolian selector with `sequence: 'ideographic'` or `'mongolian'` when `text-sanctifier/context` would call it benign. These stay in `runs`, because one selector per ideograph can spell a hidden message.
 
