@@ -12,10 +12,10 @@
 // --check fails when Node's Unicode data gains or loses a virama: run `npm run gen` then.
 // The generated JavaScript is pure ASCII.
 
-import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { CHECK, generator, hex } from './gen-lib.js';
 
-const CHECK = process.argv.includes('--check');
+const { fail, writeOrCompare } = generator('gen-virama');
 const FILE = resolve('src/virama.generated.js');
 
 const CCC_8 = '\u3099'; // COMBINING KATAKANA-HIRAGANA VOICED SOUND MARK
@@ -38,11 +38,9 @@ for (let cp = 0; cp <= 0x10FFFF; cp++) {
 }
 const count = ranges.reduce((n, [lo, hi]) => n + hi - lo + 1, 0);
 if (count < 60 || !isVirama('\u094D')) {
-    console.error(`gen-virama: found ${count} viramas; this Node's normalization data looks incomplete.`);
-    process.exit(2);
+    fail(`found ${count} viramas; this Node's normalization data looks incomplete.`);
 }
 
-const hex = (cp) => cp.toString(16).toUpperCase().padStart(4, '0');
 const esc = (cp) => (cp > 0xFFFF ? `\\u{${hex(cp)}}` : `\\u${hex(cp)}`);
 const body = ranges.map(([lo, hi]) => (lo === hi ? esc(lo) : hi === lo + 1 ? esc(lo) + esc(hi) : `${esc(lo)}-${esc(hi)}`)).join('');
 
@@ -53,15 +51,5 @@ const content =
     `// The ${count} code points with Canonical_Combining_Class 9 (Virama). Sticky: tested at an index.\n` +
     `export const VIRAMA_AT = /[${body}]/yu;\n`;
 
-let current = null;
-try { current = readFileSync(FILE, 'utf8').replace(/\r\n/g, '\n'); } catch { /* not generated yet */ }
-
-if (current === content) {
-    if (CHECK) console.log(`gen-virama: src/virama.generated.js is up to date (${count} viramas, Unicode ${process.versions.unicode}).`);
-} else if (CHECK) {
-    console.error(`gen-virama: src/virama.generated.js differs from this Node's Unicode ${process.versions.unicode} data; run \`npm run gen\`.`);
-    process.exit(1);
-} else {
-    writeFileSync(FILE, content);
-    console.log(`gen-virama: wrote src/virama.generated.js (${count} viramas, Unicode ${process.versions.unicode})`);
-}
+writeOrCompare(FILE, content);
+if (CHECK && !process.exitCode) console.log('gen-virama: generated file is up to date.');

@@ -309,6 +309,7 @@ export function getNewlineStats(text) {
 
     const count = { crlf, cr, lf };
 
+    /** @type {('CRLF' | 'CR' | 'LF')[]} */
     const types = [];
     if (count.crlf > 0) types.push('CRLF');
     if (count.cr > 0) types.push('CR');

@@ -10,4 +10,6 @@ assert.deepEqual(checkRepository(['tests/new.test.js'], layout, 'node tests/new.
     'tests/new.test.js missing from ProjectLayout.txt', 'tests/new.test.js missing from package.json test script',
 ]);
 assert.deepEqual(checkRepository(['tests/repo.test.js'], layout, 'node tests/repo.test.js'), []);
+assert.deepEqual(checkRepository(['bin/lib/new.js'], layout, ''), ['bin/lib/new.js missing from ProjectLayout.txt']);
+assert.deepEqual(checkRepository(['bin/lib/new.js'], `${branch} bin/\n${bar}   ${branch} lib/\n${bar}       ${branch} new.js\n`, ''), []);
 console.log('repo: missing paths, grouped directories and omitted tests checked.');

@@ -14,16 +14,23 @@ text-sanctifier/
 │   └── virama.generated.js   combining class 9 code points for context.js (generated; do not edit)
 ├── bin/
 │   ├── text-sanctifier.js    command line entry point
-│   └── lib/                  command line arguments, inputs, scans and reporting
+│   └── lib/
+│       ├── args.js
+│       ├── inputs.js
+│       ├── main.js
+│       ├── sarif.js
+│       └── scan.js
 ├── scripts/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check
+│   ├── gen-lib.js            shared generator helpers
 │   ├── gen-version.js        npm run gen / gen:check: package version
 │   ├── gen-virama.js         npm run gen / gen:check: the virama table from Node's Unicode data
 │   ├── gen-docs.js           npm run gen / gen:check: sizes, budgets, counts and release figures in README and DESIGN
 │   ├── browser-build.js      build options and size budget of the browser file
 │   ├── build.js              esbuild build of dist/text-sanctifier.min.js
 │   ├── check-size.js         per-import size budgets and leak checks
+│   ├── check-types.js        four-mode TypeScript consumer checks
 │   ├── check-names.js        npm run check:names: no private names (list in .git/info/private-names)
 │   ├── check-repo.js         npm run check:repo: layout and test-command coverage
 │   ├── bench.js              npm run bench: the speed figures quoted in the docs (not in ci)
@@ -41,18 +48,3 @@ text-sanctifier/
 │   ├── repo.test.js
 │   ├── sanctifyText.test.min.js
 │   └── types/                strict TypeScript consumer and configuration
-├── dist/                     build output (gitignored; shipped to npm)
-│   └── text-sanctifier.min.js
-├── package.json
-├── README.md
-├── DESIGN.md                 design, release and local development rules
-├── CHANGELOG.md              changes for package users
-├── CLAUDE.md                 contributor instructions
-├── CREDITS.md
-├── LICENSE                   AGPL-3.0 + WATT3D preamble (see ADDITIONAL_TERMS.md)
-├── ADDITIONAL_TERMS.md       AI Training Rider (AGPL §7 additional terms)
-├── robots.txt                AI-bot scraping policy (aligned with rider)
-├── tsconfig.types.json
-├── .npmignore
-├── .pre-commit-hooks.yaml    pre-commit hooks (check, check --ai-config)
-└── PublishChecklist.txt
