@@ -9,13 +9,12 @@
  * @typedef {import('./hiddenText.js').HiddenScanOptions} HiddenScanOptions
  */
 
+import { SUBDIVISION_FLAGS, isPresentationSelectorAt, isIdeographicSelectorAt, isMongolianSelectorAt } from './sequenceRules.js';
+
 const TAG_FIRST = 0xE0000;
 const TAG_LAST = 0xE007F;
 const CANCEL_TAG = 0xE007F;
 const BLACK_FLAG = 0x1F3F4;
-
-// RGI subdivision flags: U+1F3F4, the tag letters, U+E007F
-const SUBDIVISION_FLAGS = new Set(['gbeng', 'gbsct', 'gbwls']);
 
 /**
  * @param {number} cp
@@ -56,29 +55,6 @@ export function decodeRange(text, start, end, limit) {
     return { decoded: out, truncated: false };
 }
 
-// Tested at an index of the text itself, so the check allocates nothing.
-const PICTOGRAPHIC_AT = /\p{Extended_Pictographic}/yu;
-
-/**
- * True when a presentation selector at `index` follows an emoji-capable character:
- * an Extended_Pictographic code point, or a keycap base (#, * or a digit) with U+20E3 after.
- * @param {string} text
- * @param {number} index
- * @returns {boolean}
- */
-function isPresentationBase(text, index) {
-    if (index === 0) return false;
-    const low = text.charCodeAt(index - 1);
-    const p = low >= 0xDC00 && low <= 0xDFFF && index >= 2 &&
-        (text.charCodeAt(index - 2) & 0xFC00) === 0xD800 ? index - 2 : index - 1;
-    const before = text.charCodeAt(p);
-    if ((before === 0x23 || before === 0x2A || (before >= 0x30 && before <= 0x39)) && text.charCodeAt(index + 1) === 0x20E3) return true;
-    PICTOGRAPHIC_AT.lastIndex = p;
-    return PICTOGRAPHIC_AT.test(text);
-}
-
-const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
-
 /**
  * The legitimate sequence a lone selector at `index` could belong to, by the same rules
  * as text-sanctifier/context. It stays a run: unlike U+FE0E and U+FE0F, these selectors
@@ -89,18 +65,9 @@ const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
  * @returns {HiddenRunSequence | null}
  */
 function sequenceOf(text, index, cp) {
-    if (cp >= 0xE0100 && cp <= 0xE01EF) {
-        if (index === 0) return null;
-        const low = text.charCodeAt(index - 1);
-        IDEOGRAPHIC_AT.lastIndex = low >= 0xDC00 && low <= 0xDFFF && index >= 2 &&
-            (text.charCodeAt(index - 2) & 0xFC00) === 0xD800 ? index - 2 : index - 1;
-        return IDEOGRAPHIC_AT.test(text) ? 'ideographic' : null;
-    }
+    if (cp >= 0xE0100 && cp <= 0xE01EF) return isIdeographicSelectorAt(text, index) ? 'ideographic' : null;
     if (cp > 0x180F) return null;
-    const c = text.charCodeAt(index - 1);
-    return (c >= 0x1820 && c <= 0x1878) || (c >= 0x1880 && c <= 0x1884) || (c >= 0x1887 && c <= 0x18A8) || c === 0x18AA
-        ? 'mongolian'
-        : null;
+    return isMongolianSelectorAt(text, index) ? 'mongolian' : null;
 }
 
 /**
@@ -169,9 +136,9 @@ export function scanHiddenSpans(text, options = {}, onSpan) {
         // A subdivision flag is exactly five tag letters and CANCEL TAG after U+1F3F4.
         const isBenign = kind === 'tag'
             ? count === 6 && last === CANCEL_TAG && offset >= 2 && text.codePointAt(offset - 2) === BLACK_FLAG &&
-              SUBDIVISION_FLAGS.has(decodeRange(text, offset, end - 2, Infinity).decoded)
+              SUBDIVISION_FLAGS.includes(decodeRange(text, offset, end - 2, Infinity).decoded)
             : kind === 'variation_selector' && count === 1 && (cp === 0xFE0E || cp === 0xFE0F) &&
-              isPresentationBase(text, offset);
+              isPresentationSelectorAt(text, offset);
         if (onSpan) onSpan({ offset, end, benign: isBenign, kind });
         if (isBenign) {
             benignTotal++;

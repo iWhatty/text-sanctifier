@@ -43,6 +43,7 @@ export const PROBES = [
     // 943 -> 996 for the reserved_tag_plane kind and code-point totals;
     // 996 -> 1106 for the emoji/keycap rule on presentation selectors (as in context.js).
     // 1196 -> 1335 for `sequence` on ideographic and Mongolian selector runs.
+    // 1335 -> 1377 for the rules shared with context.js (src/sequenceRules.js).
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", budget: 1400, mustNotContain: [SANITIZER, EMOJI_TABLE] },
     // inspectTextDetailed (959) plus the context rules (1695 in all) and two property-escape regexes;
     // 1695 -> 2074 for the IDNA ContextJ joiner rules, most of it the virama table.

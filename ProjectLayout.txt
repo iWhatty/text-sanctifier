@@ -9,10 +9,12 @@ text-sanctifier/
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   ├── hiddenScan.js         internal streaming hidden-span scanner
 │   ├── context.js            inspectTextInContext: benign findings (text-sanctifier/context)
+│   ├── sequenceRules.js      internal legitimate-sequence rules shared by context.js and hiddenScan.js
 │   ├── categories.generated.js  purge regexes + classifier (generated; do not edit)
 │   └── virama.generated.js   combining class 9 code points for context.js (generated; do not edit)
 ├── bin/
-│   └── text-sanctifier.js    command line (check / fix)
+│   ├── text-sanctifier.js    command line entry point
+│   └── lib/                  command line arguments, inputs, scans and reporting
 ├── scripts/
 │   ├── categories.js         the category table (single source of truth)
 │   ├── gen-categories.js     npm run gen / gen:check

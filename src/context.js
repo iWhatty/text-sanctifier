@@ -11,6 +11,10 @@
 
 import { inspectTextDetailed } from './inspectText.js';
 import { VIRAMA_AT } from './virama.generated.js';
+import {
+    SUBDIVISION_FLAGS, PICTOGRAPHIC_AT, matchesAt, previousStart,
+    isPresentationSelectorAt, isIdeographicSelectorAt, isMongolianSelectorAt,
+} from './sequenceRules.js';
 
 /** @typedef {import('./inspectText.js').TrashFinding} TrashFinding */
 /** @typedef {import('./inspectText.js').TrashCounts} TrashCounts */
@@ -36,42 +40,8 @@ import { VIRAMA_AT } from './virama.generated.js';
  */
 
 // Tested at an index of the text itself, so nothing is allocated per character.
-const PICTOGRAPHIC_AT = /\p{Extended_Pictographic}/yu;
-const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
 const ARABIC_LETTER_AT = /(?=\p{Script=Arabic})\p{L}/yu;
 const MARK_AT = /\p{Mn}/yu;
-
-// RGI subdivision flags: U+1F3F4, the tag letters, U+E007F
-const SUBDIVISION_FLAGS = ['gbeng', 'gbsct', 'gbwls'];
-
-/**
- * @param {RegExp} re - sticky
- * @param {string} text
- * @param {number} index
- */
-function matchesAt(re, text, index) {
-    re.lastIndex = index;
-    return re.test(text);
-}
-
-/**
- * Index where the code point that ends just before `index` starts, or -1.
- * @param {string} text
- * @param {number} index
- */
-function previousStart(text, index) {
-    if (index <= 0) return -1;
-    const low = text.charCodeAt(index - 1);
-    if (low >= 0xDC00 && low <= 0xDFFF && index >= 2) {
-        const high = text.charCodeAt(index - 2);
-        if (high >= 0xD800 && high <= 0xDBFF) return index - 2;
-    }
-    return index - 1;
-}
-
-/** @param {number} c */
-const isMongolianLetter = (c) =>
-    (c >= 0x1820 && c <= 0x1878) || (c >= 0x1880 && c <= 0x1884) || (c >= 0x1887 && c <= 0x18A8) || c === 0x18AA;
 
 /**
  * A U+200D is benign between two Extended_Pictographic code points, allowing a
@@ -189,13 +159,9 @@ export function inspectTextInContext(text, options = {}) {
         } else if (c === 0x200C) {
             if (isScriptJoiner(text, i, true)) markBenign(i, 'zero_width');
         } else if (c === 0xFE0E || c === 0xFE0F) {
-            const p = previousStart(text, i);
-            const before = p < 0 ? -1 : text.charCodeAt(p);
-            const keycap = (before === 0x23 || before === 0x2A || (before >= 0x30 && before <= 0x39)) &&
-                text.charCodeAt(i + 1) === 0x20E3;
-            if (keycap || (p >= 0 && matchesAt(PICTOGRAPHIC_AT, text, p))) markBenign(i, 'variation_selector');
+            if (isPresentationSelectorAt(text, i)) markBenign(i, 'variation_selector');
         } else if ((c >= 0x180B && c <= 0x180D) || c === 0x180F) {
-            if (isMongolianLetter(text.charCodeAt(i - 1))) markBenign(i, 'variation_selector');
+            if (isMongolianSelectorAt(text, i)) markBenign(i, 'variation_selector');
         } else if (c === 0xD83C && text.charCodeAt(i + 1) === 0xDFF4) { // U+1F3F4
             const length = flagTagsAt(text, i + 2);
             for (let k = 0; k < length; k += 2) markBenign(i + 2 + k, 'tag');
@@ -203,8 +169,7 @@ export function inspectTextInContext(text, options = {}) {
         } else if (c === 0xDB40) { // plane 14: U+E0000-U+E03FF
             const low = text.charCodeAt(i + 1);
             if (low >= 0xDD00 && low <= 0xDDEF) { // U+E0100-U+E01EF
-                const p = previousStart(text, i);
-                if (p >= 0 && matchesAt(IDEOGRAPHIC_AT, text, p)) {
+                if (isIdeographicSelectorAt(text, i)) {
                     markBenign(i, 'variation_selector');
                     benignSupplementarySelectorCount++;
                 }
