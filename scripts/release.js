@@ -111,6 +111,7 @@ export function requirePublishState(query = sh, read = readLf) {
     try { query('git fetch -q origin'); } catch { fail('git fetch origin failed; check network and remote access before publishing.'); }
     if (query('git rev-parse HEAD') !== query('git rev-parse origin/main')) fail('HEAD must equal origin/main before publishing.');
     const { version } = JSON.parse(read('package.json'));
+    if (query('git log -1 --format=%s') !== `chore(release): ${version}` && query('git log -1 --format=%H -- package.json') !== query('git rev-parse HEAD')) fail(`publish requires the release commit for ${version} at HEAD, or package.json last changed at HEAD.`);
     requireDatedHeading(read('CHANGELOG.md'), version);
     let versions;
     try {
@@ -159,6 +160,10 @@ export function prepareRelease(version, changelog, { execute = run, query = sh, 
 function packInfo() {
     const [pack] = JSON.parse(sh('npm pack --dry-run --json --ignore-scripts'));
     return { shasum: pack.shasum, files: pack.entryCount };
+}
+
+export function requireShasumForTag(tag, cleanReleaseHead) {
+    if (tag && !cleanReleaseHead) fail('Cannot tag: shasum not compared; check out the clean release commit and retry.');
 }
 
 /** @param {boolean} dryRun */
@@ -243,7 +248,8 @@ async function verify(versionArg, tag, ghRelease) {
         }
         report.push(`shasum ${pack.shasum} and ${pack.files} files match a local pack`);
     } else {
-        report.push('shasum not compared: HEAD is not the release commit');
+        requireShasumForTag(tag, false);
+        report.push('shasum not compared: HEAD is not the clean release commit');
     }
 
     const tagName = `v${version}`;

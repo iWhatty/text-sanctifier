@@ -51,27 +51,12 @@ export function normalizeTypographicJank(text) {
 
 
 /**
- * Try Unicode property escape regex (preferred).
- * Fallback to basic emoji ranges if unsupported.
+ * Match emoji presentation, flags, keycaps and joined pictographs.
  * Built in a function marked pure, so bundlers drop it when nothing uses it.
  * @returns {RegExp}
  */
 function buildEmojiRegex() {
-    try {
-        return new RegExp(
-            '(?:\\p{Extended_Pictographic}(?:\\uFE0F|\\uFE0E)?(?:\\u200D(?:\\p{Extended_Pictographic}|\\w)+)*)',
-            'gu'
-        );
-    } catch {
-        // Fallback: wide-range emoji component match (flags, tones, symbols)
-        //   * Covers:
-        //   * - Emoji base chars (1F300–1FAFF)
-        //   * - Dingbats (2700–27BF) like ❌, ✅, ☑
-        //   * - Skin tones (1F3FB–1F3FF)
-        //   * - ZWJ (200D), variation selectors (FE0F)
-        //   * - Regional indicators (1F1E6–1F1FF)
-        return /[\u{2700}-\u{27BF}\u{1F300}-\u{1FAFF}\u{1F3FB}-\u{1F3FF}\u200D\uFE0F\u{1F1E6}-\u{1F1FF}]/gu;
-    }
+    return /(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|(?:\p{Emoji_Presentation}\uFE0F?|\p{Extended_Pictographic}\uFE0F)\p{Emoji_Modifier}?(?:\u200D\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?)*)/gu;
 }
 
 /** @type {RegExp} */

@@ -104,7 +104,7 @@ function describeCodePoints(category) {
 function regexSource(regexName) {
     const { flags } = PURGE_REGEXES[regexName];
     const unicode = flags.includes('u');
-    const ranges = mergeAdjacent(allRanges.filter(r => CATEGORIES.find(c => c.name === r.name).removedBy.includes(regexName)));
+    const ranges = mergeAdjacent(allRanges.filter(r => CATEGORIES.find(c => c.name === r.name).removedBy.includes(regexName) && !(regexName === 'INVISIBLE_TRASH_REGEX' && r.lo === 0x3000 && r.hi === 0x3000)));
     const esc = (cp) => {
         if (cp <= 0xFFFF) return `\\u${hex(cp)}`;
         if (!unicode) fail(`${regexName} has no u flag, so it cannot hold ${hex(cp)}`);

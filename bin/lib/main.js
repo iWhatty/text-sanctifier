@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
+import { readFileSync, writeFileSync, lstatSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
+import { resolve, relative, dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { inspectTextDetailed, summonSanctifier, revealInvisible } from '../../src/index.js';
 import { getNewlineStats } from '../../src/inspectText.js';
 import { SPACE_LOOKALIKES_REGEX } from '../../src/sanctifyText.js';
@@ -9,7 +10,7 @@ import { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, co
 import { inspect, inspectAiConfig, describeRun, hex, formatCounts, plural } from './scan.js';
 import { fingerprintFindings, sarifLog } from './sarif.js';
 
-function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, notUtf8, errors }) {
+function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors }) {
     /**
      * Reads every input in order, calling `visit(label, text, input)` for each decodable one.
      * @param {(label: string, text: string, input: { path: string, explicit: boolean }) => void} visit
@@ -20,16 +21,23 @@ function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, n
             const label = input.path === STDIN ? STDIN_LABEL : input.path;
             let bytes;
             try {
+                if (input.path !== STDIN && !input.explicit && lstatSync(resolve(cwd, input.path)).isSymbolicLink()) {
+                    skipped.push({ path: label, reason: 'symlink' });
+                    continue;
+                }
                 bytes = input.path === STDIN ? (stdinBytes ?? await readStdin()) : readFileSync(resolve(cwd, input.path));
             } catch (e) {
                 addError(label, 'read_failed', `${label}: ${e.code || e.message}`, e.code);
                 continue;
             }
-            // Files that look binary are skipped. Stdin and AI configuration files are text
-            // by intent, so a NUL in one is a finding, not a reason to skip it.
+            // Stdin and AI configuration text are not skipped merely for a NUL.
+            // Known binary signatures and extensions are still reported as skipped.
             let decoded;
             try {
-                decoded = decode(bytes, input.path !== STDIN && !opts.aiConfig);
+                const signature = bytes.subarray(0, 12).toString('hex');
+                const binary = /^(89504e470d0a1a0a|ffd8ff|474946383761|474946383961|255044462d|504b0304|504b0506|504b0708|0061736d|1f8b)/.test(signature) || (signature.startsWith('52494646') && signature.slice(16, 24) === '57454250');
+                const extension = /\.(?:png|jpe?g|gif|webp|ico|bmp|tiff?|avif|svgz|woff2?|ttf|otf|eot|zip|gz|tgz|tar|7z|rar|pdf|wasm)$/i.test(label);
+                decoded = opts.aiConfig && input.path !== STDIN && (binary || extension) ? { text: null, reason: 'binary' } : decode(bytes, input.path !== STDIN && !opts.aiConfig);
             } catch (e) {
                 addError(label, 'decode_failed', `${label}: ${e.message}`);
                 continue;
@@ -60,7 +68,7 @@ function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, n
         }
         // A clean result must mean something was read. Finding no AI configuration files is
         // an answer; --ai-config reports that itself.
-        if (visited === 0 && errors.length === 0 && !opts.aiConfig) addError(null, 'nothing_checked', 'Nothing checked.', undefined, false);
+        if (visited === 0 && errors.length === 0 && !opts.aiConfig && !(excluded.length && !inputs.length)) addError(null, 'nothing_checked', 'Nothing checked.', undefined, false);
     };
 }
 
@@ -187,11 +195,22 @@ async function fix({ opts, inputs, forEachText, cwd, addError, err, out, skipped
         const newlinesNormalized = opts.normalizeNewlines && nl.crlf + nl.cr > 0;
 
         if (input.path !== STDIN && !opts.dryRun) {
+            let temp;
+            let created = false;
             try {
-                writeFileSync(resolve(cwd, input.path), cleaned, 'utf8');
+                const target = resolve(cwd, input.path);
+                const stat = lstatSync(target);
+                if (stat.isSymbolicLink()) throw new Error('symlink');
+                temp = join(dirname(target), `.text-sanctifier-${randomUUID()}`);
+                writeFileSync(temp, cleaned, { encoding: 'utf8', flag: 'wx' });
+                created = true;
+                chmodSync(temp, stat.mode);
+                renameSync(temp, target);
             } catch (e) {
                 addError(label, 'write_failed', `${label}: ${e.code || e.message}`, e.code);
                 return;
+            } finally {
+                if (created) { try { unlinkSync(temp); } catch (e) { if (e.code !== 'ENOENT') throw e; } }
             }
         }
         files.push({ path: label, spacesReplaced, removed, removedTotal, newlinesNormalized });
@@ -291,7 +310,7 @@ export async function main(argv) {
     /** @type {string[]} */
     const notUtf8 = [];
 
-    const forEachText = textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, notUtf8, errors });
+    const forEachText = textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors });
     const skippedNote = () => (skipped.length > 0 ? `; ${plural(skipped.length, 'file')} skipped` : '') + (excluded.length > 0 ? `; ${plural(excluded.length, 'file')} excluded` : '');
 
     const context = { opts, cwd, inputs, forEachText, skipped, excluded, notUtf8, errors, out, err, addError, skippedNote };

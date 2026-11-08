@@ -5,6 +5,27 @@ import { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEm
 import { inspectText, inspectTextDetailed, revealInvisible, getRecommendedSanctifierOptions } from '../src/index.js';
 import { SPACE_LOOKALIKES_REGEX, sanctifyText } from '../src/sanctifyText.js';
 
+{
+  const cp = String.fromCodePoint;
+  const purge = summonSanctifier({ purgeEmojis: true });
+  const samples = [cp(0x1F44D, 0x1F3FD), cp(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467), cp(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB), cp(0x1F1E8, 0x1F1E6), '1' + cp(0xFE0F, 0x20E3), cp(0x2764, 0xFE0F), cp(0x1F469, 0x200D, 0x2764, 0xFE0F, 0x200D, 0x1F468)];
+  for (const emoji of samples) {
+    assertEqual(purge('a' + emoji + 'b'), 'ab', 'purge complete emoji');
+    assertEqual(sanctifyKeyboardOnlyEmoji('a' + emoji + 'b'), 'a' + emoji + 'b', 'keep complete emoji');
+    assertEqual(inspectText(emoji).hasNonKeyboardChars, false, 'emoji is keyboard safe');
+  }
+  assertEqual(purge(cp(0x1F600, 0x200D) + 'hello world'), cp(0x200D) + 'hello world', 'ZWJ does not consume words');
+  assertEqual(purge(cp(0x00A9, 0x2122)), cp(0x00A9, 0x2122), 'plain text pictographs remain');
+  assertEqual(purge(cp(0x00A9, 0xFE0F)), '', 'emoji presentation pictograph removed');
+  assertEqual(sanctifyKeyboardOnlyEmoji(cp(0x00A9, 0x2122)), '', 'plain pictographs filtered');
+  assertEqual(summonSanctifier({ collapseNewLines: true })('a\r\n\rb'), 'a\nb', 'collapse normalizes newlines');
+  assertEqual(summonSanctifier({ trimSpacesAroundNewlines: true })('a \r\n b'), 'a\nb', 'trim normalizes newlines');
+  for (const clean of [sanctifyStrict, sanctifyKeyboardOnly]) assertEqual(clean('hello' + cp(0xA0) + 'world'), 'hello world', 'strict preserves word separation');
+  assertEqual(summonSanctifier({ purgeInvisibleChars: true })('a' + cp(0x3000) + 'b'), 'a' + cp(0x3000) + 'b', 'ideographic space survives purge');
+  assertEqual(sanctifyKeyboardOnlyEmoji('a' + cp(0x3000) + 'b'), 'a b', 'keyboard filter normalizes ideographic space');
+  assertEqual(inspectTextDetailed(cp(0x3000)).counts.nonbreaking_space, 1, 'ideographic space remains detected');
+}
+
 
 function assertEqual(actual, expected, message) {
   if (actual !== expected) {

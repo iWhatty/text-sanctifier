@@ -3,7 +3,7 @@
 // The pure helpers of scripts/release.js: the version bump, the CHANGELOG heading and the
 // GitHub release notes.
 
-import { nextPatch, localDate, dateChangelog, changelogSection, validGitHead, requirePrepSetup, requirePublishState, checkPublish, prepareRelease, prep } from '../scripts/release.js';
+import { nextPatch, localDate, dateChangelog, changelogSection, validGitHead, requirePrepSetup, requirePublishState, requireShasumForTag, checkPublish, prepareRelease, prep } from '../scripts/release.js';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
@@ -151,11 +151,16 @@ try {
 const state = {
   'git rev-parse --abbrev-ref HEAD': 'main', 'git status --porcelain': '',
   'git fetch -q origin': '', 'git rev-parse HEAD': original, 'git rev-parse origin/main': original,
+  'git log -1 --format=%s': 'chore(release): 0.0.1', 'git log -1 --format=%H -- package.json': original,
   'npm view text-sanctifier versions --json': '["0.0.0"]',
 };
 const readPublish = (file) => file === 'package.json' ? '{"version":"0.0.1"}' : `## 0.0.1 ${DASH} 2026-01-01\n`;
 const queryPublish = (command) => { assert.ok(command in state, command); return state[command]; };
 assert.doesNotThrow(() => requirePublishState(queryPublish, readPublish));
+assert.throws(() => requirePublishState((cmd) => cmd === 'git log -1 --format=%s' ? 'other' : cmd === 'git log -1 --format=%H -- package.json' ? 'old' : queryPublish(cmd), readPublish), /release commit/);
+assert.doesNotThrow(() => requirePublishState((cmd) => cmd === 'git log -1 --format=%s' ? 'other' : queryPublish(cmd), readPublish));
+assert.throws(() => requireShasumForTag(true, false), /shasum not compared/);
+assert.doesNotThrow(() => requireShasumForTag(false, false));
 for (const [command, value, message] of [
   ['git rev-parse --abbrev-ref HEAD', 'topic', /requires main/],
   ['git status --porcelain', ' M file', /clean working tree/],

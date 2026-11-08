@@ -1,4 +1,4 @@
-import { readFileSync, statSync, fstatSync, readdirSync } from 'node:fs';
+import { readFileSync, statSync, lstatSync, fstatSync, readdirSync } from 'node:fs';
 import { resolve, join, sep, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -43,7 +43,7 @@ function gitListFiles(cwd, pathspecs) {
     // symlinks to directories; keep only what can be read as a file
     return r.stdout.split('\0').filter((f) => {
         if (!f) return false;
-        try { return statSync(resolve(cwd, f)).isFile(); } catch { return false; }
+        try { const s = lstatSync(resolve(cwd, f)); return s.isFile() || s.isSymbolicLink(); } catch { return false; }
     });
 }
 
@@ -159,7 +159,7 @@ const AI_CONFIG_GLOBS = [
     '.mcp.json', 'mcp.json', '.vscode/mcp.json',
 ];
 
-const AI_CONFIG_RES = AI_CONFIG_GLOBS.map((g) => new RegExp(globToRegExp(g).source, 'i'));
+const AI_CONFIG_RES = AI_CONFIG_GLOBS.map((g) => new RegExp(globToRegExp(g.startsWith('**/') ? g : `**/${g}`).source, 'i'));
 
 /** @param {string} rel - slash-separated path relative to the directory searched */
 const isAiConfigPath = (rel) => AI_CONFIG_RES.some((re) => re.test(rel));

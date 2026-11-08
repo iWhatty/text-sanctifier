@@ -71,7 +71,7 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
 }
 
 
-// 2. The categories cover exactly what the purge regexes match, over every code point.
+// 2. Categories cover the purge regexes plus U+3000, over every code point.
 {
   const mismatches = [];
   for (let cp = 0; cp <= 0x10FFFF; cp++) {
@@ -79,11 +79,11 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
     const s = ch(cp);
     CONTROL_CHARS_REGEX.lastIndex = 0;
     INVISIBLE_TRASH_REGEX.lastIndex = 0;
-    const byRegex = CONTROL_CHARS_REGEX.test(s) || INVISIBLE_TRASH_REGEX.test(s);
+    const byRegex = cp === 0x3000 || CONTROL_CHARS_REGEX.test(s) || INVISIBLE_TRASH_REGEX.test(s);
     const byDetailed = inspectTextDetailed(s).total === 1;
     if (byRegex !== byDetailed) mismatches.push(hex(cp));
   }
-  assertJson(mismatches, [], '2. detailed categories == CONTROL_CHARS_REGEX ∪ INVISIBLE_TRASH_REGEX over U+0000–U+10FFFF');
+  assertJson(mismatches, [], '2. detailed categories == purge regexes plus U+3000 over U+0000–U+10FFFF');
 }
 
 

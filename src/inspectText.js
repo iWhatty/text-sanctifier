@@ -42,24 +42,7 @@ function stableTest(re, s) {
  * @returns {boolean}
  */
 function hasNonKeyboardCharsExcludingEmoji(text) {
-    const normalized = normalizeTypographicJank(text);
-
-    // Fast path: no non-ascii runs => no non-keyboard chars
-    if (!stableTest(ASCII_KEYBOARD_SAFE_REGEX, normalized)) return false;
-
-    // Walk code points so we can distinguish emoji from other non-ascii safely
-    for (const ch of normalized) {
-        // allowed: ASCII printable + newlines
-        if (ch === '\n' || ch === '\r' || (ch >= ' ' && ch <= '~')) continue;
-
-        // allowed: emoji
-        if (stableTest(EMOJI_REGEX, ch)) continue;
-
-        // anything else non-ascii is "non-keyboard"
-        return true;
-    }
-
-    return false;
+    return stableTest(ASCII_KEYBOARD_SAFE_REGEX, normalizeTypographicJank(text).replace(EMOJI_REGEX, ''));
 }
 
 /**

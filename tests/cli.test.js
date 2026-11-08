@@ -5,7 +5,7 @@
 // invisible characters.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, truncateSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, truncateSync, chmodSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -69,11 +69,11 @@ const AI_CONFIG_SAMPLES = [
   '.windsurfrules', '.windsurf/rules/a.md', '.clinerules/a.md', '.roorules', '.roo/rules/a.md',
   '.github/copilot-instructions.md', '.github/instructions/a.instructions.md', '.github/prompts/a.prompt.md',
   '.github/chatmodes/a.chatmode.md', '.github/agents/a.md',
-  '.mcp.json', 'mcp.json', '.vscode/mcp.json',
+  '.mcp.json', 'mcp.json', '.vscode/mcp.json', 'sub/.cursorrules', 'sub/mcp.json',
 ];
 const NOT_AI_CONFIG_SAMPLES = [
   'README.md', 'docs/guide.md', 'src/claude.js', 'NOTCLAUDE.md', '.github/workflows/ci.yml',
-  'sub/.cursorrules', 'sub/mcp.json', '.vscode/settings.json',
+  '.vscode/settings.json',
 ];
 
 /**
@@ -157,7 +157,7 @@ try {
       assertEqual(noMatch.code === 2 && JSON.parse(noMatch.stdout).errors[0].code === 'no_match', true, `${command} reports unmatched glob`);
       const all = run([command, '--json', '--exclude', 'tar', 'tar'], { cwd });
       const result = JSON.parse(all.stdout);
-      assertEqual(all.code === 2 && result.errors[0].code === 'nothing_checked' && result.excluded.length === 1, true, `${command} reports all excluded`);
+      assertEqual(all.code === 0 && result.errors.length === 0 && result.excluded.length === 1, true, `${command} reports all excluded`);
       assertEqual(run([command, '--exclude='], { cwd }).code, 2, `${command} rejects empty exclusion`);
       assertEqual(run([command, '--exclude', '[z-a]'], { cwd }).code, 2, `${command} rejects invalid exclusion`);
     }
@@ -172,7 +172,7 @@ try {
         const directory = run([command, '--json', ...(command === 'fix' ? ['--dry-run'] : []), '--exclude', 'nested', '.'], { cwd });
         assertEqual(JSON.parse(directory.stdout).excluded.includes('nested/keep.txt'), true, `${command} excludes directory contents`);
         const glob = run([command, '--json', '--exclude', '**/*.txt', 'nested/*.txt'], { cwd });
-        assertEqual(JSON.parse(glob.stdout).errors[0].code, 'nothing_checked', `${command} glob matched before exclusion`);
+        assertEqual(glob.code, 0, `${command} glob matched before exclusion`);
         const topOnly = run([command, '--json', ...(command === 'fix' ? ['--dry-run'] : []), '--exclude', '*.txt', 'nested/keep.txt'], { cwd });
         assertEqual(JSON.parse(topOnly.stdout).excluded.length, 0, `${command} star does not cross directories`);
       }
@@ -764,6 +764,36 @@ try {
     writeFileSync(join(cwd, 'large.txt'), (ZWSP + 'x').repeat(3_000_000));
     const limited = spawnSync(process.execPath, ['--max-old-space-size=96', BIN, 'check', '--ai-config', '--max-findings', '3', 'large.txt'], { cwd, encoding: 'utf8' });
     assertEqual(limited.status, 1, 'ai-config scans millions of findings within a bounded heap');
+  }
+  {
+    const cwd = tempDir();
+    mkdirSync(join(cwd, 'pkg', '.cursor', 'rules'), { recursive: true });
+    mkdirSync(join(cwd, '.claude'), { recursive: true });
+    writeFileSync(join(cwd, 'pkg', '.cursor', 'rules', 'x.mdc'), ZWSP);
+    writeFileSync(join(cwd, '.claude', 'image.png'), Buffer.from('89504e470d0a1a0a0000', 'hex'));
+    const scan = JSON.parse(run(['check', '--ai-config', '--json', '.'], { cwd }).stdout);
+    assertEqual(scan.files.some((f) => f.path.includes('x.mdc')), true, 'nested AI rules found');
+    assertEqual(scan.skipped.some((f) => f.path.includes('image.png') && f.reason === 'binary'), true, 'AI binary listed');
+    const ideographic = cp(0x4E00) + cp(0xE0100);
+    const seq = JSON.parse(run(['check', '--ai-config', '--json', '-'], { cwd, input: ideographic }).stdout);
+    assertEqual(seq.files[0].hiddenRuns[0].sequence, 'ideographic', 'AI JSON includes sequence');
+    writeFileSync(join(cwd, 'space.txt'), 'a' + cp(0x3000) + ZWSP + 'b');
+    chmodSync(join(cwd, 'space.txt'), 0o640);
+    const mode = statSync(join(cwd, 'space.txt')).mode & 0o777;
+    assertEqual(run(['fix', 'space.txt'], { cwd }).code, 0, 'fix succeeds');
+    assertEqual(read(cwd, 'space.txt'), 'a' + cp(0x3000) + 'b', 'fix preserves ideographic space');
+    assertEqual(statSync(join(cwd, 'space.txt')).mode & 0o777, mode, 'fix preserves mode');
+    if (gitAvailable) {
+      spawnSync('git', ['init', '-q'], { cwd });
+      try {
+        symlinkSync(join(cwd, 'space.txt'), join(cwd, 'link.txt'));
+        spawnSync('git', ['add', 'link.txt'], { cwd });
+        const result = JSON.parse(run(['fix', '--json', '.'], { cwd }).stdout);
+        assertEqual(result.skipped.some((s) => s.path === 'link.txt' && s.reason === 'symlink'), true, 'tracked symlink reported skipped');
+      } catch (e) {
+        if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(e.code)) throw e;
+      }
+    }
   }
 } finally {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });

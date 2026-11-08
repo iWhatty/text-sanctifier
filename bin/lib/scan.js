@@ -86,6 +86,7 @@ function inspectAiConfig(text, maxFindings, stripBom) {
     scan(text.length, false, false);
     const hiddenRuns = hidden.runs.map((run) => {
         const entry = { kind: run.kind, offset: run.offset, line: run.line, column: run.column, codePoint: text.codePointAt(run.offset), count: run.count };
+        if (run.sequence !== undefined) entry.sequence = run.sequence;
         if (run.decoded !== undefined) {
             entry.decoded = run.decoded.slice(0, MAX_DECODED);
             entry.decodedTruncated = run.decodedTruncated || run.decoded.length > MAX_DECODED;

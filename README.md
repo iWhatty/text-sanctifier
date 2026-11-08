@@ -95,13 +95,13 @@ Used by `summonSanctifier(options)`. All boolean options default to `false`. Pro
 | --- | --- |
 | `normalizeSpaces` | Replace U+00A0, U+2000-U+200A, U+202F and U+205F with ordinary spaces; keep U+3000. |
 | `purgeZeroWidthSpaces` | Remove only U+200B, U+2060 and U+FEFF. |
-| `purgeInvisibleChars` | Remove characters marked `purgeInvisibleChars` in the category table, including emoji joiners and selectors. |
-| `purgeEmojis` | Remove matched emoji sequences. |
+| `purgeInvisibleChars` | Remove characters marked `purgeInvisibleChars` in the category table, except U+3000, including emoji joiners and selectors. |
+| `purgeEmojis` | Remove matched emoji sequences, including flags and keycaps. Text-default pictographs such as copyright and trademark require U+FE0F to count as emoji. |
 | `nukeControls` | Remove NUL, non-whitespace C0 controls, DEL, C1 controls and bidi controls; keep tab, LF and CR. |
-| `keyboardOnlyFilter` | Normalize typographic punctuation, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters. |
+| `keyboardOnlyFilter` | Normalize typographic punctuation and U+3000 to ASCII, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters and plain copyright and trademark signs. |
 | `normalizeNewlines` | Convert CRLF and CR to LF. |
-| `trimSpacesAroundNewlines` | Remove spaces and tabs immediately around LF runs. |
-| `collapseNewLines` | Collapse runs of two or more LFs to one, or three or more to two with `preserveParagraphs`. |
+| `trimSpacesAroundNewlines` | Normalize newlines, then remove spaces and tabs immediately around LF runs. |
+| `collapseNewLines` | Normalize newlines, then collapse runs of two or more LFs to one, or three or more to two with `preserveParagraphs`. |
 | `preserveParagraphs` | Keep double LF breaks when `collapseNewLines` is enabled; otherwise no effect. |
 | `collapseSpaces` | Collapse runs of ordinary spaces to one; keep tabs and newlines. |
 | `finalTrim` | Apply JavaScript `.trim()` to the result. |
@@ -131,15 +131,15 @@ const output = sanctifyPasted(clipboardText);
 
 ### `summonSanctifier.strict`
 
-Purges invisible characters, emoji and non-whitespace controls. Normalizes CRLF and CR to LF, removes spaces/tabs around LF, collapses blank lines to a single LF, collapses ordinary spaces and trims the ends. Single line breaks remain.
+Normalizes look-alike spaces, then purges invisible characters, emoji and non-whitespace controls. Normalizes CRLF and CR to LF, removes spaces/tabs around LF, collapses blank lines to a single LF, collapses ordinary spaces and trims the ends. Single line breaks remain.
 
 ### `summonSanctifier.loose`
 
-Normalizes spacing and newlines while preserving emoji and paragraph breaks (LF runs collapse to at most two). Keeps zero-width characters such as U+200B, U+200C, U+200D and U+2060; it does not enable `purgeInvisibleChars`.
+Normalizes spacing and newlines while preserving emoji and paragraph breaks (LF runs collapse to at most two). Keeps zero-width characters such as U+200B, U+200C, U+200D and U+2060, bidi overrides and isolates (U+202A–U+202E, U+2066–U+2069), and C0 controls including BEL and NUL. For untrusted text, use `sanctifyStrict` or `purgeInvisibleChars` with `nukeControls`.
 
 ### `summonSanctifier.keyboardOnly`
 
-Normalizes typographic punctuation, then keeps printable ASCII and line breaks; removes emoji and non-ASCII letters.
+Normalizes look-alike spaces and typographic punctuation, then keeps printable ASCII and line breaks; removes emoji and non-ASCII letters.
 
 ### `summonSanctifier.keyboardOnlyEmoji`
 
@@ -147,7 +147,7 @@ Normalizes typographic punctuation, then keeps printable ASCII, line breaks and 
 
 ### `summonSanctifier.pasted`
 
-For text pasted from documents, chat apps and PDFs, and for model output. Some models put narrow no-break spaces (U+202F) and other look-alike spaces into their answers. This preset uses `normalizeSpaces`, `purgeZeroWidthSpaces` and `normalizeNewlines`: look-alike spaces become ordinary spaces, zero-width spaces and word joiners are removed, and CRLF and CR become LF. It keeps emoji joiners, variation selectors, bidi marks, indentation, blank lines and leading and trailing whitespace, so it is safe on code and Markdown.
+For text pasted from documents, chat apps and PDFs, and for model output. Some models put narrow no-break spaces (U+202F) and other look-alike spaces into their answers. This preset uses `normalizeSpaces`, `purgeZeroWidthSpaces` and `normalizeNewlines`: look-alike spaces become ordinary spaces, zero-width spaces and word joiners are removed, and CRLF and CR become LF. It keeps emoji joiners, variation selectors, bidi overrides and isolates (U+202A–U+202E, U+2066–U+2069), C0 controls including BEL and NUL, indentation, blank lines and leading and trailing whitespace. For untrusted text, use `sanctifyStrict` or `purgeInvisibleChars` with `nukeControls`.
 
 ### `revealInvisible(text: string, options?: RevealOptions): string`
 
@@ -345,7 +345,7 @@ skills/review/SKILL.md:2:3  U+FE00  run of 3 variation selectors
 - Consecutive tag characters, variation selectors or invisible operators are reported once, as a run, at the first character. Tag runs are decoded: U+E0020–U+E007E become the ASCII they shadow, and other tags are shown as `<U+XXXX>`.
 - Every other invisible or control character is reported as in a plain `check`.
 - Two legitimate sequences are left out: the flags of England, Scotland and Wales (U+1F3F4, tag letters, U+E007F), and a single U+FE0E or U+FE0F (text or emoji presentation) after an emoji (`Extended_Pictographic`) or in a keycap such as 1, U+FE0F, U+20E3. After a letter it is reported: one selector per letter can carry a bit of hidden data. A plain `check` still reports both.
-- `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector`, `invisible_operator` or `reserved_tag_plane`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
+- `--json` adds `hiddenRuns` (`{ kind, offset, line, column, codePoint, count, sequence?, decoded?, decodedTruncated? }`, at most `--max-findings` per file) and `hiddenRunCount` to each file, and `hiddenRunCount` to the summary. `kind` is `tag`, `variation_selector`, `invisible_operator` or `reserved_tag_plane`; `decoded` is cut at 1000 characters. `total` and `counts` leave out the legitimate sequences.
 
 ### SARIF output
 
@@ -407,7 +407,7 @@ git diff | npx text-sanctifier reveal
 - Paths can be files, directories or globs (`*`, `**`, `?`, `[...]`, `{a,b}`). Quote globs so the shell passes them through.
 - Inside a git work tree, directories and globs list files with `git ls-files`, so anything `.gitignore` excludes is skipped. Outside git, `.git` and `node_modules` are skipped. A file named explicitly is always read, unless `--exclude` matches it.
 - `--exclude GLOB` matches paths relative to the current directory, or any parent directory. Leading `./` and trailing `/` are ignored. `*` does not cross `/`: `*.tar` matches only the top level, while `**/*.tar` matches any depth. Excluded paths are listed in JSON and SARIF and counted in text summaries. Stdin is never excluded. There is no config file, ignore file or inline comment form; scanned text cannot silence the scanner.
-- Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when its first 8000 bytes hold a NUL and more than 5% control bytes, and it is either invalid UTF-8 or entirely ASCII with at least 8 control bytes. Any non-ASCII byte in valid UTF-8 keeps the file checked, even beyond the sample. A stray NUL or bad byte does not hide a text file. Stdin and AI configuration files are never treated as binary. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
+- Binary files are skipped, counted in the summary and listed under `skipped` in JSON. A file counts as binary when its first 8000 bytes hold a NUL and more than 5% control bytes, and it is either invalid UTF-8 or entirely ASCII with at least 8 control bytes. Any non-ASCII byte in valid UTF-8 keeps the file checked, even beyond the sample. A stray NUL or bad byte does not hide a text file. Stdin is never treated as binary. AI configuration scans skip known binary signatures and image, font and archive extensions, reporting each skip. `fix` is more careful, because it rewrites files: in a directory or glob it also skips any file with a NUL in those bytes, and it cleans such a file only if you name it.
 - UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Files that are not valid UTF-8 are still checked, with each invalid byte read as U+FFFD, so one bad byte cannot hide the rest of the file. `check` notes them on stderr and lists them under `notUtf8` in JSON; `fix` never writes them and lists them under `skipped`.
 - `-` reads stdin. With no paths, `check` reads piped input, and scans the current directory when stdin is a terminal, the null device or empty. `check --ai-config` always searches the current directory with no paths. `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.

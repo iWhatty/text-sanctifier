@@ -54,7 +54,7 @@ function createSanctifier(defaultOptions = {}) {
     const purgeEmojis = !!defaultOptions.purgeEmojis;
     const nukeControls = !!defaultOptions.nukeControls;
     const keyboardOnlyFilter = !!defaultOptions.keyboardOnlyFilter;
-    const normalizeNewlines = !!defaultOptions.normalizeNewlines;
+    const normalizeNewlines = !!(defaultOptions.normalizeNewlines || defaultOptions.trimSpacesAroundNewlines || defaultOptions.collapseNewLines);
     const trimSpacesAroundNewlines = !!defaultOptions.trimSpacesAroundNewlines;
     const collapseNewLines = !!defaultOptions.collapseNewLines;
     const preserveParagraphs = !!defaultOptions.preserveParagraphs;
@@ -119,7 +119,8 @@ export function sanctifyStrict(text) {
         true,   // collapseNewLines
         false,  // preserveParagraphs
         true,   // collapseSpaces
-        true    // finalTrim
+        true,   // finalTrim
+        Infinity, 'throw', true // normalizeSpaces
     );
 }
 
@@ -194,7 +195,8 @@ export function sanctifyKeyboardOnly(text) {
         true,   // collapseNewLines
         false,  // preserveParagraphs
         true,   // collapseSpaces
-        true    // finalTrim
+        true,   // finalTrim
+        Infinity, 'throw', true // normalizeSpaces
     );
 }
 
@@ -412,52 +414,19 @@ function purgeInvisibleTrash(text) {
 
 
 /**
- * Extracts and preserves complete emoji sequences from a string.
- *
- * Uses the global `EMOJI_REGEX` to match full emoji grapheme sequences,
- * including:
- *   - Extended pictographic characters
- *   - Zero-width joiner (ZWJ) sequences (e.g. U+1F468 U+200D U+1F469 U+200D U+1F467 U+200D U+1F466)
- *   - Variation Selector-16 (VS16) emoji presentation forms (e.g. U+270C U+FE0F, U+203C U+FE0F)
- *
- * Any non-emoji characters are ignored.
- *
- * Important:
- * `EMOJI_REGEX` is global (`/g`), so `lastIndex` is reset before matching
- * to ensure deterministic behavior across repeated calls.
- *
- * @param {string} text - Input string potentially containing emoji sequences.
- * @returns {string} A string containing only the matched emoji sequences,
- *                   concatenated in original order.
- */
-function extractEmojiSequences(text) {
-    EMOJI_REGEX.lastIndex = 0;
-    if (!EMOJI_REGEX.test(text)) return ''; // quick reject
-    EMOJI_REGEX.lastIndex = 0;
-
-    let out = '';
-    for (const match of text.matchAll(EMOJI_REGEX)) out += match[0];
-    return out;
-}
-
-
-/**
- * Removes all non-keyboard characters, preserving:
- * - Printable ASCII (0x20–0x7E)
- * - Emojis (Unicode Emoji_Presentation + FE0F variants)
+ * Keeps printable ASCII, CR/LF and matched emoji, after typographic normalization.
+ * With purgeEmojis, keeps only ASCII and CR/LF.
  */
 function purgeNonKeyboardChars(text, purgeEmojis = false) {
-    const normalized = normalizeTypographicJank(text);
+    const normalized = normalizeTypographicJank(text).replace(/\u3000/g, ' ');
 
     // If emojis are being purged, keyboard-only becomes "ASCII + CR/LF only"
     if (purgeEmojis) {
         return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, '');
     }
 
-    // Replace each non-ASCII run with ONLY the emoji sequences inside it.
-    // This preserves ZWJ sequences and VS16 variants (e.g. the family emoji, U+270C U+FE0F, U+203C U+FE0F),
-    // while dropping non-emoji non-ASCII (e.g. 𝌆).
-    return normalized.replace(ASCII_KEYBOARD_SAFE_REGEX, (run) => extractEmojiSequences(run));
+    // Emoji are tried first so keycap sequences stay whole; anything else non-ASCII goes.
+    return normalized.replace(new RegExp(EMOJI_REGEX.source + '|([^\\x20-\\x7E\\r\\n])', 'gu'), (m, other) => other ? '' : m);
 }
 
 

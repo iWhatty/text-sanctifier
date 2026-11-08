@@ -2,6 +2,17 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- Emoji matching now handles modifiers, flags, keycaps and joined sequences without consuming following words. Behavior change: text-default pictographs require emoji presentation to be removed.
+- `inspectText` recognizes whole emoji sequences as keyboard-safe.
+- AI configuration scans discover nested configuration directories, report skipped known binaries, and include selector `sequence` in JSON.
+- Fully excluded batches succeed; `fix` writes atomically and skips symbolic links.
+- Behavior change: newline trimming or collapsing also normalizes CR and CRLF.
+- Behavior change: strict and keyboard-only presets normalize look-alike spaces before purging, preserving word boundaries.
+- Behavior change: purging preserves U+3000; keyboard-only filtering converts it to an ordinary space. Detection still reports it.
+- Publishing and release tagging now require the release commit or a verified package checksum as appropriate.
+
 ## 1.3.13 — 2026-11-06
 
 - `findHiddenRuns` marks a lone ideographic or Mongolian selector with `sequence: 'ideographic'` or `'mongolian'` when `text-sanctifier/context` would call it benign. These stay in `runs`, because one selector per ideograph can spell a hidden message.

@@ -17,7 +17,7 @@ export const CONTROL_CHARS_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007
  * Global: reset `lastIndex` before calling `.test()`.
  * @type {RegExp}
  */
-export const INVISIBLE_TRASH_REGEX = /[\u00A0\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u2000-\u200F\u202A-\u202F\u205F-\u206F\u3000\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8\u{1BCA0}-\u{1BCA3}\u{1D173}-\u{1D17A}\u{E0000}-\u{E0FFF}]+/gu;
+export const INVISIBLE_TRASH_REGEX = /[\u00A0\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u2000-\u200F\u202A-\u202F\u205F-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8\u{1BCA0}-\u{1BCA3}\u{1D173}-\u{1D17A}\u{E0000}-\u{E0FFF}]+/gu;
 
 /**
  * Category of one BMP code point (one UTF-16 code unit), or null when it is not trash.
