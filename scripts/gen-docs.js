@@ -17,24 +17,16 @@
 // In README.md, `rev: vX.Y.Z  # a release tag` follows package.json, and the bundle-size
 // badge follows the browser budget.
 
-import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { PROBES, measure } from './check-size.js';
 import { GZIP_BUDGET_BYTES, buildBrowserFile } from './browser-build.js';
 import { VIRAMA_AT } from '../src/virama.generated.js';
+import { CHECK, generator, readLf } from './gen-lib.js';
 
-const CHECK = process.argv.includes('--check');
+const { fail, writeOrCompare } = generator('gen-docs');
 const FILES = ['README.md', 'DESIGN.md'];
 const DASH = String.fromCharCode(0x2014);
-
-function fail(message) {
-    console.error(`gen-docs: ${message}`);
-    process.exit(2);
-}
-
-const readLf = (file) => readFileSync(resolve(file), 'utf8').replace(/\r\n/g, '\n');
-
 // Count every opening, including malformed spellings that replacements cannot see.
 export function validateDocMarkers(text, file) {
     const handled = new Set();
@@ -105,7 +97,6 @@ async function main() {
         return ['| Import | Gzipped bytes | Budget | Headroom |', '| --- | ---: | ---: | ---: |', ...rows].join('\n');
     }
 
-    let stale = 0;
     for (const file of FILES) {
         const current = readLf(file);
         let next = current.replace(/<!-- gen:(size|bytes):([^ ]+) -->.*?<!-- \/gen -->/g, (_, unit, name) => {
@@ -128,17 +119,10 @@ async function main() {
         const unknown = next.match(/<!-- gen:(?!size:|bytes:|budget:|count:|release -->|sizes:)[^>]*-->/);
         if (unknown) fail(`${file}: unknown marker ${unknown[0]}`);
 
-        if (next === current) continue;
-        stale++;
-        if (CHECK) console.error(`gen-docs: ${file} is out of date; run \`npm run gen\`.`);
-        else {
-            writeFileSync(resolve(file), next);
-            console.log(`gen-docs: wrote ${file}`);
-        }
+        writeOrCompare(file, next);
     }
 
-    if (CHECK && stale) process.exit(1);
-    if (CHECK) console.log('gen-docs: README.md and DESIGN.md are up to date.');
+    if (CHECK && !process.exitCode) console.log('gen-docs: README.md and DESIGN.md are up to date.');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -11,11 +11,11 @@
 // The generated JavaScript is pure ASCII: every character outside printable ASCII is
 // written as a \u escape, never raw.
 
-import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { CATEGORIES, PURGE_REGEXES } from './categories.js';
+import { CHECK, generator, readLf, hex } from './gen-lib.js';
 
-const CHECK = process.argv.includes('--check');
+const { fail, writeOrCompare } = generator('gen-categories');
 
 const GENERATED_FILE = resolve('src/categories.generated.js');
 const INSPECT_FILE = resolve('src/inspectText.js');
@@ -30,12 +30,6 @@ const EN_DASH = '–';
 const MAX_CODE_POINT = 0x10FFFF;
 
 // --- Validate the table ---
-
-function fail(message) {
-    console.error(`gen-categories: ${message}`);
-    process.exit(2);
-}
-
 /** @type {{ lo: number, hi: number, name: string }[]} */
 const allRanges = [];
 const names = new Set();
@@ -69,11 +63,6 @@ for (let k = 1; k < allRanges.length; k++) {
 
 
 // --- Helpers ---
-
-function hex(cp) {
-    return cp.toString(16).toUpperCase().padStart(4, '0');
-}
-
 /** Merges sorted, non-overlapping ranges that touch. */
 function mergeAdjacent(ranges, same = () => true) {
     const out = [];
@@ -242,34 +231,11 @@ function replaceBetween(text, file, start, end, body) {
 }
 
 // --- Write or check ---
-
-function readLf(file) {
-    return readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-}
-
 const outputs = [
     [GENERATED_FILE, generatedModule()],
     [INSPECT_FILE, replaceBetween(readLf(INSPECT_FILE), 'src/inspectText.js', JSDOC_START, JSDOC_END, inspectJsdoc())],
     [README_FILE, replaceBetween(readLf(README_FILE), 'README.md', README_START, README_END, readmeTable())],
 ];
 
-let stale = 0;
-for (const [file, content] of outputs) {
-    let current = null;
-    let crlf = false;
-    try {
-        const raw = readFileSync(file, 'utf8');
-        crlf = raw.includes('\r\n');
-        current = raw.replace(/\r\n/g, '\n');
-    } catch { /* not generated yet */ }
-    if (current === content) continue;
-    if (CHECK) {
-        console.error(`gen-categories: ${file} is out of date; run \`npm run gen\`.`);
-        stale++;
-    } else {
-        writeFileSync(file, crlf ? content.replace(/\n/g, '\r\n') : content);
-        console.log(`gen-categories: wrote ${file}`);
-    }
-}
-if (stale) process.exit(1);
-if (CHECK) console.log('gen-categories: generated files are up to date.');
+for (const [file, content] of outputs) writeOrCompare(file, content);
+if (CHECK && !process.exitCode) console.log('gen-categories: generated files are up to date.');

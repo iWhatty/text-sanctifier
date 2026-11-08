@@ -9,16 +9,15 @@
 //
 // Part of `npm run gen`: bumping package.json needs `npm run gen` before committing.
 
-import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { CHECK, generator, readLf } from './gen-lib.js';
 
-const CHECK = process.argv.includes('--check');
+const { fail, writeOrCompare } = generator('gen-version');
 const FILE = resolve('src/version.generated.js');
 
-const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8'));
+const { version } = JSON.parse(readLf(resolve('package.json')));
 if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    console.error(`gen-version: unexpected version in package.json: ${JSON.stringify(version)}`);
-    process.exit(2);
+    fail(`unexpected version in package.json: ${JSON.stringify(version)}`);
 }
 
 const content =
@@ -28,15 +27,5 @@ const content =
     '/** The installed version of text-sanctifier, as in its package.json. */\n' +
     `export const VERSION = '${version}';\n`;
 
-let current = null;
-try { current = readFileSync(FILE, 'utf8').replace(/\r\n/g, '\n'); } catch { /* not generated yet */ }
-
-if (current === content) {
-    if (CHECK) console.log('gen-version: src/version.generated.js is up to date.');
-} else if (CHECK) {
-    console.error('gen-version: src/version.generated.js is out of date; run `npm run gen`.');
-    process.exit(1);
-} else {
-    writeFileSync(FILE, content);
-    console.log('gen-version: wrote src/version.generated.js');
-}
+writeOrCompare(FILE, content);
+if (CHECK && !process.exitCode) console.log('gen-version: generated file is up to date.');

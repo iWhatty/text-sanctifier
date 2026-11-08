@@ -1,6 +1,6 @@
 // tests/types/consumer.ts
 // Compiled (never run) by `npm run test:types` against dist/types through the
-// package's own `exports` map, so a broken type re-export fails CI.
+// package's exports/typesVersions maps, so a broken type re-export fails CI.
 
 import {
   inspectText,
@@ -35,7 +35,7 @@ import type {
   InspectDetailedOptions as BrowserInspectDetailedOptions,
 } from 'text-sanctifier/browser';
 import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-sanctifier/hidden';
-import type { HiddenRun, HiddenRunKind, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
+import type { HiddenRun, HiddenRunKind, HiddenRunSequence, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
 import { inspectTextInContext } from 'text-sanctifier/context';
 import type { ContextReport, ContextFinding } from 'text-sanctifier/context';
 
@@ -58,7 +58,7 @@ const benignFlag: boolean | undefined = contextFinding?.benign;
 const suspiciousZeroWidth: number = inContext.counts.zero_width - inContext.benignCounts.zero_width + inContext.benignTotal;
 const benignSupplementary: number = inContext.benignSupplementarySelectorCount;
 const runKind: HiddenRunKind | undefined = firstRun?.kind;
-const runSequence: 'ideographic' | 'mongolian' | undefined = firstRun?.sequence;
+const runSequence: HiddenRunSequence | undefined = firstRun?.sequence;
 const decodedTags: string = decodeTagText('x');
 
 const options: InspectDetailedOptions = { maxFindings: 10 };
@@ -91,3 +91,6 @@ const mixed: boolean = newlines.mixed;
 const bad: TrashCategory = 'not_a_category';
 
 export { scan, runKind, decodedTags, total, category, browserOptions, browserCategory, browserCounts, clean, pastedClean, spacing, revealed, newlineTypes, mixed, bad };
+
+// @ts-expect-error invalid maximum-length policy
+const badMaxLength: SanctifyOptions = { onMaxLength: 'bogus' };

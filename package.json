@@ -7,7 +7,6 @@
     "node": ">=18"
   },
   "main": "./src/index.js",
-  "module": "./src/index.js",
   "browser": "./dist/text-sanctifier.min.js",
   "bin": {
     "text-sanctifier": "bin/text-sanctifier.js"
@@ -38,7 +37,8 @@
     "./browser": {
       "types": "./dist/types/index.d.ts",
       "default": "./dist/text-sanctifier.min.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "types": "./dist/types/index.d.ts",
   "sideEffects": false,
@@ -47,7 +47,7 @@
     "gen:check": "node scripts/gen-categories.js --check && node scripts/gen-version.js --check && node scripts/gen-virama.js --check && node scripts/gen-docs.js --check",
     "build": "node scripts/build.js",
     "build:types": "tsc -p tsconfig.types.json",
-    "test:types": "tsc -p tests/types/tsconfig.json",
+    "test:types": "node scripts/check-types.js",
     "test": "node tests/sanctifyText.test.js && node tests/inspectTextDetailed.test.js && node --expose-gc tests/hiddenText.test.js && node --expose-gc tests/context.test.js && node tests/cli.test.js && node tests/release.test.js && node tests/names.test.js && node tests/docs.test.js && node tests/repo.test.js",
     "test-min": "node tests/sanctifyText.test.min.js",
     "check:self": "node bin/text-sanctifier.js check .",
@@ -81,11 +81,21 @@
     "url": "https://github.com/iWhatty/text-sanctifier/issues"
   },
   "homepage": "https://github.com/iWhatty/text-sanctifier#readme",
-  "directories": {
-    "test": "tests"
-  },
   "devDependencies": {
     "esbuild": "0.25.12",
     "typescript": "5.9.3"
+  },
+  "typesVersions": {
+    "*": {
+      "hidden": [
+        "dist/types/hiddenText.d.ts"
+      ],
+      "context": [
+        "dist/types/context.d.ts"
+      ],
+      "browser": [
+        "dist/types/index.d.ts"
+      ]
+    }
   }
 }

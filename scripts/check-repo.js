@@ -21,7 +21,7 @@ export function checkRepository(files, layout, test) {
         (!entries[i + 1] || entries[i + 1].depth <= entry.depth)).map((entry) => entry.path);
     const errors = [];
     for (const file of files) {
-        if (!/^(src|scripts|tests)\//.test(file)) continue;
+        if (!/^(src|bin|scripts|tests)\//.test(file)) continue;
         if (!listed.has(file) && !groups.some((group) => file.startsWith(group))) {
             errors.push(`${file} missing from ProjectLayout.txt`);
         }
@@ -38,7 +38,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
             .split('\0').filter((file) => file && existsSync(file));
         const errors = checkRepository(files, readFileSync('ProjectLayout.txt', 'utf8'), JSON.parse(readFileSync('package.json', 'utf8')).scripts.test);
         if (errors.length) throw new Error(errors.join('\n'));
-        console.log('check-repo: repository map and test command cover all source, scripts and tests.');
+        console.log('check-repo: repository map and test command cover all source, bin files, scripts and tests.');
     } catch (error) {
         console.error(`check-repo: ${error.message}`);
         process.exitCode = 1;
