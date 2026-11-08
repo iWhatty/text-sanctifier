@@ -1,130 +1,80 @@
 # Design notes: `text-sanctifier`
 
-Why this library exists, who it serves, and the rules that keep it trustworthy. Read this before adding a feature, a category or a build target.
+Purpose, audiences and invariants. Read before adding features, categories or build targets.
 
 ## What it is
 
-Text is the shared material of language, code, configuration and model prompts. Invisible and control characters slip into it all the time: a script emits the wrong code point, a paste carries a non-breaking space, a bidi control reorders what a reviewer sees, tag characters hide instructions that a person can't see but a language model reads. Usually it isn't an attack, just a stray character that shouldn't be committed. Sometimes it is an attack.
-
-`text-sanctifier` does two jobs:
-
-1. **Inspect**: find these characters and report exactly where they are.
-2. **Sanctify**: remove or normalize them, with presets and fine-grained flags.
-
-It is not an HTML/XSS sanitizer and not a full security scanner. For those jobs, use or combine dedicated tools.
+Invisible characters enter language, code, configuration and prompts through mistakes, pasted text or attacks. Bidi controls reorder what reviewers see; tag characters hide instructions a model can read. This library inspects characters with exact positions, then removes or normalizes them through presets and flags. It is not an HTML/XSS sanitizer or a full security scanner.
 
 ## Two audiences
 
-The same source serves two kinds of consumer, with different constraints.
-
-| | **Web** (websites, browser extensions) | **Node and agents** (coding agents, CI, developer tooling) |
+| | Web: sites and extensions | Node, agents and CI |
 | --- | --- | --- |
-| Main job | Clean user input; security hygiene | Stop invisible "slop" being committed; give agents exact locations they can't see for themselves |
-| Entry point | `text-sanctifier/browser` (minified ESM bundle) | `text-sanctifier` (ESM source) and the `text-sanctifier` command |
-| Constraint | Bundle size: every byte ships to every user | Capability: structured output, clear errors, predictable behavior |
-| Budget | Keep the gzipped bundle small, no dependencies | Size matters less than correctness and clarity |
+| Job | Clean user input | Prevent invisible characters being committed; report actionable locations |
+| Entry | `text-sanctifier/browser` (prebuilt ESM) | `text-sanctifier` (ESM source), CLI |
+| Priority | Small downloads, no dependencies | Correctness, structured output, predictable errors |
 
-When the two pull apart, split the entry points rather than compromise both. Node-only features (file walking, the command-line tool, heavier analysis) belong in the Node entry point or the command-line tool, never in the browser bundle. A dedicated Node entry point with a larger feature set is an acceptable future direction. The browser bundle should keep only what a page or an extension needs.
-
-Code-aware judgement belongs downstream, not here. Whether a zero-width space sits in an identifier, a string literal or a comment needs a syntax tree. This library reports characters and positions; tools that understand the language decide what a finding means.
+Split entry points when constraints diverge. File walking and heavier analysis belong in Node or the CLI; a dedicated server entry point is acceptable. Browser features must earn their size. Code-aware judgement belongs downstream: deciding whether a finding is in an identifier, string or comment requires a syntax tree.
 
 ## Why agents are a first-class audience
 
-Agents (and the people reviewing their work) can't see these characters. A zero-width space or a bidi isolate shows up in tool output as nothing at all. Without a tool, each agent writes its own one-off script, which costs tokens and time and is often subtly wrong. A shared, tested tool:
+Agents cannot see these characters in tool output. Shared tooling saves repeated, subtly wrong scripts and lets smaller models handle routine hygiene. Agent-facing requirements:
 
-- lets smaller, faster models do tasks they couldn't script themselves, and
-- saves larger models from spending effort on housekeeping that should already be automated.
-
-So the agent-facing surface is held to these rules:
-
-- **Exact and structured.** Offsets, lines, columns, code points, categories. JSON on request. Exit codes that mean something: 0 clean, 1 findings or pending changes, 2 usage or I/O error.
-- **Bounded output.** `maxFindings` protects both memory and the reader's context window. Counts stay exact even when the list is capped. `maxFindings: 0` is a counts-only mode.
-- **Documented well enough to use without reading the source.** If a consumer has to read `src/` to integrate, the docs are incomplete.
-- **Safe defaults.** A model that runs a command with no flags should not lose meaning. A transformation that destroys information, such as splitting emoji sequences, should be opt-in or clearly documented.
+- Exact offsets, lines, columns, code points and categories; JSON on request. Exit codes: 0 clean, 1 findings or pending changes, 2 usage or I/O error.
+- Bounded lists and memory: `maxFindings` caps output while counts remain exact; zero means counts only.
+- Complete integration docs; consumers should not need to read source.
+- Safe defaults: meaning-destroying transformations must be opt-in or clearly documented.
 
 ## Invariants
 
-These are tested. Keep them true.
-
-- **What inspection reports equals what purging removes, except U+3000.** The categories in `inspectTextDetailed` cover `CONTROL_CHARS_REGEX` ∪ `INVISIBLE_TRASH_REGEX` plus U+3000, checked over every code point U+0000–U+10FFFF. U+3000 remains detectable as `nonbreaking_space` but is preserved by purging.
-- **Nothing a renderer hides goes unreported.** Every Default_Ignorable_Code_Point in the running Node's Unicode data is in a category.
-- **Every import stays within its size budget.** `scripts/check-size.js` bundles each export on its own, tree-shaken and minified, and checks its gzipped size; detection-only imports must not contain the sanitizer or the emoji tables, and `inspectText`, which reports emoji, must not contain the sanitizer. The prebuilt browser file has its own budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`).
-- **One pass, no copies** for inspection and newline counting; performance claims in the docs are measured.
+- **Inspection and purging agree, except U+3000.** `inspectTextDetailed` covers `CONTROL_CHARS_REGEX` union `INVISIBLE_TRASH_REGEX` plus U+3000, tested over U+0000-U+10FFFF. U+3000 is detectable as `nonbreaking_space` but preserved by purging.
+- **Nothing a renderer hides goes unreported.** Tests compare categories with every Default_Ignorable_Code_Point in the running Node's Unicode data; newer data must not silently escape coverage.
+- **Every import has a size budget.** `scripts/check-size.js` checks individually bundled, tree-shaken, minified, gzipped exports. Detection-only imports must exclude sanitizer and emoji tables; `inspectText`, which reports emoji, must exclude sanitizer. Browser budget: `GZIP_BUDGET_BYTES` in `scripts/browser-build.js`.
+- **Inspection and newline counting:** one pass, no input copies; measured performance claims.
 - **Zero runtime dependencies.**
-- **Public field names survive the minifier.** The browser file is built with esbuild, which does not rename properties; the dist tests check every public field.
-- **Types match the runtime.** A strict TypeScript consumer compiles against `dist/types` through the package `exports` map.
+- **Public fields survive minification.** esbuild does not rename properties; dist tests check public fields.
+- **Declarations follow source.** Generated from JSDoc, checked with `checkJs` and a strict consumer compiled under NodeNext, Node16, Bundler and Node10 module resolutions.
 
 ## Categories are API
 
-Consumers switch on category names and read every key of `counts`.
+Consumers switch on category names and read every `counts` key. Adding code points changes detection and stripping: note behavior in the CHANGELOG. Adding, renaming or splitting categories breaks exhaustive consumers; plan and batch changes deliberately.
 
-- Adding code points to an existing category is a normal change: note it in the CHANGELOG, because what gets reported and stripped changes.
-- Adding a category, or renaming or splitting one, breaks any consumer that handles every category. Plan these deliberately, batch them, and say so prominently in the CHANGELOG.
+Emoji joiners and selector distinctions are answered without category changes by `text-sanctifier/context` and `findHiddenRuns` totals. Still open: `nonbreaking_space` includes breaking spaces U+2000-U+200A, so its name misleads.
 
-Known open questions:
+## Problems seen in practice
 
-- Separating the emoji joiner (U+200D in ZWJ sequences) from standalone zero-width characters.
-- Separating benign emoji variation selectors (U+FE00–FE0F) from the supplementary ones (U+E0100–E01EF), which can carry hidden data.
-- `nonbreaking_space` also holds U+2000–U+200A, most of which are breaking spaces, so the name misleads.
-
-## Where this sits among similar tools
-
-A survey of overlapping open-source tools in October 2026 found many that detect invisible characters and few that fix them:
-
-- **Detectors** such as anti-trojan-source (npm) and heckler (PyPI) report findings and integrate well (JSON or SARIF output, pre-commit hooks), but they don't remove anything.
-- **Linter rules** (ESLint's `no-irregular-whitespace`, eslint-plugin-security, rustc and Clippy lints, Go's bidichk) reach many projects but each covers a narrow set of characters.
-- **Fixers** such as out-of-character remove characters but report only an offset.
-- **LLM input filters** that stripped hidden text before it reached a model are largely archived, which leaves that job under-served.
-
-This library's place is doing both jobs in one tool: findings with exact positions and typed categories, plus presets that fix, in a small browser build and a command-line tool. Other tools are ahead on integration (SARIF, pre-commit hooks, editor plugins), on metadata per finding (severity, Unicode character names, the decoded text hidden in tag characters), and on context (leaving legitimate emoji and script sequences alone). The roadmap below closes those gaps without giving up the small core.
-
-The problems seen in practice, which this library should keep solving:
-
-- **Model output** that carries narrow non-breaking spaces and other look-alike spaces into code, Markdown and data. The right fix is to replace them with an ordinary space, not delete them.
-- **Coding agents** whose edits fail on characters they can't see in their own tool output.
-- **Hidden instructions** in rules files, agent skill files, tool descriptions and web content, using tag characters, variation selectors and invisible operators.
-- **Everyday data hygiene:** a BOM glued to the first CSV header, U+2028/U+2029 breaking JavaScript and JSON, mixed line endings.
+- Model output carries narrow non-breaking and look-alike spaces into code, Markdown and data: replace with ordinary spaces rather than joining words.
+- Coding agents cannot match or edit characters they cannot see.
+- Rules, skills, tool descriptions and web content hide instructions with tags, selectors and invisible operators.
+- Everyday hygiene: BOMs on CSV headers, U+2028/U+2029 breaking JavaScript or JSON, mixed line endings.
 
 ## Roadmap: two tracks, one core
 
-The goal is for the web and server tracks to move forward together without drifting apart. Shared work goes in the core; each track grows only in its own entry point. Status as of release <!-- gen:release -->1.3.13 (2026-11-06)<!-- /gen -->.
+Share core work; grow each track in its own entry point. Status as of <!-- gen:release -->1.3.13 (2026-11-06)<!-- /gen -->.
 
-### Shared core (both tracks)
+### Shared core
 
-- **Done: one table of categories and code-point ranges, used everywhere.** `scripts/categories.js` is the table, and `npm run gen` generates the purge regexes and the classifier (`src/categories.generated.js`), the category list in the `inspectTextDetailed` JSDoc and the README table. `npm run ci` fails while any of them is stale. They are generated rather than built at module load, so the browser bundle ships no table or builder and the classifier stays plain number comparisons.
-- **Done: complete coverage of Default_Ignorable_Code_Point**, the Unicode property for characters renderers must draw as nothing. A test checks it against the running Node's Unicode data, so a Node upgrade with newer Unicode fails until the table catches up.
-- **Next: one planned set of category changes** for both tracks. It covers the open questions above (the `nonbreaking_space` name; the emoji joiner and the two kinds of variation selector are now answered without a category change, by `text-sanctifier/context` and the `findHiddenRuns` totals) and characters that are not invisible but still cause trouble: U+2028/U+2029 line and paragraph separators, unpaired surrogates (the sanitizer already replaces them with U+FFFD, so they can't join into a hidden character, but inspection doesn't report them yet), noncharacters (to be reported or replaced with U+FFFD, never deleted), U+FFFD itself as a sign of a decoding error, and blank-looking characters such as U+1680 and U+2800.
-- **Done: a reveal helper.** `revealInvisible` and `text-sanctifier reveal` render hidden characters visibly as `<U+XXXX>` markers, as Unicode's source-code guidance (UTS #55) recommends, for logs, diffs and agent tool output. Unicode character names in markers would need a name table, so they belong in the server track.
-- **One test corpus run against both builds**, so the source build and the browser build can never report differently.
+- Coordinate category changes with consumers: rename `nonbreaking_space`; consider U+2028/U+2029, unpaired surrogates, noncharacters, U+FFFD and blank-looking U+1680/U+2800. Sanitizers already replace unpaired surrogates with U+FFFD to prevent newly joined hidden characters. Noncharacters should be reported or replaced with U+FFFD, never deleted.
+- One corpus against source and browser builds, preventing behavioral drift.
 
-### Server track (Node, agents, CI)
+### Server track
 
-Capability over size.
+- Dedicated entry point when the first server-only feature needs it.
+- Inspect tool descriptions served by live MCP servers; decode variation-selector payloads.
+- Per-finding severity and Unicode names; versioned JSON report schema. Names need a table unsuitable for the small browser core.
+- Bidi balance checks for unterminated or overlapping controls (Trojan Source).
+- `fix`: escape characters instead of deleting; report removals at original offsets; suppress by code point or path.
+- Streaming inspection for very large files.
+- Context refinements driven by reports: see below.
 
-- **A dedicated server entry point** (for example `text-sanctifier/server`) for features that don't belong in the browser bundle.
-- **Done: a check for AI configuration files.** `text-sanctifier check --ai-config` searches for rules files, agent skill files, `CLAUDE.md`/`AGENTS.md` and MCP configuration, reports runs of tag characters, variation selectors and invisible operators, and decodes the ASCII hidden in tag runs. The England, Scotland and Wales flags and a lone presentation selector after an emoji or in a keycap are left out (after a letter, one selector per letter can carry a bit, so it is reported). Files that are not valid UTF-8 are checked with U+FFFD for invalid bytes; known binary signatures and image, font and archive extensions are skipped and reported. Still open: tool descriptions served by a running MCP server, and decoding data hidden in variation selectors.
-- **Done: integration that runs locally.** `check --format sarif` (SARIF 2.1.0, a level per category, set in the command line) and `.pre-commit-hooks.yaml` with two hooks. No cloud CI.
-- **Findings an agent can act on directly:** a severity and the Unicode character name on each finding, and a versioned JSON schema for reports from the library and the command-line tool.
-- **Context-aware findings**, to tell legitimate emoji joiners, colour selectors and flag sequences (and joiners in scripts that need them) from hidden ones. Built: see "Context-aware findings" below.
-- **A bidi balance check** for unterminated or overlapping bidi controls, the specific Trojan Source pattern.
-- **`fix` options and reports:** rewrite characters in source as escape sequences instead of deleting them, list each removal by its offset in the original text, and allow suppressions by code point or path.
-- **Streaming inspection** for very large files.
+### Web track
 
-### Web track (websites, browser extensions)
-
-Size over features.
-
-- **Done: gzipped size budgets enforced by `npm run ci`, per import.** Bundler users pay only for what they import, so each export has its own budget in `scripts/check-size.js`, plus leak checks. The prebuilt browser file, for pages with no build step, keeps a <!-- gen:budget:browser -->3 KiB<!-- /gen --> gzipped budget (`GZIP_BUDGET_BYTES` in `scripts/browser-build.js`). Raising a budget is a deliberate decision made in the same commit as the growth. Current sizes are in "Sizes now" below; `npm run gen` writes them, and `npm run ci` fails while they are stale.
-- **Done: a preset for model output and pasted text.** `summonSanctifier.pasted` turns look-alike spaces into ordinary spaces and removes zero-width spaces, while keeping emoji joiners, selectors and bidi marks. `fix` now does the same with spaces by default and reports replacements apart from removals. Still open: optional quote and dash folding.
-- **Presets for cleaning form input.**
-- **Done: per-import size budgets.** Bundlers import the ESM source and keep only what is used, so size is checked per export (`scripts/check-size.js`) rather than only for the prebuilt file.
-- **Done: `inspectText` no longer pulls in the sanitizer.** The patterns it shares with the sanitizer (the emoji regex, the keyboard-safe regex and the typographic normalizer) live in `src/textPatterns.js`, and the emoji regex is built by a function marked pure instead of in a top-level `try`. `inspectText` went from 1882 to 1106 bytes gzipped, and its size probe now fails if the sanitizer leaks back in.
-- **Done: standalone preset exports.** Each preset is its own export (`sanctifyStrict`, `sanctifyLoose`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`, `sanctifyPasted`), and `summonSanctifier` attaches the same functions in an `Object.assign` call marked pure instead of top-level property assignments. Importing one preset is about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped instead of <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->. The new names cost 40 bytes on `summonSanctifier` and 73 on the prebuilt browser file. With little headroom left in the browser file's budget (see "Sizes now"), the next addition to it needs a decision about its budget or what it includes.
-- **Done: bounded hidden-run scans.** `findHiddenRuns` takes `maxRuns` and `maxDecodedLength`, keeps `counts`, `total` and `benignTotal` exact, and gives each run `line` and `column` counted as `inspectTextDetailed` counts them, so callers no longer need their own scan limit or position code. The reserved code points of the tag plane (U+E0080–U+E00FF, U+E01F0–U+E0FFF) are a run kind of their own, `reserved_tag_plane`, so hidden-text scans cover the whole block up to U+E0FFF without a new category. With both caps set, 16 M characters (32 MB) of hidden text grow the heap by under 1 MB. `VERSION` is exported (generated from `package.json`), costing 19 bytes in the browser file. Still open: `check --ai-config` takes run positions from an uncapped `inspectTextDetailed` call and could use the run fields instead.
+- Form-input presets.
+- Optional quote and dash folding for pasted/model text.
 
 ### Sizes now
 
-Gzipped bytes per import in the source on `main`, written by `npm run gen` (the last release is <!-- gen:release -->1.3.13 (2026-11-06)<!-- /gen -->):
+Generated gzipped sizes on `main`; last release <!-- gen:release -->1.3.13 (2026-11-06)<!-- /gen -->. Browser budget: <!-- gen:budget:browser -->3 KiB<!-- /gen -->. Raising budgets requires an explicit decision alongside growth. Direct `sanctifyPasted` import: <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen -->; attached `summonSanctifier.pasted`: <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->.
 
 <!-- gen:sizes:start (generated by `npm run gen`; do not edit) -->
 | Import | Gzipped bytes | Budget | Headroom |
@@ -147,85 +97,51 @@ Gzipped bytes per import in the source on `main`, written by `npm run gen` (the 
 
 ### Not planned here
 
-- **Confusable and homoglyph detection** (UTS #39 skeletons, mixed-script checks) needs large data tables and belongs in a separate layer or tool.
-- **Deciding what a finding means in code** (identifier, string or comment) needs a syntax tree and belongs in tools that parse the language.
-- **Running checks in cloud CI by default.** Checks run locally.
-
-### Order
-
-1. Done: the single category table, full default-ignorable coverage, and the size budget.
-2. Done: the AI configuration file check, SARIF output and the pre-commit hook. These came first because the risk is current and the work is small.
-3. The planned category changes, coordinated with consumers and shipped together.
-4. Done: context-aware findings (1.3.7, script joiners in 1.3.8), the reveal helper and the pasted-text preset.
-5. The server entry point, once the first server-only feature needs a home.
+- Confusables/homoglyphs (UTS #39 skeletons, mixed-script checks): large tables belong in another layer.
+- Code-aware interpretation: requires language parsing downstream.
+- Cloud CI by default: checks run locally.
 
 ## Context-aware findings
 
-Status: released in 1.3.7; script joiners and `benignSupplementarySelectorCount` in 1.3.8. The names below are API.
+**Not a category split.** Adding `counts` keys changes `TrashCategory` and breaks consumers. Context lives beside existing categories in the separate `text-sanctifier/context` entry point, keeping Unicode property checks out of the core/browser file. `counts[c] - benignCounts[c]` gives exact suspicious counts, even beyond listed findings. See [README rules](README.md#text-sanctifiercontext-inspecttextincontexttext-options) for recognized sequences and script approximations.
 
-**Problem.** `zero_width` counts U+200D inside emoji such as a family emoji, and `variation_selector` counts VS16 in emoji and the ideographic selectors (U+E0100–U+E01EF) in CJK names. A consumer that warns from `counts` can't tell those from a joiner or selector used to hide text. The listed findings carry the code point, which separates U+200D from U+200B, but not whether a U+200D sits inside an emoji.
+**Implementation.** One pass like `inspectTextDetailed`; sticky property regexes (for example `/\p{Extended_Pictographic}/yu`) check finding neighbours. No per-character allocation, no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster without helping these rules. Memory stays flat with `maxFindings` set. Requires Unicode property escapes.
 
-**Not a category split.** New categories would add `counts` keys and change `TrashCategory`, a breaking change for every consumer that reads `counts`. The categories stay as they are; context is reported next to them.
+**Viramas.** Regexes expose no combining-class property. `scripts/gen-virama.js` derives <!-- gen:count:viramas -->69<!-- /gen --> viramas from Node normalization data: canonical reordering places class 9 after class 8 and before class 10. It writes `src/virama.generated.js`; `gen:check` detects changes in Node's Unicode data. Joining_Type is unavailable too; an ArabicShaping.txt table would add size and cannot be checked against Node.
 
-**Shape.** A separate entry point, `text-sanctifier/context`, so the core and the browser file don't pay for the Unicode property tables:
+**Supplementary selectors.** `benignSupplementarySelectorCount` counts benign U+E0100-U+E01EF within `benignCounts.variation_selector`. Subtract it from `findHiddenRuns(text).supplementarySelectorCount` for exact suspicious supplementary totals. Subtracting all benign selectors would incorrectly include emoji selectors.
 
-```js
-import { inspectTextInContext } from 'text-sanctifier/context';
+**Why the scanners differ on these selectors.** Context marks lone ideographic/Mongolian selectors benign; hidden-run scanning keeps them in `runs` with `sequence`. Ideographic selectors have many values, allowing ASCII payloads one selector per ideograph. Moving them to `benign` would let AI checks pass payloads and break the subtraction above. Extend `sequence` when consumers need another form.
 
-const report = inspectTextInContext(text, { maxFindings: 20 });
-// everything inspectTextDetailed returns: findings, counts, total, truncated
-// plus benignCounts: the same keys as counts, exact whether or not a finding is listed
-// and benign: true on each listed finding that is part of a legitimate sequence
-```
+Another intended difference: when U+FE0E/U+FE0F adjoins another hidden-run character of the same kind (U+270C U+FE0F U+FE0F, or U+FE0E U+180B), `inspectTextInContext` can mark the first presentation selector benign when its preceding base qualifies; `findHiddenRuns` reports the whole run as suspicious. Presentation-selector runs are benign only when they contain a single selector. A run of selectors is suspicious.
 
-`counts` is unchanged, so `counts[c] - benignCounts[c]` is the number of suspicious characters in category `c`. Exact benign counts are the point: a consumer that warns from counts beyond the listed findings can't use a flag on listed findings alone.
+**Known limits.**
 
-**Rules.** The [README context section](README.md#text-sanctifiercontext-inspecttextincontexttext-options) defines the benign sequences and the script-joiner approximation. Keep those rules there.
+- Arabic ZWNJ approximation accepts non-left-joining letters such as alef, reh and waw, marking some suspicious characters benign.
+- Other joining scripts (Syriac, N'Ko, Mongolian, Adlam, Hanifi Rohingya) never get benign joiners, so legitimate text can warn.
+- `Extended_Pictographic` includes text-default copyright/registered symbols and unassigned emoji-range code points. Adjacent selectors/joiners can therefore read benign. `Ideographic` includes U+3006, U+3007, U+3021-U+3029 and Tangut, accepting supplementary selectors after them.
+- Each joiner needs sticky-regex checks: memory stays flat but speed depends on content. On 16 M characters (UTF-16 units), `maxFindings: 20`: clean text 62 ms, 5.6 M virama joiners 0.5 s, 8 M Arabic ZWNJ 1.6 s (`npm run bench`).
 
-**Implementation.** The same single pass as `inspectTextDetailed`, checking only the neighbours of each finding with sticky regexes (`/\p{Extended_Pictographic}/yu` at an index), so nothing is allocated per character and memory stays flat with `maxFindings` set. Neighbour checks match the rules above exactly and need no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster and decide nothing these rules don't. It needs Unicode property escapes in regexes (ES2018: Node 10+, every current browser).
-
-**Script-joiner implementation.** JavaScript regexes have no property for combining classes, so `scripts/gen-virama.js` derives the <!-- gen:count:viramas -->69<!-- /gen --> viramas from Node's normalization data (canonical reordering puts a class 9 mark after class 8 and before class 10) and writes `src/virama.generated.js`. `npm run gen:check` fails when Node's Unicode data changes the set. Joining_Type is also unavailable as a regex property; shipping ArabicShaping.txt would cost bytes and could not be checked against Node. The approximation and its limits are documented in the README rules linked above.
-
-**Supplementary selectors, exactly.** `benignSupplementarySelectorCount` counts the benign U+E0100–U+E01EF, part of `benignCounts.variation_selector`. `findHiddenRuns(text).supplementarySelectorCount` counts every one of them (it never marks them benign), so the difference is the exact number of suspicious ones, which `benignCounts.variation_selector` alone can't give because it also counts emoji selectors.
-
-**Why the scanners differ on these selectors.** `inspectTextInContext` calls a lone ideographic or Mongolian selector benign, and `findHiddenRuns` keeps it as a run marked with `sequence`. An emoji selector carries about a bit, but an ideographic selector has 240 values, so one per ideograph can spell ASCII. Moving these to `benign` would make `check --ai-config` pass such a payload and would break the subtraction above. Stay in `runs`; add to `sequence` if a consumer needs another form.
-
-**Related ask: code-point totals per run kind.** `findHiddenRuns` counts runs, not their length. A `codePointCounts` field with the same keys as `counts` (total code points per kind) gives exact totals beyond the listed runs, and a `supplementarySelectorCount` (U+E0100–U+E01EF, counted apart from U+FE00–U+FE0F) separates the selectors that can carry data from emoji selectors. Additive; built as proposed.
-
-**Size and tests.** Its own size probe and budget; core probes unchanged. Tests: every rule with positive and negative cases, `benignCounts` equal to the benign listed findings when nothing is truncated, `benignCounts[c] <= counts[c]`, and the 16 M-unit heap check.
-
-**Known limits.** Each errs in one known direction, and none has been reported as a problem in real text:
-- The Arabic-script ZWNJ rule is approximate (see "Script-joiner implementation"): it accepts a ZWNJ after letters that don't join to the left, such as alef, reh and waw, so a few suspicious characters read as benign.
-- Joiners in the other joining scripts (Syriac, N'Ko, Mongolian, Adlam, Hanifi Rohingya and others) are never benign, so legitimate ones read as suspicious.
-- `Extended_Pictographic` includes text-default symbols such as © and ® and unassigned code points in the emoji ranges, so a joiner or selector next to one reads as benign. `Ideographic` includes U+3006, U+3007, U+3021–U+3029 and Tangut, so a supplementary selector after one reads as benign.
-- Speed: memory stays flat, but every joiner costs a few sticky-regex tests. On 16 M UTF-16 units with `maxFindings: 20` (Node 24, `npm run bench`): clean text 62 ms, 5.6 M virama joiners 0.5 s, 8 M Arabic-script ZWNJ 1.6 s.
-
-**Next, when reports call for it.** No consumer has open asks, so the next round waits for false warnings or misses seen in real text. What each kind of report would lead to:
-- False warnings on Syriac, N'Ko or other joining scripts: an exact Joining_Type table generated from Unicode's ArabicShaping.txt, replacing the Arabic-script approximation. Costs bytes in this entry point and a data file at generation time that Node can't check.
-- Misses next to © or ®: limit the emoji rules to code points with emoji presentation, or a VS16 before the joiner.
-- Slow scans on large Persian or Indic input: test cheap code-unit ranges (the Arabic blocks, the virama table's BMP part) before the property regexes.
-- A selector that carries data after a legitimate base: decoding data hidden in variation selectors, already listed under the server track.
+**Next, when reports call for it.** No open consumer asks. False warnings in joining scripts would justify an exact Joining_Type table from ArabicShaping.txt, with generation data Node cannot validate. Misses beside copyright/registered symbols would justify limiting emoji rules to emoji presentation or VS16 before a joiner. Slow Persian/Indic scans would justify cheap code-unit range checks before property regexes. Selector payload decoding remains on the server roadmap.
 
 ## Releases
 
-- Bump the patch number only, even for new exports or behavior changes. Batch work done close together into one release. Changing the minor or major number is a deliberate decision. See `PublishChecklist.txt`.
-- Describe behavior changes in `CHANGELOG.md` instead of signalling them through the version number.
-- Tag releases `vX.Y.Z` on the commit that was published.
-- The steps are scripted in `scripts/release.js`: `npm run release:prep` (run `npm run ci` before changing the version, bump, date the `## Unreleased` CHANGELOG section, `npm run gen`, run ci again to rebuild the browser file with the new VERSION, commit, push), then the maintainer's `npm publish`, then `npm run release:verify` (wait for npm, check gitHead, shasum and file count against the commit, tag and push the tag). `.gitattributes` keeps every checkout LF, so the shasum is the same from any clone.
-- Prep, including `--dry-run`, requires a nonempty local private-names file and `core.hooksPath` set to `scripts/hooks` (`npm run hooks:install`). Dry runs change nothing and do not run ci. A failure after the bump reports the step, `git status --short`, whether a commit was made and the exact local undo command; nothing is undone automatically. Check origin after a push failure before retrying.
-- `prepublishOnly` guards `npm publish`: main must be clean and equal origin/main after a successful fetch, the package version must have a dated CHANGELOG heading and must not already be on npm. Network lookup failures stop publishing. The guard then rebuilds the browser file and generated declarations. Verification still uses `npm pack --ignore-scripts`, which bypasses this guard. npm's gitHead must be exactly 40 hexadecimal characters before use in git commands.
-- Figures that change with every release or every size change (gzipped sizes and budgets, the virama count, the current release, the README's pre-commit `rev:` and size badge) are written by `npm run gen` between `gen:` markers, HTML comments that don't render (`scripts/gen-docs.js` lists them), and `npm run ci` fails while they are stale. Every opening marker must be handled: malformed markers, split values and missing closers fail with exit 2 and a line number. Missing README rev or size-badge anchors also fail. Speed figures depend on the machine, so they stay out of ci: `npm run bench` measures them, and the docs are updated by hand when they move.
-- `npm run release:verify -- --github-release` also creates the GitHub release, with that version's CHANGELOG section as its notes.
-- This repo is public, so names of private projects that use it must not appear in it. They are listed in `.git/info/private-names`, which is never committed; `npm run ci` checks working files, paths, staged additions, unpushed messages and every unpushed commit's added lines, including content removed by later commits. `npm run hooks:install` adds a pre-push hook that checks the pushed ranges too; if a remote object is missing locally it checks the local tip excluding all remote refs. Plain list entries match whole words, ignoring case; entries starting with `*` match substrings. Spaces in names also match line breaks. Missing or empty lists skip ordinary checks; release prep requires the file to exist and contain bytes.
-- Publishing needs the maintainer's npm two-factor credentials. Agents prepare and verify releases; a maintainer publishes.
+- Patch-only bumps; minor/major changes require deliberate decisions. Describe behavior changes in CHANGELOG entries.
+- Batch nearby work into one release.
+- Maintainer publishes with npm 2FA; agents prepare and verify. `release:verify` tags `vX.Y.Z` on the published commit.
+
+Full steps and recovery: [PublishChecklist.txt](PublishChecklist.txt).
 
 ## Working in this repo
 
-- `npm run ci` runs the generated-file check, the tests, both builds, the type check and the dist tests. Run it before every commit.
-- CI here means the local `npm run ci` script. The repo deliberately has no cloud CI (GitHub Actions or similar), so checks cost nothing to run. Add new checks to the script, not to a workflow.
-- `npm run check:repo` (in ci) requires every tracked or addable file under src/, scripts/ and tests/ to appear in ProjectLayout.txt. A directory without listed children covers its contents. Deleted files are ignored. Every tests/*.test.js file must also appear in the package.json test command. Keep this map current when adding tooling or tests.
-- Build tools use exact devDependency versions for reproducible size checks; package-lock.json stays gitignored. Type declarations are generated into dist/types from JavaScript, with no handwritten src/index.d.ts duplicate. Tooling tests use temporary repos or injected commands and need no network.
-- To change a category's code points, edit `scripts/categories.js` and run `npm run gen`; never edit `src/categories.generated.js` or the generated README table by hand. The generated classifier is split in two so each half stays small enough for V8 to inline; the generator fails if the table outgrows that.
-- A new export needs a type, an assertion in `tests/sanctifyText.test.min.js`, and a size probe with a budget in `scripts/check-size.js`.
-- Tests build invisible characters with `String.fromCodePoint` and never contain them raw. Take the same care in scripts that edit source: shells and heredocs can turn an escaped `\uXXXX` into the raw character without warning. Check edits by printing lines as escaped ASCII.
-- This repository is public. Describe downstream consumers generically. Don't name private projects, link to them, or quote their internals in code, docs, commits or the CHANGELOG.
+Follow [CLAUDE.md](CLAUDE.md) for everyday checks, export requirements, generated figures and CHANGELOG policy. Release steps live only in the checklist.
+
+- **Public repository:** describe downstream consumers generically; no private names, links or internals in files, commits or CHANGELOG. Local `.git/info/private-names` is never committed. Plain entries match whole words ignoring case; leading `*` matches substrings; spaces match line breaks. Missing/empty lists skip ordinary checks but block release prep. Check coverage and hook setup: checklist.
+- **Repository map:** `check:repo` requires tracked/addable src/, scripts/ and tests/ files in ProjectLayout.txt; grouped directories cover contents, deleted files are ignored. Every tests/*.test.js must be in npm test.
+- **Builds:** exact devDependency versions; package-lock.json gitignored. Generated declarations in dist/types, no handwritten src/index.d.ts. Tooling tests use temporary repos/injected commands and need no network.
+- **Categories:** edit `scripts/categories.js`, run `npm run gen`; never hand-edit generated classifier or README table. The classifier has two halves small enough for V8 inlining; generation rejects table growth beyond that limit.
+- **Invisible characters:** construct tests with `String.fromCodePoint`; shells/heredocs can turn escapes into raw characters. Inspect edited lines as escaped ASCII.
+
+**Binary heuristic.** Ordinary checking samples the first 8000 bytes: a NUL, more than 5% control bytes, and either invalid UTF-8 or entirely ASCII with at least 8 controls. Any non-ASCII byte in valid UTF-8, even beyond the sample, keeps a file checked. A stray NUL or bad byte cannot hide text. Stdin is never binary. AI scans additionally skip known signatures and image/font/archive extensions. Directory/glob `fix` also skips any NUL in the sample; explicit files can be cleaned. Encoding/refusal behavior remains in [README Inputs](README.md#inputs).
+
+**Memory measurements.** 16 M characters (UTF-16 units) of non-breaking spaces produce 16 M findings. With `maxFindings: 20`, scanning takes about 80 ms and uses 0.2 MB; uncapped lists can require roughly 100-200 bytes per finding, about 1.5 GB for 8 million. With `maxRuns` and `maxDecodedLength` set, the same character count of hidden text grows the heap by under 1 MB, versus hundreds of MB uncapped. These are measurements, not budgets; run `npm run bench` locally.
