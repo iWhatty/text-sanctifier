@@ -2,6 +2,13 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- CLI behavior change: `check` with no paths always scans the current directory and no longer reads stdin; pass `-` to check piped text. When stdin is piped and `-` is missing, `check` says so on stderr. This fixes `check` hanging forever when a caller (an agent harness, Node `spawn`) leaves stdin open.
+- `fix --keep-benign` keeps memory bounded: 10 MB of zero-width spaces now uses about 14 MB of heap instead of about 400 MB, with the same output.
+- Behavior change: an invalid `maxFindings`, `maxRuns` or `maxDecodedLength` (a string, `null`, a negative or fractional number) throws a `RangeError` naming the option. Before, `inspectTextDetailed` and `inspectTextInContext` fell back to 100 and `findHiddenRuns` silently scanned without a cap. Leaving the option out keeps the defaults.
+- Behavior change: a lone regional indicator is no longer treated as emoji: `purgeEmojis` keeps it, `sanctifyKeyboardOnlyEmoji` removes it, and `hasEmojis` is false. Flag pairs and lone skin-tone swatches are unchanged.
+
 ## 1.3.15 — 2026-11-09
 
 - The strict and keyboard-only presets remove text-default emoji such as U+2764 U+FE0F whole; before, they left the bare symbol behind.

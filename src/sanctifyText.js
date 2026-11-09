@@ -9,7 +9,7 @@ export { ASCII_KEYBOARD_SAFE_REGEX, EMOJI_REGEX, normalizeTypographicJank };
 /**
  * @typedef {Object} SanctifyOptions
  * @property {boolean} [purgeInvisibleChars]
- * @property {boolean} [purgeEmojis]
+ * @property {boolean} [purgeEmojis] - Remove matched emoji, including lone skin-tone swatches; preserve lone regional indicators.
  * @property {boolean} [nukeControls]
  * @property {boolean} [keyboardOnlyFilter]
  * @property {boolean} [normalizeNewlines]
@@ -284,7 +284,7 @@ export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, 
  *
  * @param {string} text
  * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
- * @param {boolean} [purgeEmojis=false] - Remove emoji characters entirely.
+ * @param {boolean} [purgeEmojis=false] - Remove matched emoji, including lone skin-tone swatches; preserve lone regional indicators.
  * @param {boolean} [nukeControls=false] - Remove non-whitespace control characters.
  * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII + full emoji sequences only (drops other Unicode).
  * @param {boolean} [normalizeNewlines=false] - Convert all newlines to `\n`.

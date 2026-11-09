@@ -215,12 +215,11 @@ for (const [category, codePoints] of Object.entries(CATEGORY_CODE_POINTS)) {
   const exact = inspectTextDetailed(text, { maxFindings: 151 });
   assertEqual(exact.truncated, false, '6. a cap equal to total is not truncated');
 
-  for (const bad of [-1, 1.5, NaN, '5', null]) {
-    assertEqual(
-      inspectTextDetailed(text, { maxFindings: bad }).findings.length,
-      100,
-      `6. invalid maxFindings (${String(bad)}) falls back to the default`
-    );
+  assertEqual(inspectTextDetailed(text, { maxFindings: undefined }).findings.length, 100, 'undefined cap uses default');
+  for (const bad of [-1, 1.5, NaN, '5', null, -Infinity, {}, true]) {
+    let error;
+    try { inspectTextDetailed(text, { maxFindings: bad }); } catch (e) { error = e; }
+    assertEqual(error instanceof RangeError, true, `invalid maxFindings (${String(bad)}) throws`);
   }
 }
 

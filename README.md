@@ -160,6 +160,8 @@ const clean = summonSanctifier(getRecommendedSanctifierOptions(report));
 
 Recommendations enable cleaning flags; destructive `purgeEmojis` and `keyboardOnlyFilter` remain opt-in.
 
+Emoji matching is a compact sequence approximation, not full RGI validation. A lone regional indicator (U+1F1E6-U+1F1FF) is a letter, not a flag: `hasEmojis` is false, `purgeEmojis` preserves it, and `sanctifyKeyboardOnlyEmoji` removes it. A lone skin-tone modifier (U+1F3FB-U+1F3FF) displays as a swatch and still counts as emoji. Paired indicators and modified emoji still match. This is not payload detection; use inspection/hidden-text scanning for its documented character ranges.
+
 ### `inspectTextDetailed(text: string, options?: { maxFindings?: number }): DetailedTrashReport`
 
 Reports invisible and control characters with exact positions, categories and counts.
@@ -191,7 +193,7 @@ const { findings, counts, total, truncated } = inspectTextDetailed(input, { maxF
 
 Categories include legitimate text; see [context rules](#text-sanctifiercontext-inspecttextincontexttext-options). Purging joiners, selectors and flag tags changes emoji/Mongolian text; `keyboardOnlyEmoji` preserves matched emoji. Categories cover Default_Ignorable_Code_Point and what `nukeControls`/`purgeInvisibleChars` strip, except detectable-but-preserved U+3000.
 
-`codePoint` is a full code point, not a surrogate. `offset`: zero-based UTF-16 index, high surrogate for astral characters. `line`/`column`: one-based, UTF-16 columns; LF, CR and CRLF end lines. Counts include every occurrence. `maxFindings`: default 100, `Infinity` lists all; negative/fractional numbers, strings, `NaN` and `null` fall back to 100. `truncated` means findings were omitted. One pass, no regex or input copy.
+`codePoint` is a full code point, not a surrogate. `offset`: zero-based UTF-16 index, high surrogate for astral characters. `line`/`column`: one-based, UTF-16 columns; LF, CR and CRLF end lines. Counts include every occurrence. `maxFindings`: default 100, `Infinity` lists all; omitted or `undefined` uses 100. Invalid values (negative/fractional numbers, strings, `NaN`, `null`) throw `RangeError` instead of silently using a default. `truncated` means findings were omitted. One pass, no regex or input copy.
 
 Set `maxFindings: 0` for counts only; no finding objects are built. Memory stays flat with caps set; see [maintainer measurements](DESIGN.md#working-in-this-repo).
 
@@ -221,7 +223,7 @@ const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRun
 - `kind` is `tag` (U+E0000–U+E007F), `variation_selector` (U+FE00–U+FE0F, U+E0100–U+E01EF, U+180B–U+180D, U+180F), `invisible_operator` (U+2061–U+2064) or `reserved_tag_plane` (U+E0080–U+E00FF, U+E01F0–U+E0FFF: unassigned, default ignorable, so they render as nothing and can carry data). Consecutive characters of one kind form one run.
 - `offset`/`end`: UTF-16 `[offset, end)`; `count`: code points. Positions follow `inspectTextDetailed`. Only tags have `decoded`/`decodedTruncated`.
 - `sequence`: lone `'ideographic'` or `'mongolian'` selector under [context rules](#text-sanctifiercontext-inspecttextincontexttext-options). These stay in `runs`: selectors can carry data, up to a byte per ideograph. Recognized flags/presentation selectors go in `benign`; [multi-selector runs stay suspicious](DESIGN.md#context-aware-findings).
-- `maxRuns` separately caps `runs` and `benign`; `counts`, `total`, `benignTotal` stay exact. `truncated` means either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units without splitting markers. Both default to `Infinity`; only non-negative integers or `Infinity` are valid. Invalid values, including `null`, mean no cap. Set both for untrusted input.
+- `maxRuns` separately caps `runs` and `benign`; `counts`, `total`, `benignTotal` stay exact. `truncated` means either list was cut. `maxDecodedLength` caps each `decoded` string in UTF-16 units without splitting markers. Both default to `Infinity`; only non-negative integers or `Infinity` are valid. Omitted or `undefined` uses the default; invalid values, including `null` and strings, throw `RangeError` instead of silently removing the bound. Set both for untrusted input.
 - `decodeTagText` turns U+E0020–U+E007E into the ASCII they shadow and writes any other character as `<U+XXXX>`.
 - Zero-width, bidi and other invisible characters are not runs; use `inspectTextDetailed` for those.
 - `codePointCounts`: code-point totals per `counts` key. `supplementarySelectorCount`: U+E0100-U+E01EF only. Both exclude benign spans and remain exact under caps.
@@ -248,7 +250,7 @@ Benign, and nothing else:
 - U+200C or U+200D directly after a virama (Devanagari, Bengali, Tamil, Malayalam, Sinhala, Myanmar and the other scripts with one), as IDNA ContextJ (RFC 5892) allows
 - U+200C between two Arabic-script letters, skipping marks, as in Persian. This approximates the RFC's joining-type rule: it also accepts a ZWNJ after a letter that does not join to the left, and none in other joining scripts such as Syriac
 
-U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. Requires Unicode property escapes; separate from the browser file, about <!-- gen:size:text-sanctifier/context -->2.0 KiB<!-- /gen --> gzipped on its own.
+U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. Requires Unicode property escapes; separate from the browser file, about <!-- gen:size:text-sanctifier/context -->2.1 KiB<!-- /gen --> gzipped on its own.
 
 `benignSupplementarySelectorCount` counts the benign ideographic selectors U+E0100–U+E01EF. With `findHiddenRuns` from `text-sanctifier/hidden`, `scan.supplementarySelectorCount - report.benignSupplementarySelectorCount` is the exact number of suspicious ones.
 
@@ -334,7 +336,7 @@ Rewrites files in place and reports what it replaced and removed.
 
 - `--normalize-spaces`: `normalizeSpaces` (look-alike spaces become ordinary spaces)
 - `--purge-invisible`: `purgeInvisibleChars`
-- `--keep-benign`: preserve [contextually benign sequences](#text-sanctifiercontext-inspecttextincontexttext-options) while purging, including with default cleaning flags. With explicit cleaning flags it needs `--purge-invisible`.
+- `--keep-benign`: preserve [contextually benign sequences](#text-sanctifiercontext-inspecttextincontexttext-options) while purging, including with default cleaning flags. With explicit cleaning flags it needs `--purge-invisible`. Context uses the whole input, with bounded temporary match storage and no retained findings. Space and newline normalization run on the whole result, preserving surrounding whitespace.
 - `--nuke-controls`: `nukeControls`
 - `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
 - Default cleaning flags: `--normalize-spaces --purge-invisible --nuke-controls`; normalize spaces, delete other `check` findings except U+3000.
@@ -362,7 +364,7 @@ git diff | npx text-sanctifier reveal
 - Binary files are skipped and reported in summaries and JSON `skipped`; AI scans also skip known binary signatures and image, font and archive extensions. See [detection heuristic](DESIGN.md#working-in-this-repo).
 - UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Invalid UTF-8 is checked with invalid bytes decoded as U+FFFD; `check` reports stderr warnings and JSON `notUtf8`. `fix` refuses rewriting and lists `skipped`.
-- `-` reads stdin. With no paths, `check` reads piped input, and scans the current directory when stdin is a terminal, the null device or empty. `check --ai-config` always searches the current directory with no paths. `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
+- `-` reads stdin. With no paths, `check` always scans the current directory, including with `--ai-config`. Piped checks need an explicit `-`; when stdin is a pipe or a file and `-` is missing, `check` says so on stderr. An open unused stdin pipe cannot hang directory discovery. `fix` and `reveal` still read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
 - No matching files or nothing checked exits 2, as does `fix` refusing stdin/explicit files. Excluding every matched input exits 0. Directory/glob skips do not fail if another input is checked.
 - JSON `errors`: `{ path, code, message, cause? }`; `path` may be null, system `cause` appears on read/write failures. Codes: `usage`, `not_found`, `no_match`, `read_failed`, `decode_failed`, `write_failed`, `refused`, `nothing_checked`. Nonempty errors mean exit 2.
 
@@ -382,7 +384,7 @@ Requires ES2020+, Node.js `>=18` or modern evergreen browsers; no runtime depend
 
 - **ESM only:** no CommonJS build; `require('text-sanctifier')` needs Node's `require(esm)` support.
 - **Types:** JSDoc source; declarations in `dist/types`.
-- **Browser:** `text-sanctifier/browser` resolves to the prebuilt ESM file. With a bundler use `text-sanctifier`: source tree-shakes (`sideEffects: false`), prebuilt file does not. Per-import budgets are checked; `inspectTextDetailed` is about <!-- gen:size:inspectTextDetailed -->0.9 KiB<!-- /gen --> gzipped.
+- **Browser:** `text-sanctifier/browser` resolves to the prebuilt ESM file. With a bundler use `text-sanctifier`: source tree-shakes (`sideEffects: false`), prebuilt file does not. Per-import budgets are checked; `inspectTextDetailed` is about <!-- gen:size:inspectTextDetailed -->1.0 KiB<!-- /gen --> gzipped.
 
 ---
 

@@ -11,8 +11,8 @@ Usage:
   text-sanctifier reveal [paths...]
 
 Paths may be files, directories or globs (quote globs so the shell leaves them
-alone). "-" reads stdin. With no paths, check reads piped input, or scans the current
-directory when stdin is a terminal, the null device or empty. Fix and reveal read
+alone). "-" reads stdin. With no paths, check always scans the current
+directory; piped checks require "-". Fix and reveal read
 piped input. Directories and globs skip files ignored by git (inside
 a git work tree). Binary files are skipped; files that are text apart from a stray
 NUL or bad byte are not, and UTF-16 files with a BOM are decoded. A path or glob that

@@ -1,16 +1,27 @@
-import { readFileSync, writeFileSync, lstatSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, lstatSync, fstatSync, chmodSync, renameSync, unlinkSync } from 'node:fs';
 import { resolve, relative, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { inspectTextDetailed, summonSanctifier, revealInvisible } from '../../src/index.js';
 import { getNewlineStats } from '../../src/inspectText.js';
-import { SPACE_LOOKALIKES_REGEX } from '../../src/sanctifyText.js';
-import { inspectTextInContext } from '../../src/context.js';
+import { SPACE_LOOKALIKES_REGEX, INVISIBLE_TRASH_REGEX } from '../../src/sanctifyText.js';
+import { benignCategoryAt } from '../../src/contextRules.js';
 import { VERSION, USAGE, UsageError, parseArgs } from './args.js';
-import { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, collectInputs, decode, stdinHasInput, readStdin } from './inputs.js';
+import { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, collectInputs, decode, readStdin } from './inputs.js';
 import { inspect, inspectAiConfig, describeRun, hex, formatCounts, plural } from './scan.js';
 import { fingerprintFindings, sarifLog } from './sarif.js';
 
-function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors }) {
+/** True when stdin is a pipe or a non-empty file; never reads it. */
+function pipedStdin() {
+    try {
+        const stat = fstatSync(0);
+        // Windows reports a pipe as none of the stat kinds, so test what stdin is not.
+        return !stat.isCharacterDevice() && !(stat.isFile() && stat.size === 0);
+    } catch {
+        return false;
+    }
+}
+
+function textVisitor({ inputs, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors }) {
     /**
      * Reads every input in order, calling `visit(label, text, input)` for each decodable one.
      * @param {(label: string, text: string, input: { path: string, explicit: boolean }) => void} visit
@@ -25,7 +36,7 @@ function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, e
                     skipped.push({ path: label, reason: 'symlink' });
                     continue;
                 }
-                bytes = input.path === STDIN ? (stdinBytes ?? await readStdin()) : readFileSync(resolve(cwd, input.path));
+                bytes = input.path === STDIN ? await readStdin() : readFileSync(resolve(cwd, input.path));
             } catch (e) {
                 addError(label, 'read_failed', `${label}: ${e.code || e.message}`, e.code);
                 continue;
@@ -146,7 +157,7 @@ async function reveal({ inputs, forEachText, errors }) {
 async function fix({ opts, inputs, forEachText, cwd, addError, err, out, skipped, excluded, errors, skippedNote }) {
     const clean = summonSanctifier({
         normalizeSpaces: opts.normalizeSpaces,
-        purgeInvisibleChars: opts.purgeInvisible,
+        purgeInvisibleChars: opts.purgeInvisible && !opts.keepBenign,
         nukeControls: opts.nukeControls,
         normalizeNewlines: opts.normalizeNewlines,
     });
@@ -162,17 +173,26 @@ async function fix({ opts, inputs, forEachText, cwd, addError, err, out, skipped
         const body = leadingBom ? text.slice(1) : text;
         let cleaned;
         if (opts.keepBenign && opts.purgeInvisible) {
-            const benign = inspectTextInContext(body, { maxFindings: Infinity }).findings.filter((f) => f.benign);
-            let start = 0;
+            // Normalize lone surrogates before deletion can join them. Context is
+            // always tested against this whole string, never a chunk's neighbours.
+            const safe = summonSanctifier({ normalizeSpaces: opts.normalizeSpaces })(body);
             const parts = [];
-            for (const f of benign) {
-                parts.push(clean(body.slice(start, f.offset)));
-                const end = f.offset + (f.codePoint > 0xFFFF ? 2 : 1);
-                parts.push(body.slice(f.offset, end));
+            for (let start = 0; start < safe.length;) {
+                let end = Math.min(start + 65536, safe.length);
+                const last = safe.charCodeAt(end - 1);
+                if (last >= 0xD800 && last <= 0xDBFF) end--;
+                // Bound V8's temporary match storage even on all-invisible input.
+                parts.push(safe.slice(start, end).replace(INVISIBLE_TRASH_REGEX, (run, offset) => {
+                    let kept = '';
+                    for (const character of run) {
+                        if (benignCategoryAt(safe, start + offset)) kept += character;
+                        offset += character.length;
+                    }
+                    return kept;
+                }));
                 start = end;
             }
-            parts.push(clean(body.slice(start)));
-            cleaned = parts.join('');
+            cleaned = clean(parts.join(''));
         } else cleaned = clean(body);
         if (leadingBom && !opts.stripBom) cleaned = String.fromCharCode(BOM) + cleaned;
 
@@ -183,7 +203,8 @@ async function fix({ opts, inputs, forEachText, cwd, addError, err, out, skipped
         const after = inspectTextDetailed(cleaned, { maxFindings: 0 }).counts;
         // Look-alike spaces that became ordinary spaces were replaced, not removed
         SPACE_LOOKALIKES_REGEX.lastIndex = 0;
-        const spacesReplaced = opts.normalizeSpaces ? (text.match(SPACE_LOOKALIKES_REGEX) || []).length : 0;
+        let spacesReplaced = 0;
+        if (opts.normalizeSpaces) while (SPACE_LOOKALIKES_REGEX.exec(text)) spacesReplaced++;
         before.nonbreaking_space -= spacesReplaced;
         const removed = {};
         let removedTotal = 0;
@@ -268,22 +289,11 @@ export async function main(argv) {
         if (emit) warn(message);
     };
     let paths = opts.paths;
-    /** @type {Buffer | undefined} */
-    let stdinBytes;
-    // check with no paths reads nonempty stdin once, otherwise scans the current
-    // directory. AI configuration discovery always defaults to the directory.
+    // Never probe a pipe: an agent may leave it open forever. Stdin needs "-".
     if (paths.length === 0 && opts.command === 'check') {
         paths = ['.'];
-        if (!opts.aiConfig && stdinHasInput()) {
-            try {
-                stdinBytes = await readStdin();
-            } catch (e) {
-                addError(STDIN_LABEL, 'read_failed', `${STDIN_LABEL}: ${e.code || e.message}`, e.code);
-                if (opts.format === 'json') out(JSON.stringify({ errors }));
-                return 2;
-            }
-            if (stdinBytes.length > 0) paths = [STDIN];
-        }
+        // Piped text is not read here, so say so rather than let a clean directory look like a clean pipe.
+        if (!opts.aiConfig && pipedStdin()) warn('stdin is not read without "-"; checking the current directory. To check piped text: text-sanctifier check -');
     } else if (paths.length === 0) {
         if (process.stdin.isTTY) {
             addError(null, 'usage', 'no paths given and nothing piped on stdin.', undefined, false);
@@ -310,7 +320,7 @@ export async function main(argv) {
     /** @type {string[]} */
     const notUtf8 = [];
 
-    const forEachText = textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors });
+    const forEachText = textVisitor({ inputs, cwd, opts, addError, warn, skipped, excluded, notUtf8, errors });
     const skippedNote = () => (skipped.length > 0 ? `; ${plural(skipped.length, 'file')} skipped` : '') + (excluded.length > 0 ? `; ${plural(excluded.length, 'file')} excluded` : '');
 
     const context = { opts, cwd, inputs, forEachText, skipped, excluded, notUtf8, errors, out, err, addError, skippedNote };

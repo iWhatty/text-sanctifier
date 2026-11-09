@@ -10,6 +10,20 @@ import { findHiddenRuns } from '../src/hiddenText.js';
 {
   const cp = String.fromCodePoint;
   const purge = summonSanctifier({ purgeEmojis: true });
+  for (const component of [cp(0x1F1E8), cp(0x1F1E8, 0xFE0F)]) {
+    assertEqual(purge(component), component, 'lone regional indicator preserved by emoji purge');
+    assertEqual(sanctifyKeyboardOnlyEmoji(component), '', 'lone regional indicator excluded from keyboard emoji');
+    assertEqual(inspectText(component).hasEmojis, false, 'lone regional indicator is not an emoji');
+    assertEqual(inspectText(component).hasNonKeyboardChars, true, 'lone regional indicator remains non-keyboard text');
+  }
+  for (let modifier = 0x1F3FB; modifier <= 0x1F3FF; modifier++) {
+    assertEqual(purge('a' + cp(modifier) + 'b'), 'ab', 'lone skin-tone swatch purged');
+    assertEqual(sanctifyKeyboardOnlyEmoji(cp(modifier)), cp(modifier), 'lone skin-tone swatch kept as emoji');
+    assertEqual(inspectText(cp(modifier)).hasEmojis, true, 'lone skin-tone swatch reported as emoji');
+  }
+  const oddFlag = cp(0x1F1E8, 0x1F1E6, 0x1F1E8);
+  assertEqual(purge(oddFlag), cp(0x1F1E8), 'odd regional indicator remains after purging flag');
+  assertEqual(sanctifyKeyboardOnlyEmoji(oddFlag), cp(0x1F1E8, 0x1F1E6), 'keyboard emoji keeps only paired indicators');
   const samples = [cp(0x1F44D, 0x1F3FD), cp(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467), cp(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB), cp(0x1F1E8, 0x1F1E6), '1' + cp(0xFE0F, 0x20E3), cp(0x2764, 0xFE0F), cp(0x1F469, 0x200D, 0x2764, 0xFE0F, 0x200D, 0x1F468)];
   for (const emoji of samples) {
     assertEqual(purge('a' + emoji + 'b'), 'ab', 'purge complete emoji');

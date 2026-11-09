@@ -71,8 +71,13 @@ function heapGrowthMb(fn) {
   assertEqual(none.runs.length + ':' + none.total + ':' + none.truncated, '0:5:true', '2. maxRuns: 0 is counts only');
   assertEqual(findHiddenRuns('plain').truncated, false, '2. clean text is not truncated');
 
-  for (const bad of [-1, 1.5, NaN, '3', null]) {
-    assertEqual(findHiddenRuns(text, { maxRuns: bad }).runs.length, 5, `2. invalid maxRuns (${String(bad)}) falls back to no cap`);
+  for (const key of ['maxRuns', 'maxDecodedLength']) {
+    for (const bad of [-1, 1.5, NaN, '3', null, -Infinity, {}, true]) {
+      let error;
+      try { findHiddenRuns(text, { [key]: bad }); } catch (e) { error = e; }
+      assertEqual(error instanceof RangeError, true, `invalid ${key} (${String(bad)}) throws`);
+    }
+    assertEqual(findHiddenRuns(text, { [key]: undefined }).total, 5, `undefined ${key} uses default`);
   }
 
   const benignText = `${HEART}${VS16}b${HEART}${VS16}c${HEART}${VS16}${WALES}`;

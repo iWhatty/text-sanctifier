@@ -52,11 +52,13 @@ export function normalizeTypographicJank(text) {
 
 /**
  * Match emoji presentation, flags, keycaps and joined pictographs.
+ * A lone regional indicator is a letter, not a flag. A lone skin-tone modifier is
+ * displayed as a swatch, so it still counts as emoji.
  * Built in a function marked pure, so bundlers drop it when nothing uses it.
  * @returns {RegExp}
  */
 function buildEmojiRegex() {
-    return /(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|(?:\p{Emoji_Presentation}\uFE0F?|\p{Extended_Pictographic}\uFE0F)\p{Emoji_Modifier}?(?:\u200D\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?)*)/gu;
+    return /\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|(?:(?!\p{Regional_Indicator})\p{Emoji_Presentation}\uFE0F?|\p{Extended_Pictographic}\uFE0F)\p{Emoji_Modifier}?(?:\u200D\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?)*/gu;
 }
 
 /** @type {RegExp} */

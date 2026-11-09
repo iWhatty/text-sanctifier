@@ -251,3 +251,9 @@ function heapGrowthMb(fn) {
 
 
 console.log('All context tests finished.');
+
+for (const bad of ['1', -1, null, 1.5, NaN, -Infinity, {}, true]) {
+  let error;
+  try { inspectTextInContext(ZWSP, { maxFindings: bad }); } catch (e) { error = e; }
+  assertEqual(error instanceof RangeError, true, `context rejects invalid cap (${String(bad)})`);
+}

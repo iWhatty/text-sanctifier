@@ -390,16 +390,24 @@ try {
     const cwd = tempDir();
     writeFileSync(join(cwd, 'dirty.txt'), `a${ZWSP}b`);
     const noPaths = run(['check'], { cwd, input: `a${ZWSP}b` });
-    assertEqual(noPaths.code + ' ' + lines(noPaths.stdout)[0], '1 <stdin>:1:2  U+200B  zero_width', 'check: no paths reads piped input');
-    assertEqual(noPaths.stdout.includes('dirty.txt'), false, 'check: piped input does not scan the directory');
-    assertEqual(noPaths.stderr, '', 'check: piped input needs no note');
+    assertEqual(noPaths.code + ' ' + lines(noPaths.stdout)[0], '1 dirty.txt:1:2  U+200B  zero_width', 'check: no paths scans directory despite piped input');
+    assertEqual(noPaths.stderr.includes('text-sanctifier check -'), true, 'check: piped input without "-" gets a note');
     const clean = run(['check', '--json'], { cwd, input: 'fine' });
-    assertEqual(clean.code, 0, 'check: clean piped input exits 0 despite dirty file');
-    assertEqual(clean.stdout, run(['check', '--json', '-'], { cwd, input: 'fine' }).stdout, 'check: clean piped input reports exactly as explicit stdin');
-    assertEqual(JSON.parse(clean.stdout).filesScanned, 1, 'check: clean piped input scans stdin only');
+    assertEqual(clean.code, 1, 'check: clean pipe cannot hide dirty directory');
+    assertEqual(JSON.parse(clean.stdout).files[0].path, 'dirty.txt', 'check: no paths reports file');
+    const openPipe = await new Promise((resolve) => {
+      const child = spawn(process.execPath, [BIN, 'check', '--json'], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+      let stdout = '';
+      child.stdout.on('data', (s) => { stdout += s; });
+      const timer = setTimeout(() => child.kill(), 5000);
+      child.on('close', (code) => { clearTimeout(timer); resolve({ code, stdout }); });
+      // Deliberately never write to or close child.stdin.
+    });
+    assertEqual(openPipe.code, 1, 'check: open unused stdin pipe does not hang');
+    assertEqual(JSON.parse(openPipe.stdout || '{}').filesScanned, 1, 'check: open pipe still scans directory');
     const empty = run(['check'], { cwd, input: '' });
     assertEqual(empty.code + ' ' + lines(empty.stdout)[0], '1 dirty.txt:1:2  U+200B  zero_width', 'check: empty piped input scans the directory');
-    assertEqual(empty.stderr, '', 'check: empty piped input needs no note');
+    assertEqual(empty.stderr.includes('stdin is not read'), true, 'check: any pipe without "-" gets the note');
 
     const noInput = spawnSync(process.execPath, [BIN, 'check'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     assertEqual(noInput.status + ':' + noInput.stderr.includes('pass "-"'), '1:false', 'check: no paths and no stdin scans the directory without a note');
@@ -883,6 +891,33 @@ try {
         if (!['EPERM', 'EACCES', 'ENOTSUP'].includes(e.code)) throw e;
       }
     }
+  }
+  {
+    const cwd = tempDir();
+    const file = join(cwd, 'dense.txt');
+    writeFileSync(file, ZWSP.repeat(Math.ceil(10 * 1024 * 1024 / 3)));
+    const result = spawnSync(process.execPath, ['--max-old-space-size=96', BIN, 'fix', '--keep-benign', '--dry-run', '--json', file], { cwd, encoding: 'utf8', timeout: 15000 });
+    assertEqual(result.status, 1, 'keep-benign: 10 MiB dense input fits 96 MiB heap');
+    assertEqual(JSON.parse(result.stdout || '{}').filesChanged, 1, 'keep-benign: dense dry-run reports change');
+    writeFileSync(file, SCOTLAND.repeat(Math.ceil(10 * 1024 * 1024 / Buffer.byteLength(SCOTLAND))));
+    const kept = spawnSync(process.execPath, ['--max-old-space-size=96', BIN, 'fix', '--keep-benign', '--dry-run', '--json', file], { cwd, encoding: 'utf8', timeout: 15000 });
+    assertEqual(kept.status, 0, 'keep-benign: 10 MiB benign input also fits 96 MiB heap');
+    assertEqual(JSON.parse(kept.stdout || '{}').filesChanged, 0, 'keep-benign: dense flags remain unchanged');
+    const benign = cp(0x1F469) + ch(0x200D) + cp(0x1F4BB);
+    for (const prefix of ['', 'x'.repeat(65531), 'x'.repeat(65532), 'x'.repeat(65534), 'x'.repeat(65535)]) {
+      const input = prefix + '  ' + benign + '  ' + ch(0xA0) + 'a' + ZWSP + '\r' + ZWSP + '\n  ' + SCOTLAND + '\r\n ';
+      const fixed = run(['fix', '--keep-benign', '--normalize-spaces', '--purge-invisible', '--normalize-newlines', '-'], { cwd, input });
+      const expected = prefix + '  ' + benign + '   a\n  ' + SCOTLAND + '\n ';
+      assertEqual(fixed.stdout, expected, 'keep-benign: whole-text newline and space semantics across chunks');
+    }
+    const split = 'x'.repeat(65535) + cp(0x1F600) + ZWSP + cp(0xE0061);
+    assertEqual(run(['fix', '--keep-benign', '-'], { cwd, input: split }).stdout, 'x'.repeat(65535) + cp(0x1F600), 'keep-benign: chunk never splits surrogate pair');
+    for (let offset = 65524; offset < 65538; offset++) {
+      const prefix = 'x'.repeat(offset);
+      assertEqual(run(['fix', '--keep-benign', '-'], { cwd, input: prefix + SCOTLAND + ZWSP }).stdout === prefix + SCOTLAND, true, `keep-benign: flag context spans chunk boundary at ${offset}`);
+    }
+    const adjacent = cp(0x270C) + VS16 + VS16 + ZWSP + ch(0x200D) + cp(0xE0061);
+    assertEqual(run(['fix', '--keep-benign', '-'], { cwd, input: adjacent }).stdout, cp(0x270C) + VS16, 'keep-benign: classify every character in a mixed invisible run');
   }
 } finally {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });

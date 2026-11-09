@@ -146,6 +146,7 @@ export function inspectText(text) {
  * @typedef {Object} InspectDetailedOptions
  * @property {number} [maxFindings=100] - Cap on listed findings (non-negative integer or Infinity).
  *   Each listed finding is an object, so memory grows with the number listed; 0 builds none (counts only).
+ *   Undefined uses the default; other invalid values throw RangeError.
  */
 
 const DEFAULT_MAX_FINDINGS = 100;
@@ -173,17 +174,15 @@ const DEFAULT_MAX_FINDINGS = 100;
  * @param {string} text
  * @param {InspectDetailedOptions} [options]
  * @returns {DetailedTrashReport}
+ * @throws {RangeError} If maxFindings is neither undefined, Infinity nor a non-negative integer.
  */
 export function inspectTextDetailed(text, options = {}) {
     if (typeof text !== 'string') {
         throw new TypeError('inspectTextDetailed expects a string input.');
     }
 
-    const requested = options && options.maxFindings;
-    const maxFindings =
-        requested === Infinity || (Number.isInteger(requested) && requested >= 0)
-            ? requested
-            : DEFAULT_MAX_FINDINGS;
+    const maxFindings = options?.maxFindings === undefined ? DEFAULT_MAX_FINDINGS : options.maxFindings;
+    if (maxFindings !== Infinity && !(Number.isInteger(maxFindings) && maxFindings >= 0)) throw new RangeError('Invalid maxFindings');
 
     /** @type {TrashCounts} */
     const counts = {

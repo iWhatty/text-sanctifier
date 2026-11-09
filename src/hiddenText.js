@@ -60,7 +60,7 @@ export { VERSION } from './version.generated.js';
  * @property {number} [maxRuns=Infinity] - cap on listed runs, and separately on listed benign spans
  *   (non-negative integer or Infinity). Counts stay exact.
  * @property {number} [maxDecodedLength=Infinity] - cap on each run's `decoded` text, in UTF-16 units.
- *   For both, any other value (negative, fractional, NaN, a string) means the default, no cap.
+ *   For both, undefined uses the default; other invalid values throw RangeError.
  */
 
 /**
@@ -96,6 +96,7 @@ export function decodeTagText(text) {
  * @param {string} text
  * @param {HiddenScanOptions} [options]
  * @returns {HiddenTextScan}
+ * @throws {RangeError} If a cap is neither undefined, Infinity nor a non-negative integer.
  */
 export function findHiddenRuns(text, options = {}) {
     return scanHiddenSpans(text, options);

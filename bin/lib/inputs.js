@@ -1,4 +1,4 @@
-import { readFileSync, statSync, lstatSync, fstatSync, readdirSync } from 'node:fs';
+import { readFileSync, statSync, lstatSync, readdirSync } from 'node:fs';
 import { resolve, join, sep, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -280,20 +280,6 @@ function decode(bytes, sniff) {
     }
 }
 
-/**
- * True when stdin may hold input for check with no paths: anything but a terminal,
- * the null device or an empty file. Pipes must be read to detect empty input;
- * Windows pipes do not report isFIFO().
- */
-function stdinHasInput() {
-    try {
-        const stat = fstatSync(0);
-        return !stat.isCharacterDevice() && !(stat.isFile() && stat.size === 0);
-    } catch {
-        return false;
-    }
-}
-
 /** @returns {Promise<Buffer>} */
 function readStdin() {
     return new Promise((res, rej) => {
@@ -304,4 +290,4 @@ function readStdin() {
     });
 }
 
-export { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, collectInputs, decode, stdinHasInput, readStdin };
+export { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, collectInputs, decode, readStdin };

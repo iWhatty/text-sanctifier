@@ -8,6 +8,7 @@ text-sanctifier/
 │   ├── textPatterns.js       emoji, keyboard and typographic patterns shared by both
 │   ├── hiddenText.js         hidden-text runs for check --ai-config (not in the browser bundle)
 │   ├── hiddenScan.js         internal streaming hidden-span scanner
+│   ├── contextRules.js       internal context predicates shared with CLI
 │   ├── context.js            inspectTextInContext: benign findings (text-sanctifier/context)
 │   ├── sequenceRules.js      internal legitimate-sequence rules shared by context.js and hiddenScan.js
 │   ├── categories.generated.js  purge regexes + classifier (generated; do not edit)

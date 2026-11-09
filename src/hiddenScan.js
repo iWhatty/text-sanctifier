@@ -71,14 +71,14 @@ function sequenceOf(text, index, cp) {
 }
 
 /**
- * A cap option: a non-negative integer or Infinity; anything else means no cap.
+ * A cap option: undefined means no cap; invalid values throw RangeError.
+ * @param {string} name - option name for the error
  * @param {unknown} value
  * @returns {number}
  */
-function cap(value) {
-    return typeof value === 'number' && (value === Infinity || (Number.isInteger(value) && value >= 0))
-        ? value
-        : Infinity;
+function cap(name, value = Infinity) {
+    if (typeof value === 'number' && (value === Infinity || (Number.isInteger(value) && value >= 0))) return value;
+    throw new RangeError('Invalid ' + name);
 }
 
 /**
@@ -89,8 +89,8 @@ function cap(value) {
  */
 export function scanHiddenSpans(text, options = {}, onSpan) {
     if (typeof text !== 'string') throw new TypeError('findHiddenRuns expects a string input.');
-    const maxRuns = cap(options && options.maxRuns);
-    const maxDecodedLength = cap(options && options.maxDecodedLength);
+    const maxRuns = cap('maxRuns', options?.maxRuns);
+    const maxDecodedLength = cap('maxDecodedLength', options?.maxDecodedLength);
 
     /** @type {HiddenRun[]} */
     const runs = [];
