@@ -4,7 +4,7 @@
 // sequences (emoji joiners and selectors, joiners in Indic and Arabic-script text,
 // ideographic variation sequences, Mongolian selectors, subdivision flags), counted
 // exactly per category. The categories are
-// unchanged; see "Proposal: context-aware findings" in DESIGN.md.
+// unchanged; see "Context-aware findings" in DESIGN.md.
 //
 // Exported as `text-sanctifier/context`. It needs Unicode property escapes in regexes,
 // so it lives apart from the core and the browser file and has its own size budget.

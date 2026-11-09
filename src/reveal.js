@@ -1,6 +1,6 @@
 // ./src/reveal.js
 
-import { inspectTextDetailed } from './inspectText.js';
+import { classifyCodeUnit, classifyAstral } from './categories.generated.js';
 
 /** @typedef {import('./inspectText.js').TrashCategory} TrashCategory */
 
@@ -29,12 +29,17 @@ export function revealInvisible(text, options = {}) {
         ? options.format
         : (codePoint) => '<U+' + codePoint.toString(16).toUpperCase().padStart(4, '0') + '>';
 
-    // One finding per hidden character, in offset order; code points above U+FFFF span two units
+    // Classify directly, without allocating a finding object for every marker.
     let out = '';
     let last = 0;
-    for (const f of inspectTextDetailed(text, { maxFindings: Infinity }).findings) {
-        out += text.slice(last, f.offset) + format(f.codePoint, f.category);
-        last = f.offset + (f.codePoint > 0xFFFF ? 2 : 1);
+    for (let i = 0; i < text.length; i++) {
+        const codePoint = /** @type {number} */ (text.codePointAt(i));
+        const category = codePoint > 0xFFFF ? classifyAstral(codePoint) : classifyCodeUnit(codePoint);
+        if (category !== null) {
+            out += text.slice(last, i) + format(codePoint, category);
+            last = i + (codePoint > 0xFFFF ? 2 : 1);
+        }
+        if (codePoint > 0xFFFF) i++;
     }
     return out + text.slice(last);
 }

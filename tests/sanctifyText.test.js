@@ -4,6 +4,8 @@
 import { summonSanctifier, sanctifyStrict, sanctifyLoose, sanctifyKeyboardOnlyEmoji, sanctifyKeyboardOnly, sanctifyPasted } from '../src/index.js';
 import { inspectText, inspectTextDetailed, revealInvisible, getRecommendedSanctifierOptions } from '../src/index.js';
 import { SPACE_LOOKALIKES_REGEX, sanctifyText } from '../src/sanctifyText.js';
+import { inspectTextInContext } from '../src/context.js';
+import { findHiddenRuns } from '../src/hiddenText.js';
 
 {
   const cp = String.fromCodePoint;
@@ -437,5 +439,39 @@ assertEqual(
   assertEqual(recommended('a\r\nb'), 'a\nb', '33. CRLF is still normalized');
 }
 
+
+// Fixed-seed differential coverage for scanners, positions, caps and purging.
+{
+  let seed = 0x12345678;
+  const next = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0);
+  const chars = [0x61, 0x0A, 0x0D, 0xD800, 0xDC00, 0x200B, 0x200D, 0x3000,
+    0xFE0F, 0x2061, 0xE0041, 0xE0100, 0x1F600, 0x1F1E8, 0x1F3FD, 0x20E3];
+  const purge = summonSanctifier({ purgeInvisibleChars: true, nukeControls: true });
+  for (let k = 0; k < 4000; k++) {
+    let s = '';
+    const length = (next() >>> 16) % 20;
+    for (let j = 0; j < length; j++) s += String.fromCodePoint(chars[(next() >>> 16) % chars.length]);
+    const all = inspectTextDetailed(s, { maxFindings: Infinity });
+    const cap = (next() >>> 16) % 5;
+    const limited = inspectTextDetailed(s, { maxFindings: cap });
+    const context = inspectTextInContext(s, { maxFindings: cap });
+    const runs = findHiddenRuns(s, { maxRuns: Infinity });
+    const expectedReveal = all.findings.reduceRight((out, f) =>
+      out.slice(0, f.offset) + '<U+' + f.codePoint.toString(16).toUpperCase().padStart(4, '0') + '>' +
+      out.slice(f.offset + (f.codePoint > 0xFFFF ? 2 : 1)), s);
+    const cleaned = inspectTextDetailed(purge(s), { maxFindings: Infinity });
+    if (JSON.stringify(limited.findings) !== JSON.stringify(all.findings.slice(0, cap)) ||
+        JSON.stringify(context.findings.map(({ benign, ...f }) => f)) !== JSON.stringify(limited.findings) ||
+        JSON.stringify(context.counts) !== JSON.stringify(all.counts) || context.total !== all.total ||
+        limited.truncated !== (all.total > cap) || revealInvisible(s) !== expectedReveal ||
+        cleaned.findings.some(f => f.codePoint !== 0x3000) ||
+        runs.runs.some(r => !all.findings.some(f => f.offset === r.offset && f.line === r.line && f.column === r.column))) {
+      throw new Error(`Differential invariant failed at case ${k}: ${JSON.stringify(s)}`);
+    }
+  }
+  assertEqual(true, true, 'fixed-seed scanner and sanitizer invariants');
+  const cut = summonSanctifier({ maxLength: 1, onMaxLength: 'truncate' });
+  assertEqual(cut('\uD800x'), '\uFFFD', 'truncate retains lone high surrogate before replacement');
+}
 
 console.log('All tests finished.');

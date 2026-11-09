@@ -23,7 +23,3 @@ export { VERSION };
 /** @typedef {import('./inspectText.js').NewlineStats} NewlineStats */
 /** @typedef {import('./sanctifyText.js').SanctifyOptions} SanctifyOptions */
 /** @typedef {import('./reveal.js').RevealOptions} RevealOptions */
-
-
-// In Future: export helpers for power users
-// export { purgeInvisibleTrash, purgeEmojisCharacters, normalizeNewlines, trimSpacesAroundNewlines, collapseParagraphs, collapseExtraSpaces, purgeControlCharacters } from './sanctifyText.js';

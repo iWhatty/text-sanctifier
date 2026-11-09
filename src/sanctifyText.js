@@ -332,7 +332,8 @@ export function sanctifyText(
                 {
                     // Cut before a surrogate pair, not through it
                     const last = text.charCodeAt(maxLength - 1);
-                    text = text.slice(0, last >= 0xD800 && last <= 0xDBFF ? maxLength - 1 : maxLength);
+                    const next = text.charCodeAt(maxLength);
+                    text = text.slice(0, last >= 0xD800 && last <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF ? maxLength - 1 : maxLength);
                 }
                 break;
             case 'noop':
@@ -448,15 +449,14 @@ function purgeEmojiCharacters(text) {
  * 
  * Converts:
  * - Windows ("\r\n"), Old Mac ("\r"), Unix ("\n")
- * Into the specified newline format (default: Unix "\n").
+ * Into Unix "\n".
  *
  * @param {string} text - Input string to normalize.
- * @param {string} [normalized='\n'] - Target newline style (e.g. '\n', '\r\n').
  * @returns {string}
  */
 const NORMALIZE_NEWLINES_REGEX = /\r\n|\r|\n/g;
-function normalizeNewlineChars(text, normalized = '\n') {
-    return text.replace(NORMALIZE_NEWLINES_REGEX, normalized);
+function normalizeNewlineChars(text) {
+    return text.replace(NORMALIZE_NEWLINES_REGEX, '\n');
 }
 
 
