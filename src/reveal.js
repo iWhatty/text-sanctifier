@@ -13,8 +13,9 @@ import { classifyCodeUnit, classifyAstral } from './categories.generated.js';
 /**
  * Makes hidden characters visible: every character `inspectTextDetailed` would report is
  * replaced by a marker such as `<U+200B>`, and everything else is kept as it is,
- * including tabs, newlines and emoji. Use it to show hidden text in logs, diffs, review
- * tools and agent tool output. A literal `<U+200B>` already in the text looks the same as
+ * including tabs and newlines. Emoji joiners, selectors and flag tags become markers
+ * too. Use it to show hidden text in logs, diffs, review tools and agent tool output.
+ * A literal `<U+200B>` already in the text looks the same as
  * a marker; pass `format` to choose markers that can't occur in your input.
  *
  * @param {string} text

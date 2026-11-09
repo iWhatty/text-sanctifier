@@ -441,6 +441,30 @@ assertEqual(
 }
 
 
+// 34. Length policies run before sanitizing, and invalid caps leave input uncapped.
+{
+  const cp = String.fromCodePoint;
+  const text = cp(0xD800, 0x200B) + 'abc';
+  const options = { purgeInvisibleChars: true, maxLength: 1, onMaxLength: 'noop' };
+  assertEqual(summonSanctifier(options)(text), text, '34. noop skips surrogate replacement and purging');
+  assertEqual(summonSanctifier({ ...options, maxLength: text.length })(text), cp(0xFFFD) + 'abc', '34. input exactly at the cap is sanitized');
+  for (const maxLength of [-1, NaN, Infinity, '1', null]) {
+    assertEqual(summonSanctifier({ purgeInvisibleChars: true, maxLength })(text), cp(0xFFFD) + 'abc', '34. invalid or infinite cap does not limit input');
+  }
+  const emoji = cp(0x1F600);
+  assertEqual(summonSanctifier({ maxLength: 2.5, onMaxLength: 'truncate' })('a' + emoji + 'b'), 'a', '34. fractional truncation does not split a surrogate pair');
+}
+
+// 35. Emoji removal must see selectors before invisible characters are purged.
+{
+  const cp = String.fromCodePoint;
+  const text = 'a' + cp(0x2764, 0xFE0F) + 'b';
+  const clean = summonSanctifier({ purgeEmojis: true, purgeInvisibleChars: true });
+  assertEqual(clean(text), 'ab', '35. custom options remove text-default emoji whole');
+  assertEqual(clean('a' + cp(0x2764) + 'b'), 'a' + cp(0x2764) + 'b', '35. bare text-default pictograph remains');
+  assertEqual(clean('a' + cp(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB) + 'b'), 'ab', '35. custom options remove a joined emoji whole');
+}
+
 // Fixed-seed differential coverage for scanners, positions, caps and purging.
 {
   let seed = 0x12345678;

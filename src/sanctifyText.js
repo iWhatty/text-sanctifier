@@ -101,7 +101,7 @@ function createSanctifier(defaultOptions = {}) {
 /**
  * Strict sanitizer:
  * - Purge emojis
- * - Collapse all newlines
+ * - Collapse newline runs to one LF
  * - Collapse spaces
  * - Nuke control characters
  * @param {string} text
@@ -178,8 +178,8 @@ export function sanctifyKeyboardOnlyEmoji(text) {
 /**
  * Keyboard-only (strict):
  * - Removes emojis
- * - Collapses all whitespace
- * - Restricts to printable ASCII only
+ * - Collapses spaces and newline runs, preserving single line breaks
+ * - Restricts to printable ASCII and line breaks
  * @param {string} text
  * @returns {string}
  */
@@ -434,7 +434,7 @@ function purgeNonKeyboardChars(text, purgeEmojis = false) {
 
 /**
  * Removes all emoji characters using Unicode property escapes.
- * Supports modern environments (Unicode v13+) with fallback.
+ * Requires Unicode property escapes; there is no fallback.
  *
  * @param {string} text
  * @returns {string}

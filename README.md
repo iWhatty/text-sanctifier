@@ -90,8 +90,8 @@ Used by `summonSanctifier(options)`. All boolean options default to `false`. Pro
 | --- | --- |
 | `normalizeSpaces` | Replace U+00A0, U+2000-U+200A, U+202F and U+205F with ordinary spaces; keep U+3000. |
 | `purgeZeroWidthSpaces` | Remove only U+200B, U+2060 and U+FEFF. |
+| `purgeEmojis` | Remove matched emoji sequences, including regional-indicator flags and keycaps. Text-default pictographs such as copyright and trademark require U+FE0F to count as emoji. |
 | `purgeInvisibleChars` | Remove characters marked `purgeInvisibleChars` in the category table, except U+3000, including emoji joiners and selectors. |
-| `purgeEmojis` | Remove matched emoji sequences, including flags and keycaps. Text-default pictographs such as copyright and trademark require U+FE0F to count as emoji. |
 | `nukeControls` | Remove NUL, non-whitespace C0 controls, DEL, C1 controls and bidi controls; keep tab, LF and CR. |
 | `keyboardOnlyFilter` | Normalize typographic punctuation and U+3000 to ASCII, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters and plain copyright and trademark signs. |
 | `normalizeNewlines` | Convert CRLF and CR to LF. |
@@ -127,6 +127,8 @@ Standalone exports are the same functions as the corresponding `summonSanctifier
 | `sanctifyPasted` / `.pasted` | For pasted documents and model output: normalize look-alike spaces and newlines; remove U+200B, U+2060 and U+FEFF. | Emoji joiners, selectors, bidi overrides and isolates, C0 controls including BEL and NUL, indentation, blank lines and end whitespace. |
 
 Loose and pasted keep bidi overrides/isolates (U+202A-U+202E, U+2066-U+2069). For untrusted text, use `sanctifyStrict` or `purgeInvisibleChars` with `nukeControls`. Purging without space normalization joins words separated by look-alike spaces.
+
+Subdivision flags (England, Scotland and Wales) are not matched whole by the emoji filter. `purgeEmojis` alone leaves their tag characters; `sanctifyKeyboardOnlyEmoji` removes the tags and keeps the black flag. `inspectText` reports their tags as non-keyboard characters.
 
 ```js
 import { sanctifyPasted } from 'text-sanctifier';
