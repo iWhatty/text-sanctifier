@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.14 — 2026-11-08
 
 - Emoji matching now handles modifiers, flags, keycaps and joined sequences without consuming following words. Behavior change: text-default pictographs require emoji presentation to be removed.
 - `inspectText` recognizes whole emoji sequences as keyboard-safe.
