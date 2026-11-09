@@ -20,7 +20,7 @@
 
 ### Legal Reminder
 
-> Unauthorized automated usage activates immediate commercial licensing under the Doctor Watt License terms.  
+> Licensed under AGPL-3.0 with the WATT3D Additional Terms ([ADDITIONAL_TERMS.md](./ADDITIONAL_TERMS.md)). AI or model-training use requires compliance with those terms or a separate WATT3D license.  
 > Human study and educational use are warmly encouraged.
 
 ---
