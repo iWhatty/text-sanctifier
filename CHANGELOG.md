@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.15 — 2026-11-09
 
 - The strict and keyboard-only presets remove text-default emoji such as U+2764 U+FE0F whole; before, they left the bare symbol behind.
 - `revealInvisible` uses far less memory on text with many hidden characters.

@@ -1,6 +1,6 @@
 {
   "name": "text-sanctifier",
-  "version": "1.3.14",
+  "version": "1.3.15",
   "type": "module",
   "description": "Find and remove invisible Unicode in web input, model-bound text and repositories.",
   "engines": {

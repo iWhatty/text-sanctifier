@@ -316,7 +316,7 @@ Local [pre-commit](https://pre-commit.com) hooks:
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/iWhatty/text-sanctifier
-    rev: v1.3.14  # a release tag
+    rev: v1.3.15  # a release tag
     hooks:
       - id: text-sanctifier            # every staged text file
       - id: text-sanctifier-ai-config  # agent instruction files, with --ai-config
