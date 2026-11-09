@@ -135,7 +135,7 @@ const output = sanctifyPasted(clipboardText);
 
 ### `revealInvisible(text: string, options?: RevealOptions): string`
 
-Makes every `inspectTextDetailed` finding visible; preserves everything else, including tabs, newlines and emoji.
+Makes every `inspectTextDetailed` finding visible; preserves everything else, including tabs and newlines. Emoji joiners, selectors and flag tags become markers too.
 
 ```js
 import { revealInvisible } from 'text-sanctifier';
@@ -335,7 +335,7 @@ Rewrites files in place and reports what it replaced and removed.
 - `--keep-benign`: preserve [contextually benign sequences](#text-sanctifiercontext-inspecttextincontexttext-options) while purging, including with default cleaning flags.
 - `--nuke-controls`: `nukeControls`
 - `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
-- Default cleaning flags: `--normalize-spaces --purge-invisible --nuke-controls`; normalize spaces, delete other `check` findings.
+- Default cleaning flags: `--normalize-spaces --purge-invisible --nuke-controls`; normalize spaces, delete other `check` findings except U+3000.
 - `--strip-bom`: also remove a BOM at offset 0. It is kept by default.
 - `--dry-run`: write nothing; report what would change.
 - `--exclude GLOB`: exclude matching paths; repeatable. See [Inputs](#inputs).
@@ -361,7 +361,7 @@ git diff | npx text-sanctifier reveal
 - UTF-16 files with a BOM are decoded and checked. `fix` never rewrites them and lists them under `skipped`.
 - Invalid UTF-8 is checked with invalid bytes decoded as U+FFFD; `check` reports stderr warnings and JSON `notUtf8`. `fix` refuses rewriting and lists `skipped`.
 - `-` reads stdin. With no paths, `check` reads piped input, and scans the current directory when stdin is a terminal, the null device or empty. `check --ai-config` always searches the current directory with no paths. `fix` and `reveal` read piped input. `fix` writes the cleaned text to stdout and the report to stderr.
-- No matching files or nothing checked exits 2, as does `fix` refusing stdin/explicit files. Directory/glob skips alone do not fail.
+- No matching files or nothing checked exits 2, as does `fix` refusing stdin/explicit files. Excluding every matched input exits 0. Directory/glob skips do not fail if another input is checked.
 - JSON `errors`: `{ path, code, message, cause? }`; `path` may be null, system `cause` appears on read/write failures. Codes: `usage`, `not_found`, `no_match`, `read_failed`, `decode_failed`, `write_failed`, `refused`, `nothing_checked`. Nonempty errors mean exit 2.
 
 ### Exit codes
@@ -370,7 +370,7 @@ git diff | npx text-sanctifier reveal
 | --- | --- | --- | --- |
 | 0 | nothing found | done (or nothing to do) | done |
 | 1 | findings | `--dry-run` with changes pending | not used |
-| 2 | usage error, missing or unreadable input, a path matching no files, or nothing checked | same, or an input you named that it refused to rewrite | same as `check` |
+| 2 | usage error, missing or unreadable input, a path matching no files, or nothing checked (except all-excluded or empty AI scans) | same, or an input you named that it refused to rewrite | same as `check` |
 
 ---
 

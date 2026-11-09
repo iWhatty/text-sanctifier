@@ -38,6 +38,36 @@ import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-s
 import type { HiddenRun, HiddenRunKind, HiddenRunSequence, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
 import { inspectTextInContext } from 'text-sanctifier/context';
 import type { ContextReport, ContextFinding } from 'text-sanctifier/context';
+import * as browser from 'text-sanctifier/browser';
+import * as root from 'text-sanctifier';
+
+// Both entry points must declare every value export with the same signature.
+const browserAPI: typeof root = browser;
+const rootAPI: typeof browser = root;
+const allOptions: Required<SanctifyOptions> = {
+  normalizeSpaces: true, purgeZeroWidthSpaces: true, purgeInvisibleChars: true,
+  purgeEmojis: true, nukeControls: true, keyboardOnlyFilter: true,
+  normalizeNewlines: true, trimSpacesAroundNewlines: true, collapseNewLines: true,
+  preserveParagraphs: true, collapseSpaces: true, finalTrim: true,
+  maxLength: 10, onMaxLength: 'truncate',
+};
+const browserClean: string = browserAPI.summonSanctifier(allOptions)('x');
+
+// Optional fields really are absent on some runtime findings/runs.
+const minimalFinding: TrashFinding = { offset: 0, line: 1, column: 1, codePoint: 0x200B, category: 'zero_width' };
+const minimalRun: HiddenRun = { kind: 'variation_selector', offset: 0, end: 1, count: 1, line: 1, column: 1 };
+// @ts-expect-error BOM position flag is optional
+const requiredAtStart: boolean = minimalFinding.atStart;
+// @ts-expect-error decoded text is optional for non-tag runs
+const requiredDecoded: string = minimalRun.decoded;
+// @ts-expect-error unknown sequence value
+const badSequence: HiddenRunSequence = 'emoji';
+// @ts-expect-error formatter must return a string
+const badFormatter: RevealOptions = { format: () => 42 };
+// @ts-expect-error context input must be a string
+inspectTextInContext(42);
+// @ts-expect-error browser sanitizer input must be a string
+browser.sanctifyPasted(42);
 
 const scan: HiddenTextScan = findHiddenRuns('x');
 // @ts-expect-error non-string input is rejected
