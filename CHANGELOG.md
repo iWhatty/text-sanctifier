@@ -2,6 +2,15 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- The strict and keyboard-only presets remove text-default emoji such as U+2764 U+FE0F whole; before, they left the bare symbol behind.
+- `revealInvisible` uses far less memory on text with many hidden characters.
+- Truncating with `maxLength` right after a lone high surrogate keeps it as U+FFFD instead of dropping it.
+- CLI: malformed UTF-16 input is reported as lossy and `fix` refuses to rewrite it; a malformed glob is a usage error (exit 2) and the other inputs are still checked.
+- CLI: SARIF output reports run errors as tool notifications, lists files that were not valid UTF-8, and uses normalized paths relative to the source root. Large SARIF reports are much faster.
+- CLI behavior change: options that had no effect are now usage errors: `reveal --max-findings`, `fix --max-findings`, and `fix --keep-benign` when explicit cleaning flags leave out `--purge-invisible`.
+
 ## 1.3.14 — 2026-11-08
 
 - Emoji matching now handles modifiers, flags, keycaps and joined sequences without consuming following words. Behavior change: text-default pictographs require emoji presentation to be removed.

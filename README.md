@@ -116,7 +116,7 @@ Every text-processing export throws `TypeError` for non-strings; no coercion. Sa
 
 ### Presets
 
-Standalone exports are the same functions as the corresponding `summonSanctifier` properties. Direct imports tree-shake (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped versus <!-- gen:size:summonSanctifier.pasted -->1.4 KiB<!-- /gen -->).
+Standalone exports are the same functions as the corresponding `summonSanctifier` properties. Direct imports tree-shake (about <!-- gen:size:sanctifyPasted -->1.1 KiB<!-- /gen --> gzipped versus <!-- gen:size:summonSanctifier.pasted -->1.5 KiB<!-- /gen -->).
 
 | Export / property | What it does | What it keeps |
 | --- | --- | --- |
@@ -332,7 +332,7 @@ Rewrites files in place and reports what it replaced and removed.
 
 - `--normalize-spaces`: `normalizeSpaces` (look-alike spaces become ordinary spaces)
 - `--purge-invisible`: `purgeInvisibleChars`
-- `--keep-benign`: preserve [contextually benign sequences](#text-sanctifiercontext-inspecttextincontexttext-options) while purging, including with default cleaning flags.
+- `--keep-benign`: preserve [contextually benign sequences](#text-sanctifiercontext-inspecttextincontexttext-options) while purging, including with default cleaning flags. With explicit cleaning flags it needs `--purge-invisible`.
 - `--nuke-controls`: `nukeControls`
 - `--normalize-newlines`: `normalizeNewlines` (CRLF and CR to LF)
 - Default cleaning flags: `--normalize-spaces --purge-invisible --nuke-controls`; normalize spaces, delete other `check` findings except U+3000.

@@ -23,6 +23,7 @@ import { findHiddenRuns } from '../src/hiddenText.js';
   assertEqual(summonSanctifier({ collapseNewLines: true })('a\r\n\rb'), 'a\nb', 'collapse normalizes newlines');
   assertEqual(summonSanctifier({ trimSpacesAroundNewlines: true })('a \r\n b'), 'a\nb', 'trim normalizes newlines');
   for (const clean of [sanctifyStrict, sanctifyKeyboardOnly]) assertEqual(clean('hello' + cp(0xA0) + 'world'), 'hello world', 'strict preserves word separation');
+  for (const clean of [sanctifyStrict, sanctifyKeyboardOnly]) assertEqual(clean('a ' + cp(0x2764, 0xFE0F) + ' ' + cp(0xA9, 0xFE0F) + ' b'), 'a b', 'strict removes text-default emoji with their selector');
   assertEqual(summonSanctifier({ purgeInvisibleChars: true })('a' + cp(0x3000) + 'b'), 'a' + cp(0x3000) + 'b', 'ideographic space survives purge');
   assertEqual(sanctifyKeyboardOnlyEmoji('a' + cp(0x3000) + 'b'), 'a b', 'keyboard filter normalizes ideographic space');
   assertEqual(inspectTextDetailed(cp(0x3000)).counts.nonbreaking_space, 1, 'ideographic space remains detected');

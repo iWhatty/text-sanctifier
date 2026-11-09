@@ -355,11 +355,11 @@ export function sanctifyText(
     // Zero-width spaces, word joiners and BOMs (not joiners or selectors)
     if (purgeZeroWidthSpaces) cleaned = cleaned.replace(ZERO_WIDTH_SPACES_REGEX, '');
 
+    // Remove emojis first, while their selectors and joiners still mark them
+    if (purgeEmojis) cleaned = purgeEmojiCharacters(cleaned);
+
     //  Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
     if (purgeInvisibleChars) cleaned = purgeInvisibleTrash(cleaned);
-
-    // Remove emojis
-    if (purgeEmojis) cleaned = purgeEmojiCharacters(cleaned);
 
     // Nuke control characters (excluding whitespace)
     if (nukeControls) cleaned = purgeControlCharacters(cleaned);
