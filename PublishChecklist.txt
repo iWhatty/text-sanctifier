@@ -10,7 +10,7 @@ While working
 - [ ] Put CHANGELOG entries under "## Unreleased" as changes land (what changed for someone using the package; see CLAUDE.md).
 - [ ] `npm run ci` passes locally (no cloud CI); `check:names` scans paths, working files, staged additions and unpushed commit messages/additions; the push hook checks pushed ranges, including later-removed additions.
 - [ ] If a remote object is missing, the hook checks the local tip excluding remote refs.
-- [ ] Keep ProjectLayout.txt current for src/, scripts/ and tests/; grouped directories may cover their contents. Add every tests/*.test.js file to npm test. `npm run check:repo` enforces both in ci. Tooling tests need no network. Keep devDependencies exact and package-lock.json gitignored.
+- [ ] Keep ProjectLayout.txt current for src/, bin/, scripts/ and tests/; grouped directories may cover their contents. Add every tests/*.test.js file to npm test. `npm run check:repo` enforces both in ci. Tooling tests need no network. Keep devDependencies exact and package-lock.json gitignored.
 - [ ] Sizes, budgets, counts and the release line in README.md and DESIGN.md, plus README.md's pre-commit `rev:` and size badge, are generated: if ci says they are stale, run `npm run gen`. Malformed or unhandled gen openings fail with exit 2 and a line number; missing README rev and badge anchors also fail. Do not hand-edit current figures.
 - [ ] Changed something on a hot path? `npm run bench`, and update the speed figures in README.md and DESIGN.md if they moved.
 
