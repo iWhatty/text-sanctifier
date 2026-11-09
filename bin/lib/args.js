@@ -100,6 +100,7 @@ function parseArgs(argv) {
         version: false,
     };
     let endOfOptions = false;
+    let hasMaxFindings = false;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -125,6 +126,7 @@ function parseArgs(argv) {
         if (name === '--max-findings') {
             const value = inline !== undefined ? inline : argv[++i];
             opts.maxFindings = parseMaxFindings(value);
+            hasMaxFindings = true;
             continue;
         }
         if (name === '--format' || (name === '--json' && inline === undefined)) {
@@ -153,7 +155,7 @@ function parseArgs(argv) {
             if (opts[key]) throw new UsageError(`${flag} does not apply to reveal.`);
         }
         if (opts.format !== null) throw new UsageError('--format does not apply to reveal.');
-        if (opts.maxFindings !== 100) throw new UsageError('--max-findings does not apply to reveal.');
+        if (hasMaxFindings) throw new UsageError('--max-findings does not apply to reveal.');
         return opts;
     }
     for (const [flag, key] of Object.entries(BOOLEAN_FLAGS)) {
@@ -163,11 +165,13 @@ function parseArgs(argv) {
     if (opts.aiConfig && opts.excludes.length) throw new UsageError('--exclude does not apply to --ai-config.');
     if (opts.format === null) opts.format = 'text';
     if (opts.command === 'fix' && opts.format === 'sarif') throw new UsageError('--format sarif only applies to check.');
+    if (opts.command === 'fix' && hasMaxFindings) throw new UsageError('--max-findings only applies to check.');
     if (opts.command === 'fix' && !opts.normalizeSpaces && !opts.purgeInvisible && !opts.nukeControls && !opts.normalizeNewlines) {
         opts.normalizeSpaces = true;
         opts.purgeInvisible = true;
         opts.nukeControls = true;
     }
+    if (opts.keepBenign && !opts.purgeInvisible) throw new UsageError('--keep-benign requires --purge-invisible or default cleaning flags.');
     return opts;
 }
 

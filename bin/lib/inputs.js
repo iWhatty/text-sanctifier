@@ -199,6 +199,14 @@ function collectInputs(args, cwd, addError, aiConfig = false) {
             addError(arg, 'not_found', `${arg}: no such file or directory`);
             continue;
         }
+        if (isGlob) {
+            try { globToRegExp(toSlash(arg)); }
+            catch (e) {
+                if (!(e instanceof SyntaxError)) throw e;
+                addError(arg, 'usage', `${arg}: invalid glob (${e.message})`);
+                continue;
+            }
+        }
 
         if (inGit === undefined) inGit = isGitWorkTree(cwd);
         let listed =
@@ -221,7 +229,10 @@ function collectInputs(args, cwd, addError, aiConfig = false) {
 
 const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const utf8Lenient = new TextDecoder('utf-8', { ignoreBOM: true });
-const utf16 = new TextDecoder('utf-16le', { ignoreBOM: true });
+const utf16le = new TextDecoder('utf-16le', { fatal: true, ignoreBOM: true });
+const utf16be = new TextDecoder('utf-16be', { fatal: true, ignoreBOM: true });
+const utf16leLenient = new TextDecoder('utf-16le', { ignoreBOM: true });
+const utf16beLenient = new TextDecoder('utf-16be', { ignoreBOM: true });
 
 /**
  * A NUL plus a share of control bytes that text does not have, in the first
@@ -243,15 +254,20 @@ function looksBinary(bytes, minControls = 0) {
  * ASCII with at least BINARY_MIN_ASCII_CONTROLS control bytes, so a short file with a stray
  * NUL is still read. Invisible Unicode needs non-ASCII bytes in UTF-8, so ASCII-only data has
  * only controls to hide. Other bytes that are not UTF-8 become U+FFFD and set `lossy`, so
- * one bad byte cannot hide the rest of a file.
+ * one bad byte cannot hide the rest of a file. Malformed UTF-16 also sets `lossy`.
  * @param {Buffer} bytes
  * @param {boolean} sniff
  * @returns {{ text: string|null, reason?: string, lossy?: boolean, wide?: boolean }}
  */
 function decode(bytes, sniff) {
-    if (bytes[0] === 0xFF && bytes[1] === 0xFE) return { text: utf16.decode(bytes), wide: true };
-    if (bytes[0] === 0xFE && bytes[1] === 0xFF) {
-        return { text: utf16.decode(Buffer.from(bytes.subarray(0, bytes.length & ~1)).swap16()), wide: true };
+    const littleEndian = bytes[0] === 0xFF && bytes[1] === 0xFE;
+    if (littleEndian || (bytes[0] === 0xFE && bytes[1] === 0xFF)) {
+        try {
+            return { text: (littleEndian ? utf16le : utf16be).decode(bytes), wide: true };
+        } catch (e) {
+            if (!(e instanceof TypeError)) throw e;
+            return { text: (littleEndian ? utf16leLenient : utf16beLenient).decode(bytes), wide: true, lossy: true };
+        }
     }
     try {
         const text = utf8.decode(bytes);

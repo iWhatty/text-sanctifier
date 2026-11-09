@@ -1,4 +1,4 @@
-import { resolve, relative, sep } from 'node:path';
+import { resolve, relative, sep, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inspectTextDetailed } from '../../src/index.js';
@@ -26,13 +26,13 @@ const CATEGORY_RULES = {
 
 const SARIF_SCHEMA = 'https://json.schemastore.org/sarif-2.1.0.json';
 const INFORMATION_URI = 'https://github.com/iWhatty/text-sanctifier';
-const ABSOLUTE_PATH = /^(?:[a-zA-Z]:)?[\\/]/;
 const fingerprints = new WeakMap();
 
 function fingerprintFindings(label, text, findings, cwd) {
     const path = label === STDIN_LABEL ? 'stdin' : toSlash(relative(cwd, resolve(cwd, label)));
     let previousLine = 0, start = 0, end = 0;
     let occurrences = new Map();
+    let lineHashes = new Map();
     const hashOccurrences = new Map();
     for (const finding of findings) {
         if (finding.line !== previousLine) {
@@ -40,11 +40,20 @@ function fingerprintFindings(label, text, findings, cwd) {
             end = start;
             while (end < text.length && text.charCodeAt(end) !== 10 && text.charCodeAt(end) !== 13) end++;
             occurrences = new Map();
+            lineHashes = new Map();
             previousLine = finding.line;
         }
         const index = occurrences.get(finding.category) || 0;
         occurrences.set(finding.category, index + 1);
-        const hash = createHash('sha256').update(JSON.stringify([finding.category, path, text.slice(start, end), index])).digest('hex');
+        // Hash long line content once per category, then append each occurrence.
+        // This is byte-for-byte the original JSON-array fingerprint input.
+        let prefix = lineHashes.get(finding.category);
+        if (!prefix) {
+            const fields = JSON.stringify([finding.category, path, text.slice(start, end)]);
+            prefix = createHash('sha256').update(fields.slice(0, -1)).update(',');
+            lineHashes.set(finding.category, prefix);
+        }
+        const hash = prefix.copy().update(String(index)).update(']').digest('hex');
         const count = (hashOccurrences.get(hash) || 0) + 1;
         hashOccurrences.set(hash, count);
         fingerprints.set(finding, count === 1 ? hash :
@@ -52,19 +61,21 @@ function fingerprintFindings(label, text, findings, cwd) {
     }
 }
 
-/** @param {string} label */
-function sarifArtifact(label) {
+/** @param {string} label @param {string} cwd */
+function sarifArtifact(label, cwd) {
     if (label === STDIN_LABEL) return { uri: 'stdin', description: { text: 'standard input' } };
-    if (ABSOLUTE_PATH.test(label)) return { uri: pathToFileURL(label).href };
-    return { uri: encodeURI(toSlash(label)).replace(/[?#]/g, encodeURIComponent), uriBaseId: '%SRCROOT%' };
+    const path = relative(cwd, resolve(cwd, label));
+    // Windows paths on another drive cannot be relative to SRCROOT.
+    if (isAbsolute(path)) return { uri: pathToFileURL(path).href };
+    return { uri: toSlash(path).split('/').map(encodeURIComponent).join('/'), uriBaseId: '%SRCROOT%' };
 }
 
 /**
  * Builds a SARIF 2.1.0 log with one result per listed finding; the rule is the category.
  * @param {Array<{ path: string, findings: Array<{ offset: number, line: number, column: number, codePoint: number, category: string }>, hiddenRuns?: Array<{ offset: number, kind: string, count: number, decoded?: string }>, truncated: boolean }>} files
- * @param {{ cwd: string, total: number, filesScanned: number, skipped: Array<{ path: string, reason: string }>, excluded: string[], succeeded: boolean }} info
+ * @param {{ cwd: string, total: number, filesScanned: number, skipped: Array<{ path: string, reason: string }>, excluded: string[], notUtf8: string[], errors: Array<{ path: string|null, code: string, message: string }> }} info
  */
-function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, succeeded }) {
+function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, notUtf8, errors }) {
     const ruleIds = Object.keys(inspectTextDetailed('', { maxFindings: 0 }).counts);
     const rules = ruleIds.map((id) => ({
         id,
@@ -75,7 +86,7 @@ function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, succeede
     const results = [];
     for (const f of files) {
         const runAt = new Map((f.hiddenRuns || []).map((run) => [run.offset, run]));
-        const artifactLocation = sarifArtifact(f.path);
+        const artifactLocation = sarifArtifact(f.path, cwd);
         for (const x of f.findings) {
             const run = runAt.get(x.offset);
             results.push({
@@ -98,10 +109,22 @@ function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, succeede
         $schema: SARIF_SCHEMA,
         version: '2.1.0',
         runs: [{
-            tool: { driver: { name: 'text-sanctifier', version: VERSION, semanticVersion: VERSION, informationUri: INFORMATION_URI, rules } },
+            tool: { driver: {
+                name: 'text-sanctifier', version: VERSION, semanticVersion: VERSION,
+                informationUri: INFORMATION_URI, rules,
+                notifications: [...new Set(errors.map((error) => error.code))].map((id) => ({ id })),
+            } },
             originalUriBaseIds: { '%SRCROOT%': { uri: pathToFileURL(cwd.endsWith(sep) ? cwd : cwd + sep).href } },
             columnKind: 'utf16CodeUnits',
-            invocations: [{ executionSuccessful: succeeded }],
+            invocations: [{
+                executionSuccessful: errors.length === 0,
+                toolExecutionNotifications: errors.map((error) => ({
+                    descriptor: { id: error.code },
+                    level: 'error',
+                    message: { text: error.message },
+                    ...(error.path ? { locations: [{ physicalLocation: { artifactLocation: sarifArtifact(error.path, cwd) } }] } : {}),
+                })),
+            }],
             results,
             properties: {
                 total,
@@ -110,6 +133,7 @@ function sarifLog(files, { cwd, total, filesScanned, skipped, excluded, succeede
                 truncated: files.filter((f) => f.truncated).map((f) => f.path),
                 skipped,
                 excluded,
+                notUtf8,
             },
         }],
     };
