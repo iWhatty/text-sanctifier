@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectTextDetailed } from '../src/index.js';
 import { findHiddenRuns, decodeTagText } from '../src/hiddenText.js';
+import { decode } from '../bin/lib/inputs.js';
 
 
 function assertEqual(actual, expected, message) {
@@ -105,7 +106,15 @@ function validateSarif(log) {
       need(isObj(r.defaultConfiguration) && LEVELS.includes(r.defaultConfiguration.level), `rule ${r.id}: defaultConfiguration.level`);
     }
     need(['utf16CodeUnits', 'unicodeCodePoints', undefined].includes(run.columnKind), 'columnKind');
-    for (const inv of run.invocations || []) need(typeof inv.executionSuccessful === 'boolean', 'invocation.executionSuccessful');
+    for (const inv of run.invocations || []) {
+      need(typeof inv.executionSuccessful === 'boolean', 'invocation.executionSuccessful');
+      for (const notification of inv.toolExecutionNotifications || []) {
+        need(isObj(notification.message) && typeof notification.message.text === 'string', 'notification.message.text');
+        need(LEVELS.includes(notification.level), 'notification.level');
+        need(isObj(notification.descriptor) && typeof notification.descriptor.id === 'string', 'notification.descriptor.id');
+        need(driver.notifications.some((descriptor) => descriptor.id === notification.descriptor.id), 'notification descriptor is declared');
+      }
+    }
     const bases = run.originalUriBaseIds || {};
     for (const [k, v] of Object.entries(bases)) need(typeof v.uri === 'string' && v.uri.endsWith('/'), `originalUriBaseIds.${k} ends with /`);
     need(Array.isArray(run.results), 'run.results is an array');
@@ -132,6 +141,86 @@ function validateSarif(log) {
 
 
 try {
+  // Malformed UTF-16 must retain replacement characters and expose decoding loss.
+  {
+    const cwd = tempDir();
+    for (const endian of ['le', 'be']) {
+      const valid = Buffer.from(BOM + 'a' + ZWSP, 'utf16le');
+      if (endian === 'be') valid.swap16();
+      const odd = Buffer.concat([valid, Buffer.from([0xFF])]);
+      const surrogate = Buffer.from(BOM + ch(0xD800) + ZWSP, 'utf16le');
+      if (endian === 'be') surrogate.swap16();
+      for (const [kind, bytes, expected] of [
+        ['odd', odd, BOM + 'a' + ZWSP + ch(0xFFFD)],
+        ['surrogate', surrogate, BOM + ch(0xFFFD) + ZWSP],
+      ]) {
+        const decoded = decode(bytes, false);
+        assertEqual(decoded.text, expected, `UTF-16 ${endian} ${kind}: malformed units become U+FFFD`);
+        assertEqual(decoded.wide && decoded.lossy, true, `UTF-16 ${endian} ${kind}: loss is flagged`);
+        const file = `${endian}-${kind}.txt`;
+        writeFileSync(join(cwd, file), bytes);
+        const checked = run(['check', '--json', file], { cwd });
+        assertEqual(checked.code, 1, `UTF-16 ${endian} ${kind}: findings survive decoding`);
+        assertEqual(JSON.parse(checked.stdout).notUtf8.join(','), file, `UTF-16 ${endian} ${kind}: loss listed`);
+        assertEqual(checked.stderr.includes('not valid UTF-16'), true, `UTF-16 ${endian} ${kind}: accurate warning`);
+        const fixed = run(['fix', '--json', file], { cwd });
+        assertEqual(fixed.code + ':' + JSON.parse(fixed.stdout).skipped[0].reason, '2:UTF-16', `UTF-16 ${endian} ${kind}: fix refuses wide encoding`);
+        assertEqual(readFileSync(join(cwd, file)).equals(bytes), true, `UTF-16 ${endian} ${kind}: bytes unchanged`);
+      }
+      assertEqual(!!decode(valid, false).lossy, false, `UTF-16 ${endian}: valid input is lossless`);
+    }
+  }
+  {
+    const cwd = tempDir();
+    writeFileSync(join(cwd, 'input.txt'), ZWSP);
+    for (const command of ['fix', 'reveal']) {
+      for (const value of ['0', '100', 'all']) {
+        assertEqual(run([command, `--max-findings=${value}`, 'input.txt'], { cwd }).code, 2, `${command}: rejects ignored --max-findings=${value}`);
+      }
+    }
+    for (const flag of ['--normalize-spaces', '--normalize-newlines', '--nuke-controls']) {
+      const result = run(['fix', '--json', '--keep-benign', flag, 'input.txt'], { cwd });
+      assertEqual(result.code + ':' + JSON.parse(result.stdout).errors[0].code, '2:usage', `fix: --keep-benign rejects non-purging ${flag}`);
+    }
+    assertEqual(read(cwd, 'input.txt'), ZWSP, 'invalid fix options leave input untouched');
+    for (const inGit of [false, true]) {
+      if (inGit && !gitAvailable) continue;
+      if (inGit) spawnSync('git', ['init', '-q'], { cwd });
+      const result = run(['check', '--json', '[z-a]', 'input.txt'], { cwd });
+      const report = JSON.parse(result.stdout);
+      assertEqual(result.code + ':' + report.errors[0].code, '2:usage', `invalid glob: structured error ${inGit ? 'inside' : 'outside'} git`);
+      assertEqual(report.total, 1, 'invalid glob: later files still checked');
+      assertEqual(result.stderr.includes('SyntaxError:') || result.stderr.includes(' at '), false, 'invalid glob: no stack trace');
+    }
+  }
+  {
+    const cwd = tempDir();
+    mkdirSync(join(cwd, 'sub'));
+    writeFileSync(join(cwd, 'bad #%.txt'), Buffer.concat([Buffer.from(ZWSP), Buffer.from([0xFF])]));
+    const artifacts = [];
+    for (const label of ['./bad #%.txt', 'sub/../bad #%.txt', join(cwd, 'bad #%.txt')]) {
+      const result = run(['check', '--format=sarif', label, 'missing.txt'], { cwd });
+      const log = JSON.parse(result.stdout);
+      const invocation = log.runs[0].invocations[0];
+      assertEqual(result.code, 2, 'SARIF: partial failure exits 2');
+      assertEqual(validateSarif(log).join('; '), '', 'SARIF: error notification shape valid');
+      assertEqual(invocation.executionSuccessful, false, 'SARIF: partial failure marks execution unsuccessful');
+      const notification = invocation.toolExecutionNotifications[0];
+      assertEqual(notification.descriptor.id + ':' + notification.level, 'not_found:error', 'SARIF: error has code and severity');
+      assertEqual(notification.message.text.includes('missing.txt'), true, 'SARIF: error message identifies input');
+      assertEqual(notification.locations[0].physicalLocation.artifactLocation.uri, 'missing.txt', 'SARIF: diagnostic has artifact location');
+      assertEqual(log.runs[0].properties.notUtf8.join(','), label, 'SARIF: decoding loss listed');
+      artifacts.push(log.runs[0].results[0].locations[0].physicalLocation.artifactLocation);
+    }
+    assertEqual(artifacts.every((a) => a.uri === 'bad%20%23%25.txt' && a.uriBaseId === '%SRCROOT%'), true, 'SARIF: absolute and dot paths normalize relative to SRCROOT');
+    const fromSub = JSON.parse(run(['check', '--format=sarif', '../bad #%.txt'], { cwd: join(cwd, 'sub') }).stdout);
+    assertEqual(fromSub.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri, '../bad%20%23%25.txt', 'SARIF: parent paths remain relative to SRCROOT');
+    const empty = JSON.parse(run(['check', '--format=sarif', '--exclude=**', '.'], { cwd }).stdout);
+    assertEqual(empty.runs[0].invocations[0].toolExecutionNotifications.length, 0, 'SARIF: clean invocation has no error notifications');
+    writeFileSync(join(cwd, 'input.txt'), 'a' + ZWSP + 'b');
+    const fingerprintLog = JSON.parse(run(['check', '--format=sarif', 'input.txt'], { cwd }).stdout);
+    assertEqual(fingerprintLog.runs[0].results[0].partialFingerprints['textSanctifier/v1'], '11d8cce3417ceb6a6f70c9472386a01a0f1192238724d35fa7d261d0a349e270', 'SARIF: hash reuse preserves existing fingerprint bytes');
+  }
   {
     const cwd = tempDir();
     mkdirSync(join(cwd, 'nested'));

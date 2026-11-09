@@ -48,8 +48,8 @@ function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, e
             // what was not UTF-8. A directory scan also leaves any file with a NUL alone;
             // a file you name is cleaned if it is otherwise UTF-8.
             if (opts.command === 'fix' && !reason) {
-                if (lossy) reason = 'not UTF-8';
-                else if (wide) reason = 'UTF-16';
+                if (wide) reason = 'UTF-16';
+                else if (lossy) reason = 'not UTF-8';
                 else if (!input.explicit && bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0)) reason = 'binary';
             }
             if (reason) {
@@ -61,7 +61,7 @@ function textVisitor({ inputs, stdinBytes, cwd, opts, addError, warn, skipped, e
             }
             if (lossy) {
                 notUtf8.push(label);
-                warn(`${label}: not valid UTF-8; checked with invalid bytes read as U+FFFD`);
+                warn(`${label}: not valid ${wide ? 'UTF-16' : 'UTF-8'}; checked with invalid bytes read as U+FFFD`);
             }
             visited++;
             visit(label, text, input);
@@ -116,7 +116,7 @@ async function check({ opts, cwd, forEachText, skipped, excluded, notUtf8, error
         if (opts.aiConfig) summary.hiddenRunCount = hiddenRunCount;
         out(JSON.stringify(summary, null, 2));
     } else if (opts.format === 'sarif') {
-        out(JSON.stringify(sarifLog(files, { cwd, total, filesScanned: scanned, skipped, excluded, succeeded: errors.length === 0 }), null, 2));
+        out(JSON.stringify(sarifLog(files, { cwd, total, filesScanned: scanned, skipped, excluded, notUtf8, errors }), null, 2));
     } else {
         for (const line of lines) out(line);
         if (opts.aiConfig && scanned === 0 && skipped.length === 0 && errors.length === 0) {
