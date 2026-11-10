@@ -83,18 +83,18 @@ async function main() {
     }
 
     function budgetOf(name, file) {
-        if (!budgets.has(name)) fail(`${file}: unknown size probe "${name}"`);
+        if (budgets.get(name) === undefined) fail(`${file}: size probe "${name}" has no budget`);
         return /** @type {number} */ (budgets.get(name));
     }
 
+    // In KiB to one decimal, so the table changes only when a size really moves.
     function sizeTable() {
-        const rows = [...sizes.keys()].map((name) => {
-            const size = sizeOf(name, 'table');
-            const budget = /** @type {number} */ (budgets.get(name));
+        const rows = [...sizes.keys()].filter((name) => name !== 'everything').map((name) => {
+            const budget = budgets.get(name);
             const label = name === 'browser' ? 'prebuilt browser file' : `\`${name}\``;
-            return `| ${label} | ${size} | ${budget} | ${budget - size} |`;
+            return `| ${label} | ${kib(sizeOf(name, 'table'))} | ${budget === undefined ? 'reported only' : budgetKib(budget)} |`;
         });
-        return ['| Import | Gzipped bytes | Budget | Headroom |', '| --- | ---: | ---: | ---: |', ...rows].join('\n');
+        return ['| Import | Gzipped | Budget |', '| --- | ---: | ---: |', ...rows].join('\n');
     }
 
     for (const file of FILES) {

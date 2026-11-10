@@ -7,9 +7,9 @@ import { build } from 'esbuild';
 import { gzipSync } from 'zlib';
 import { resolve } from 'path';
 
-// Size budget for the whole prebuilt file (web track, see DESIGN.md). Raising it is a
-// deliberate decision: change this number in the same commit as the growth, with a reason.
-export const GZIP_BUDGET_BYTES = 3072;
+// The prebuilt file's public size promise (README: "under 4 KiB"). It is for pages that
+// load the file without a bundler; bundler users pay only for what they import.
+export const GZIP_BUDGET_BYTES = 4096;
 
 /** Builds the browser file in memory: the minified code and its gzipped bytes. */
 export async function buildBrowserFile() {

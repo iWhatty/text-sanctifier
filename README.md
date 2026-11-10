@@ -2,12 +2,12 @@
 
 [![npm](https://badgen.net/npm/v/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 [![downloads](https://badgen.net/npm/dm/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
-[![bundle size](https://badgen.net/static/gzip/under%203%20KiB/green)](https://bundlejs.com/?q=text-sanctifier)
+[![bundle size](https://badgen.net/static/gzip/under%204%20KiB/green)](https://bundlejs.com/?q=text-sanctifier)
 [![license](https://badgen.net/static/license/AGPL-3.0%20%2B%20terms/blue)](https://github.com/iWhatty/text-sanctifier/blob/main/LICENSE)
 [![stars](https://badgen.net/github/stars/iWhatty/text-sanctifier)](https://github.com/iWhatty/text-sanctifier)
 [![types](https://badgen.net/npm/types/text-sanctifier)](https://www.npmjs.com/package/text-sanctifier)
 
-Find/remove invisible Unicode in web input, model-bound text and repositories. Prebuilt browser file: under <!-- gen:budget:browser -->3 KiB<!-- /gen --> gzipped; bundlers include only used imports.
+Find/remove invisible Unicode in web input, model-bound text and repositories. Prebuilt browser file: under <!-- gen:budget:browser -->4 KiB<!-- /gen --> gzipped; bundlers include only used imports.
 
 ## Features
 
