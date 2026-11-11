@@ -2,7 +2,7 @@
 //
 // The release steps that are the same every time, so none of them is done by hand.
 //
-//   npm run release:prep                 bump the patch number, date the CHANGELOG, run `npm run gen`
+//   npm run release:prep                 install locked dependencies, bump the patch number and lockfile, date the CHANGELOG, run `npm run gen`
 //                                        and `npm run ci`, commit "chore(release): X.Y.Z" and push
 //   npm run release:prep -- --dry-run    check everything and print the plan; change nothing
 //   npm publish --access public          the maintainer, with npm two-factor credentials
@@ -131,13 +131,14 @@ export function checkPublish(query = sh, read = readLf, execute = run) {
 
 export function prepareRelease(version, changelog, { execute = run, query = sh, write = writeFileSync, pack = packInfo } = {}) {
     // Ordinary failures happen before any version or documentation change.
+    try { execute('npm ci'); } catch { fail('pre-bump npm ci failed; version unchanged. Fix package.json/package-lock.json and retry.'); }
     try { execute('npm run ci'); } catch { fail('pre-bump npm run ci failed; version unchanged. Fix CI and retry.'); }
     if (query('git status --porcelain')) fail('pre-bump CI changed tracked files; review them before retrying.');
     const original = query('git rev-parse HEAD');
     let step = 'npm version';
     let committed = false;
     try {
-        execute(`npm version ${version} --no-git-tag-version --package-lock=false`);
+        execute(`npm version ${version} --no-git-tag-version --package-lock=true`);
         step = 'date CHANGELOG';
         write(resolve('CHANGELOG.md'), changelog);
         step = 'npm run gen'; execute(step);
@@ -185,7 +186,7 @@ export function prep(dryRun, { query = sh, read = readLf, setup = requirePrepSet
 
     console.log(`release: ${published} -> ${version}, dated ${date}`);
     if (dryRun) {
-        console.log('release: dry run; nothing changed, CI not run. Steps: npm run ci, npm version, CHANGELOG heading, npm run gen, npm run ci, commit, push.');
+        console.log('release: dry run; nothing changed, CI not run. Steps: npm ci, npm run ci, npm version (including lockfile), CHANGELOG heading, npm run gen, npm run ci, commit, push.');
         return;
     }
 

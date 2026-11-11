@@ -1,7 +1,6 @@
 # Ignore all dev-only files and folders
 node_modules/
 .vscode/
-package-lock.json
 dist/
 local_dev_test/
 

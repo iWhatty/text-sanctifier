@@ -145,7 +145,7 @@ Follow [CLAUDE.md](CLAUDE.md) for everyday checks, export requirements, generate
 
 - **Public repository:** describe downstream consumers generically; no private names, links or internals in files, commits or CHANGELOG. Local `.git/info/private-names` is never committed. Plain entries match whole words ignoring case; leading `*` matches substrings; spaces match line breaks. Missing/empty lists skip ordinary checks but block release prep. Check coverage and hook setup: checklist.
 - **Repository map:** `check:repo` requires tracked/addable src/, bin/, scripts/ and tests/ files in ProjectLayout.txt; grouped directories cover contents, deleted files are ignored. Every tests/*.test.js must be in npm test.
-- **Builds:** exact devDependency versions; package-lock.json gitignored. Generated declarations in dist/types, no handwritten src/index.d.ts. Tooling tests use temporary repos/injected commands and need no network.
+- **Builds:** exact devDependency versions and committed package-lock.json; use `npm ci` for locked installs. Release prep installs from the lockfile before CI, then updates both manifest and lockfile versions. Generated declarations live in dist/types, with no handwritten src/index.d.ts. Tooling tests use temporary repos/injected commands and need no network.
 - **Categories:** edit `scripts/categories.js`, run `npm run gen`; never hand-edit generated classifier or README table. The classifier has two halves small enough for V8 inlining; generation rejects table growth beyond that limit.
 - **Invisible characters:** construct tests with `String.fromCodePoint`; shells/heredocs can turn escapes into raw characters. Inspect edited lines as escaped ASCII.
 

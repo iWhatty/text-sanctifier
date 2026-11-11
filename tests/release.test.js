@@ -5,7 +5,7 @@
 
 import { nextPatch, localDate, dateChangelog, changelogSection, validGitHead, requirePrepSetup, requirePublishState, requireShasumForTag, checkPublish, prepareRelease, prep } from '../scripts/release.js';
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -68,7 +68,7 @@ for (const head of [undefined, '', 'a'.repeat(39), 'g'.repeat(40), `${original};
   assert.equal(validGitHead(head), false);
 }
 
-for (const failure of ['npm run ci', 'npm version', 'date CHANGELOG', 'npm run gen', 'post-bump npm run ci', 'npm pack', 'git add', 'git commit', 'git push', null]) {
+for (const failure of ['npm ci', 'npm run ci', 'npm version', 'date CHANGELOG', 'npm run gen', 'post-bump npm run ci', 'npm pack', 'git add', 'git commit', 'git push', null]) {
   const events = [];
   let ciRuns = 0;
   let committed = false;
@@ -91,12 +91,12 @@ for (const failure of ['npm run ci', 'npm version', 'date CHANGELOG', 'npm run g
   });
   if (failure === null) {
     assert.deepEqual(action(), { shasum: 'fake', files: 1 });
-    assert.deepEqual(events, ['npm run ci', 'npm version', 'date CHANGELOG', 'npm run gen', 'post-bump npm run ci', 'npm pack', 'git add', 'git commit', 'git push']);
+    assert.deepEqual(events, ['npm ci', 'npm run ci', 'npm version', 'date CHANGELOG', 'npm run gen', 'post-bump npm run ci', 'npm pack', 'git add', 'git commit', 'git push']);
   } else {
     const message = throws(action);
-    if (failure === 'npm run ci') {
+    if (failure === 'npm ci' || failure === 'npm run ci') {
       assert.match(message, /pre-bump.*version unchanged/);
-      assert.deepEqual(events, ['npm run ci']);
+      assert.deepEqual(events, failure === 'npm ci' ? ['npm ci'] : ['npm ci', 'npm run ci']);
     } else {
       assert.ok(message.startsWith(`${failure} failed.`));
       assert.ok(message.includes(`Commit already made: ${failure === 'git push' ? 'yes' : 'no'}`));
@@ -104,6 +104,53 @@ for (const failure of ['npm run ci', 'npm version', 'date CHANGELOG', 'npm run g
       assert.match(message, / M package.json\n M README.md/);
       assert.doesNotMatch(message, /fake stack/);
     }
+  }
+}
+
+// Exercise real npm ci and npm version in isolated packages. Full CI,
+// commit and push commands stay mocked; no release or network access occurs.
+for (const withLock of [true, false]) {
+  const lockDir = mkdtempSync(join(tmpdir(), 'sanctifier-release-lock-'));
+  try {
+    const initial = { name: 'release-lock-fixture', version: '0.0.0' };
+    writeFileSync(join(lockDir, 'package.json'), JSON.stringify(initial));
+    if (withLock) writeFileSync(join(lockDir, 'package-lock.json'), JSON.stringify({
+      ...initial, lockfileVersion: 3, requires: true, packages: { '': initial },
+    }));
+    const prepare = () => prepareRelease('0.0.1', 'dated', {
+      execute(command) {
+        if (command === 'npm ci' || command.startsWith('npm version ')) {
+          execSync(command, {
+            cwd: lockDir, stdio: 'pipe', timeout: 15000,
+            env: { ...process.env, npm_config_cache: join(lockDir, 'npm-cache'),
+              npm_config_package_lock: 'false', npm_config_ignore_scripts: 'true',
+              npm_config_offline: 'true', npm_config_audit: 'false', npm_config_fund: 'false' },
+          });
+        }
+      },
+      query(command) {
+        if (command === 'git status --porcelain') return '';
+        if (command === 'git rev-parse HEAD') return original;
+        throw new Error(`unexpected query ${command}`);
+      },
+      write(_file, content) { writeFileSync(join(lockDir, 'CHANGELOG.md'), content); },
+      pack() { return { shasum: 'fixture', files: 2 }; },
+    });
+    if (!withLock) {
+      assert.throws(prepare, /pre-bump npm ci failed.*version unchanged/);
+      assert.equal(JSON.parse(readFileSync(join(lockDir, 'package.json'), 'utf8')).version, '0.0.0');
+      continue;
+    }
+    prepare();
+    const manifest = JSON.parse(readFileSync(join(lockDir, 'package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(join(lockDir, 'package-lock.json'), 'utf8'));
+    assert.equal(manifest.version, '0.0.1');
+    assert.equal(lock.version, manifest.version, 'release prep updates lockfile version despite inherited npm config');
+    assert.equal(lock.packages[''].version, manifest.version, 'release prep updates the locked root package');
+  } finally {
+    assert.equal(dirname(resolve(lockDir)), resolve(tmpdir()));
+    assert.ok(lockDir.includes('sanctifier-release-lock-'));
+    rmSync(lockDir, { recursive: true, force: true });
   }
 }
 

@@ -4,7 +4,7 @@ Read [DESIGN.md](DESIGN.md) first. It covers the two audiences (web and agents),
 
 Quick rules:
 
-- Run `npm run ci` before committing. It must exit 0. It runs locally; don't add GitHub Actions or other cloud CI. New checks go in that script.
+- Install with `npm ci` from the committed package-lock.json, then run `npm run ci` before committing. It must exit 0. Checks run locally; don't add GitHub Actions or other cloud CI. New checks go in that script.
 - Releases bump only the patch number, and work done close together goes out as one release. `npm run release:prep` bumps, dates the CHANGELOG, runs ci, commits and pushes; a maintainer runs `npm publish` (npm needs two-factor credentials); `npm run release:verify` checks npm against the commit and tags `vX.Y.Z`. Don't do these steps by hand.
 - Sizes, budgets, counts and the release line in README.md and DESIGN.md, plus the pre-commit `rev:` in README.md, come from `npm run gen` (`<!-- gen:... -->` markers). Don't type current byte counts or versions into docs; add a marker.
 - A new export needs types, a dist-test assertion, and a size probe with a budget in `scripts/check-size.js`. Detection-only probes must not pull in the sanitizer (leak checks).
