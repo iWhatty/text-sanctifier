@@ -424,7 +424,7 @@ assertEqual(
   try { summonSanctifier({ maxLength: 1, onMaxLength: 'bogus' })('abc'); } catch (e) { threw = e.name; }
   assertEqual(threw, 'RangeError', '31. an invalid onMaxLength throws');
   threw = '';
-  try { sanctifyText('abc', false, false, false, false, false, false, false, false, false, false, 1, 'bogus'); } catch (e) { threw = e.name; }
+  try { sanctifyText('abc', { maxLength: 1, onMaxLength: 'bogus' }); } catch (e) { threw = e.name; }
   assertEqual(threw, 'RangeError', '31. an invalid onMaxLength throws from sanctifyText too');
 }
 

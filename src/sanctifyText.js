@@ -48,49 +48,27 @@ export { ASCII_KEYBOARD_SAFE_REGEX, EMOJI_REGEX, normalizeTypographicJank };
  * @returns {(text: string) => string}
  */
 function createSanctifier(defaultOptions = {}) {
-    const normalizeSpaces = !!defaultOptions.normalizeSpaces;
-    const purgeZeroWidthSpaces = !!defaultOptions.purgeZeroWidthSpaces;
-    const purgeInvisibleChars = !!defaultOptions.purgeInvisibleChars;
-    const purgeEmojis = !!defaultOptions.purgeEmojis;
-    const nukeControls = !!defaultOptions.nukeControls;
-    const keyboardOnlyFilter = !!defaultOptions.keyboardOnlyFilter;
-    const normalizeNewlines = !!(defaultOptions.normalizeNewlines || defaultOptions.trimSpacesAroundNewlines || defaultOptions.collapseNewLines);
-    const trimSpacesAroundNewlines = !!defaultOptions.trimSpacesAroundNewlines;
-    const collapseNewLines = !!defaultOptions.collapseNewLines;
-    const preserveParagraphs = !!defaultOptions.preserveParagraphs;
-    const collapseSpaces = !!defaultOptions.collapseSpaces;
-    const finalTrim = !!defaultOptions.finalTrim;
-
-    const maxLength =
-        Number.isFinite(defaultOptions.maxLength) && defaultOptions.maxLength >= 0
-            ? defaultOptions.maxLength
-            : Infinity;
-
-    const onMaxLength =
-        defaultOptions.onMaxLength === 'truncate' ||
-            defaultOptions.onMaxLength === 'noop' ||
-            defaultOptions.onMaxLength === 'throw'
-            ? defaultOptions.onMaxLength
-            : 'throw';
-
-    return (text) =>
-        sanctifyText(
-            text,
-            purgeInvisibleChars,
-            purgeEmojis,
-            nukeControls,
-            keyboardOnlyFilter,
-            normalizeNewlines,
-            trimSpacesAroundNewlines,
-            collapseNewLines,
-            preserveParagraphs,
-            collapseSpaces,
-            finalTrim,
-            maxLength,
-            onMaxLength,
-            normalizeSpaces,
-            purgeZeroWidthSpaces
-        );
+    const d = defaultOptions;
+    // Read once, so later changes to the caller's object do not change this sanctifier.
+    /** @type {SanctifyOptions} */
+    const options = {
+        normalizeSpaces: !!d.normalizeSpaces,
+        purgeZeroWidthSpaces: !!d.purgeZeroWidthSpaces,
+        purgeInvisibleChars: !!d.purgeInvisibleChars,
+        purgeEmojis: !!d.purgeEmojis,
+        nukeControls: !!d.nukeControls,
+        keyboardOnlyFilter: !!d.keyboardOnlyFilter,
+        // Trimming or collapsing newlines only works on `\n`, so either one implies this.
+        normalizeNewlines: !!(d.normalizeNewlines || d.trimSpacesAroundNewlines || d.collapseNewLines),
+        trimSpacesAroundNewlines: !!d.trimSpacesAroundNewlines,
+        collapseNewLines: !!d.collapseNewLines,
+        preserveParagraphs: !!d.preserveParagraphs,
+        collapseSpaces: !!d.collapseSpaces,
+        finalTrim: !!d.finalTrim,
+        maxLength: Number.isFinite(d.maxLength) && d.maxLength >= 0 ? d.maxLength : Infinity,
+        onMaxLength: d.onMaxLength === 'truncate' || d.onMaxLength === 'noop' ? d.onMaxLength : 'throw',
+    };
+    return (text) => sanctifyText(text, options);
 }
 
 // --- Presets ---
@@ -108,20 +86,17 @@ function createSanctifier(defaultOptions = {}) {
  * @returns {string}
  */
 export function sanctifyStrict(text) {
-    return sanctifyText(
-        text,
-        true,   // purgeInvisibleChars
-        true,   // purgeEmojis
-        true,   // nukeControls
-        false,  // keyboardOnlyFilter
-        true,   // normalizeNewlines
-        true,   // trimSpacesAroundNewlines
-        true,   // collapseNewLines
-        false,  // preserveParagraphs
-        true,   // collapseSpaces
-        true,   // finalTrim
-        Infinity, 'throw', true // normalizeSpaces
-    );
+    return sanctifyText(text, {
+        normalizeSpaces: true,
+        purgeInvisibleChars: true,
+        purgeEmojis: true,
+        nukeControls: true,
+        normalizeNewlines: true,
+        trimSpacesAroundNewlines: true,
+        collapseNewLines: true,
+        collapseSpaces: true,
+        finalTrim: true,
+    });
 }
 
 
@@ -134,19 +109,14 @@ export function sanctifyStrict(text) {
  * @returns {string}
  */
 export function sanctifyLoose(text) {
-    return sanctifyText(
-        text,
-        false,  // purgeInvisibleChars
-        false,  // purgeEmojis
-        false,  // nukeControls
-        false,  // keyboardOnlyFilter
-        true,   // normalizeNewlines
-        true,   // trimSpacesAroundNewlines
-        true,   // collapseNewLines
-        true,   // preserveParagraphs
-        true,   // collapseSpaces
-        true    // finalTrim
-    );
+    return sanctifyText(text, {
+        normalizeNewlines: true,
+        trimSpacesAroundNewlines: true,
+        collapseNewLines: true,
+        preserveParagraphs: true,
+        collapseSpaces: true,
+        finalTrim: true,
+    });
 }
 
 
@@ -159,19 +129,12 @@ export function sanctifyLoose(text) {
  * @returns {string}
  */
 export function sanctifyKeyboardOnlyEmoji(text) {
-    return sanctifyText(
-        text,
-        false,  // purgeInvisibleChars
-        false,  // purgeEmojis
-        false,  // nukeControls
-        true,   // keyboardOnlyFilter
-        true,   // normalizeNewlines
-        true,   // trimSpacesAroundNewlines
-        false,  // collapseNewLines
-        false,  // preserveParagraphs
-        false,  // collapseSpaces
-        true    // finalTrim
-    );
+    return sanctifyText(text, {
+        keyboardOnlyFilter: true,
+        normalizeNewlines: true,
+        trimSpacesAroundNewlines: true,
+        finalTrim: true,
+    });
 }
 
 
@@ -184,20 +147,18 @@ export function sanctifyKeyboardOnlyEmoji(text) {
  * @returns {string}
  */
 export function sanctifyKeyboardOnly(text) {
-    return sanctifyText(
-        text,
-        true,   // purgeInvisibleChars
-        true,   // purgeEmojis
-        true,   // nukeControls
-        true,   // keyboardOnlyFilter
-        true,   // normalizeNewlines
-        true,   // trimSpacesAroundNewlines
-        true,   // collapseNewLines
-        false,  // preserveParagraphs
-        true,   // collapseSpaces
-        true,   // finalTrim
-        Infinity, 'throw', true // normalizeSpaces
-    );
+    return sanctifyText(text, {
+        normalizeSpaces: true,
+        purgeInvisibleChars: true,
+        purgeEmojis: true,
+        nukeControls: true,
+        keyboardOnlyFilter: true,
+        normalizeNewlines: true,
+        trimSpacesAroundNewlines: true,
+        collapseNewLines: true,
+        collapseSpaces: true,
+        finalTrim: true,
+    });
 }
 
 
@@ -212,23 +173,11 @@ export function sanctifyKeyboardOnly(text) {
  * @returns {string}
  */
 export function sanctifyPasted(text) {
-    return sanctifyText(
-        text,
-        false,  // purgeInvisibleChars
-        false,  // purgeEmojis
-        false,  // nukeControls
-        false,  // keyboardOnlyFilter
-        true,   // normalizeNewlines
-        false,  // trimSpacesAroundNewlines
-        false,  // collapseNewLines
-        false,  // preserveParagraphs
-        false,  // collapseSpaces
-        false,  // finalTrim
-        Infinity, // maxLength
-        'throw',  // onMaxLength
-        true,   // normalizeSpaces
-        true    // purgeZeroWidthSpaces
-    );
+    return sanctifyText(text, {
+        normalizeSpaces: true,
+        purgeZeroWidthSpaces: true,
+        normalizeNewlines: true,
+    });
 }
 
 
@@ -282,46 +231,41 @@ export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, 
  *
  * Note: This is plain-text normalization/filtering — not an HTML/XSS sanitizer.
  *
+ * Internal: the package exports summonSanctifier and the presets, not this. Options are
+ * taken as given; an option left out is off. summonSanctifier normalizes user input first.
+ *
+ * - `normalizeSpaces`: look-alike spaces become an ordinary space. Runs first, so
+ *   `purgeInvisibleChars` no longer joins the words around them.
+ * - `purgeZeroWidthSpaces`: remove zero-width spaces, word joiners and BOMs only.
+ * - `purgeEmojis`: remove matched emoji, including lone skin-tone swatches; keep lone
+ *   regional indicators.
+ * - `purgeInvisibleChars`: remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
+ * - `nukeControls`: remove non-whitespace control characters.
+ * - `keyboardOnlyFilter`: keep printable ASCII and full emoji sequences only.
+ * - `normalizeNewlines`: convert all newlines to `\n`.
+ * - `trimSpacesAroundNewlines`: remove spaces and tabs around newlines.
+ * - `collapseNewLines`, `preserveParagraphs`: collapse `\n` runs to one, or to two with
+ *   `preserveParagraphs`.
+ * - `collapseSpaces`: collapse runs of spaces into one.
+ * - `finalTrim`: `.trim()` the output.
+ * - `maxLength` (default Infinity, in UTF-16 code units) and `onMaxLength` (default
+ *   `'throw'`): over the cap, `'throw'` throws a RangeError, `'truncate'` cuts to at most
+ *   `maxLength` before processing, never through a surrogate pair, and `'noop'` returns
+ *   the input unchanged.
+ *
  * @param {string} text
- * @param {boolean} [purgeInvisibleChars=false] - Remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
- * @param {boolean} [purgeEmojis=false] - Remove matched emoji, including lone skin-tone swatches; preserve lone regional indicators.
- * @param {boolean} [nukeControls=false] - Remove non-whitespace control characters.
- * @param {boolean} [keyboardOnlyFilter=false] - Keep printable ASCII + full emoji sequences only (drops other Unicode).
- * @param {boolean} [normalizeNewlines=false] - Convert all newlines to `\n`.
- * @param {boolean} [trimSpacesAroundNewlines=false] - Remove spaces/tabs around newlines.
- * @param {boolean} [collapseNewLines=false] - Collapse `\n` runs (optionally preserve paragraphs).
- * @param {boolean} [preserveParagraphs=false] - Preserve paragraph breaks when collapsing newlines.
- * @param {boolean} [collapseSpaces=false] - Collapse multiple spaces into one.
- * @param {boolean} [finalTrim=false] - `.trim()` the final output (head/tail).
- * @param {number} [maxLength=Infinity] - Hard input length cap (UTF-16 code units via `text.length`).
- * @param {'throw'|'truncate'|'noop'} [onMaxLength='throw'] - Behavior when `text.length` exceeds `maxLength`:
- *   - `'throw'`: throw a `RangeError`
- *   - `'truncate'`: slice to at most `maxLength` before processing, never through a surrogate pair
- *   - `'noop'`: return the original input unchanged (skips processing)
- * @param {boolean} [normalizeSpaces=false] - Replace look-alike spaces with an ordinary space. Runs first,
- *   so `purgeInvisibleChars` no longer joins the words around them.
- * @param {boolean} [purgeZeroWidthSpaces=false] - Remove zero-width spaces, word joiners and BOMs only.
+ * @param {SanctifyOptions} [options]
  * @returns {string}
  * @throws {TypeError} If `text` is not a string.
  * @throws {RangeError} If input exceeds `maxLength` and `onMaxLength` is `'throw'`.
  */
-export function sanctifyText(
-    text,
-    purgeInvisibleChars = false,
-    purgeEmojis = false,
-    nukeControls = false,
-    keyboardOnlyFilter = false,
-    normalizeNewlines = false,
-    trimSpacesAroundNewlines = false,
-    collapseNewLines = false,
-    preserveParagraphs = false,
-    collapseSpaces = false,
-    finalTrim = false,
-    maxLength = Infinity,
-    onMaxLength = 'throw',
-    normalizeSpaces = false,
-    purgeZeroWidthSpaces = false
-) {
+export function sanctifyText(text, options = {}) {
+    const {
+        normalizeSpaces, purgeZeroWidthSpaces, purgeEmojis, purgeInvisibleChars, nukeControls,
+        keyboardOnlyFilter, normalizeNewlines, trimSpacesAroundNewlines, collapseNewLines,
+        preserveParagraphs, collapseSpaces, finalTrim, maxLength = Infinity, onMaxLength = 'throw',
+    } = options;
+
     if (typeof text !== 'string') {
         throw new TypeError('sanctifyText expects a string input.');
     }
