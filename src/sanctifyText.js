@@ -46,9 +46,14 @@ export { ASCII_KEYBOARD_SAFE_REGEX, EMOJI_REGEX, normalizeTypographicJank };
  * @param {boolean} [defaultOptions.normalizeSpaces]
  * @param {boolean} [defaultOptions.purgeZeroWidthSpaces]
  * @returns {(text: string) => string}
+ * @throws {RangeError} If maxLength is neither undefined nor a non-negative number (Infinity is allowed).
  */
 function createSanctifier(defaultOptions = {}) {
     const d = defaultOptions;
+    // A cap that cannot be read must not turn into no cap.
+    if (d.maxLength !== undefined && !(typeof d.maxLength === 'number' && d.maxLength >= 0)) {
+        throw new RangeError('Invalid maxLength');
+    }
     // Read once, so later changes to the caller's object do not change this sanctifier.
     /** @type {SanctifyOptions} */
     const options = {
@@ -65,7 +70,7 @@ function createSanctifier(defaultOptions = {}) {
         preserveParagraphs: !!d.preserveParagraphs,
         collapseSpaces: !!d.collapseSpaces,
         finalTrim: !!d.finalTrim,
-        maxLength: Number.isFinite(d.maxLength) && d.maxLength >= 0 ? d.maxLength : Infinity,
+        maxLength: d.maxLength === undefined ? Infinity : d.maxLength,
         onMaxLength: d.onMaxLength === 'truncate' || d.onMaxLength === 'noop' ? d.onMaxLength : 'throw',
     };
     return (text) => sanctifyText(text, options);
@@ -241,7 +246,8 @@ export const summonSanctifier = /* @__PURE__ */ Object.assign(createSanctifier, 
  *   regional indicators.
  * - `purgeInvisibleChars`: remove ZWSP, NBSP, bidi, tags, variation selectors, etc.
  * - `nukeControls`: remove non-whitespace control characters.
- * - `keyboardOnlyFilter`: keep printable ASCII and full emoji sequences only.
+ * - `keyboardOnlyFilter`: keep printable ASCII and full emoji sequences only. Tabs and
+ *   look-alike spaces become a space and Unicode line separators a newline.
  * - `normalizeNewlines`: convert all newlines to `\n`.
  * - `trimSpacesAroundNewlines`: remove spaces and tabs around newlines.
  * - `collapseNewLines`, `preserveParagraphs`: collapse `\n` runs to one, or to two with
@@ -300,6 +306,7 @@ export function sanctifyText(text, options = {}) {
     if (purgeZeroWidthSpaces) cleaned = cleaned.replace(ZERO_WIDTH_SPACES_REGEX, '');
 
     // Remove emojis first, while their selectors and joiners still mark them
+    const withEmoji = cleaned;
     if (purgeEmojis) cleaned = purgeEmojiCharacters(cleaned);
 
     //  Purge invisible Unicode trash (zero-width, non-breaking, bidi junk, etc.)
@@ -307,6 +314,9 @@ export function sanctifyText(text, options = {}) {
 
     // Nuke control characters (excluding whitespace)
     if (nukeControls) cleaned = purgeControlCharacters(cleaned);
+
+    // Anything removed so far may have joined two halves into a new emoji
+    if (purgeEmojis && cleaned !== withEmoji) cleaned = purgeJoinedEmoji(cleaned);
 
     // Keep only ASCII/emojis
     if (keyboardOnlyFilter) cleaned = purgeNonKeyboardChars(cleaned, purgeEmojis);
@@ -358,12 +368,24 @@ function purgeInvisibleTrash(text) {
 }
 
 
+/** Tab and every space that is not U+0020: replaced, so the words around them stay apart. */
+const KEYBOARD_SPACES_REGEX = /[\t\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/** Next line, line separator and paragraph separator. */
+const UNICODE_LINE_BREAKS_REGEX = /[\u0085\u2028\u2029]/g;
+
+/** Built on first use, so a bundle without the keyboard filter leaves the emoji table out. */
+let emojiOrNonKeyboardRegex;
+
 /**
  * Keeps printable ASCII, CR/LF and matched emoji, after typographic normalization.
+ * Tabs and look-alike spaces become a space, Unicode line separators a newline.
  * With purgeEmojis, keeps only ASCII and CR/LF.
  */
 function purgeNonKeyboardChars(text, purgeEmojis = false) {
-    const normalized = normalizeTypographicJank(text).replace(/\u3000/g, ' ');
+    const normalized = normalizeTypographicJank(text)
+        .replace(KEYBOARD_SPACES_REGEX, ' ')
+        .replace(UNICODE_LINE_BREAKS_REGEX, '\n');
 
     // If emojis are being purged, keyboard-only becomes "ASCII + CR/LF only"
     if (purgeEmojis) {
@@ -371,7 +393,8 @@ function purgeNonKeyboardChars(text, purgeEmojis = false) {
     }
 
     // Emoji are tried first so keycap sequences stay whole; anything else non-ASCII goes.
-    return normalized.replace(new RegExp(EMOJI_REGEX.source + '|([^\\x20-\\x7E\\r\\n])', 'gu'), (m, other) => other ? '' : m);
+    emojiOrNonKeyboardRegex ||= new RegExp('(' + EMOJI_REGEX.source + ')|[^\\x20-\\x7E\\r\\n]', 'gu');
+    return normalized.replace(emojiOrNonKeyboardRegex, '$1');
 }
 
 
@@ -385,6 +408,34 @@ function purgeNonKeyboardChars(text, purgeEmojis = false) {
  */
 function purgeEmojiCharacters(text) {
     return text.replace(EMOJI_REGEX, '');
+}
+
+
+/** Passes purgeJoinedEmoji makes before it stops repeating. Ordinary text needs one or two. */
+const MAX_EMOJI_PASSES = 8;
+
+/** The characters that complete an emoji when they land next to another character. */
+const EMOJI_HALVES_REGEX = /[\u20E3\uFE0F]|\p{Regional_Indicator}/gu;
+
+/**
+ * Removes the emoji that appear when a removed character sat between two halves: two
+ * regional indicators join into a flag, `#` and U+20E3 into a keycap. Removing those
+ * can join another pair, so this repeats until nothing changes.
+ *
+ * Text can be nested so that every pass exposes one more emoji. After MAX_EMOJI_PASSES
+ * the halves themselves are removed (regional indicators, U+20E3 and U+FE0F), which
+ * leaves nothing to join and keeps the time linear.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function purgeJoinedEmoji(text) {
+    for (let pass = 0; pass < MAX_EMOJI_PASSES; pass++) {
+        const purged = purgeEmojiCharacters(text);
+        if (purged === text) return text;
+        text = purged;
+    }
+    return purgeEmojiCharacters(text.replace(EMOJI_HALVES_REGEX, ''));
 }
 
 

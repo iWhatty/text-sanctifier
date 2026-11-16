@@ -93,14 +93,14 @@ Used by `summonSanctifier(options)`. All boolean options default to `false`. Pro
 | `purgeEmojis` | Remove matched emoji sequences, including regional-indicator flags and keycaps. Text-default pictographs such as copyright and trademark require U+FE0F to count as emoji. |
 | `purgeInvisibleChars` | Remove characters marked `purgeInvisibleChars` in the category table, except U+3000, including emoji joiners and selectors. |
 | `nukeControls` | Remove NUL, non-whitespace C0 controls, DEL, C1 controls and bidi controls; keep tab, LF and CR. |
-| `keyboardOnlyFilter` | Normalize typographic punctuation and U+3000 to ASCII, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters and plain copyright and trademark signs. |
+| `keyboardOnlyFilter` | Normalize typographic punctuation to ASCII, turn tabs and look-alike spaces (including U+3000) into a space and U+0085, U+2028 and U+2029 into LF, then keep printable ASCII, CR/LF and matched emoji sequences; with `purgeEmojis`, keep no emoji. Deletes non-ASCII letters and plain copyright and trademark signs. |
 | `normalizeNewlines` | Convert CRLF and CR to LF. |
 | `trimSpacesAroundNewlines` | Normalize newlines, then remove spaces and tabs immediately around LF runs. |
 | `collapseNewLines` | Normalize newlines, then collapse runs of two or more LFs to one, or three or more to two with `preserveParagraphs`. |
 | `preserveParagraphs` | Keep double LF breaks when `collapseNewLines` is enabled; otherwise no effect. |
 | `collapseSpaces` | Collapse runs of ordinary spaces to one; keep tabs and newlines. |
 | `finalTrim` | Apply JavaScript `.trim()` to the result. |
-| `maxLength` | Input cap in UTF-16 code units, checked before processing. Default `Infinity`; negative, non-finite or non-number values mean no cap. |
+| `maxLength` | Input cap in UTF-16 code units, checked before processing. Default `Infinity`. Anything else that is not a non-negative number (a string, `null`, `NaN`, a negative number) makes `summonSanctifier` throw a `RangeError`. |
 | `onMaxLength` | Default `'throw'`: throw `RangeError` above the cap. `'truncate'`: slice input to at most the cap before processing, never through a surrogate pair. `'noop'`: return original input unchanged. Invalid values use `'throw'`. |
 
 ```js
@@ -112,11 +112,11 @@ Sanitizers replace unpaired surrogates with U+FFFD first, preventing removals fr
 
 ### Errors
 
-Every text-processing export throws `TypeError` for non-strings; no coercion. Sanitizers throw `RangeError` above `maxLength` with `onMaxLength: 'throw'`.
+Every text-processing export throws `TypeError` for non-strings; no coercion. Sanitizers throw `RangeError` above `maxLength` with `onMaxLength: 'throw'`, and `summonSanctifier` throws one for an invalid `maxLength`.
 
 ### Presets
 
-Standalone exports are the same functions as the corresponding `summonSanctifier` properties. Direct imports tree-shake (about <!-- gen:size:sanctifyPasted -->1.2 KiB<!-- /gen --> gzipped versus <!-- gen:size:summonSanctifier.pasted -->1.5 KiB<!-- /gen -->).
+Standalone exports are the same functions as the corresponding `summonSanctifier` properties. Direct imports tree-shake (about <!-- gen:size:sanctifyPasted -->1.3 KiB<!-- /gen --> gzipped versus <!-- gen:size:summonSanctifier.pasted -->1.6 KiB<!-- /gen -->).
 
 | Export / property | What it does | What it keeps |
 | --- | --- | --- |

@@ -2,6 +2,13 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- `purgeEmojis` no longer leaves an emoji that forms when a removed character sat between its halves: two regional indicators around a zero-width space, control character or emoji came out as a flag, and `#` + zero-width space + U+20E3 came out as a keycap. This affected `sanctifyStrict`, `sanctifyKeyboardOnly` and custom sanctifiers. Text nested more than eight levels deep to keep producing such emoji loses its regional indicators, U+20E3 and U+FE0F.
+- Behavior change: the keyboard-only filter (`keyboardOnlyFilter`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`) turns a tab or look-alike space into a space, and U+0085, U+2028 or U+2029 into a newline, instead of deleting them and joining the words around them. `sanctifyKeyboardOnly('a\tb')` is now `a b`, not `ab`.
+- Behavior change: `summonSanctifier` throws a `RangeError` for a `maxLength` that is not a non-negative number (a string, `null`, `NaN`, a negative number). Before, these silently meant no cap. Leaving it out or passing `Infinity` still means no cap.
+- `sanctifyKeyboardOnlyEmoji` and `keyboardOnlyFilter` without `purgeEmojis` are several times faster, most of all on text with many characters to remove.
+
 ## 1.3.16 — 2026-11-09
 
 - CLI behavior change: `check` with no paths always scans the current directory and no longer reads stdin; pass `-` to check piped text. When stdin is piped and `-` is missing, `check` says so on stderr. This fixes `check` hanging forever when a caller (an agent harness, Node `spawn`) leaves stdin open.

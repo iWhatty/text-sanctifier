@@ -455,15 +455,20 @@ assertEqual(
 }
 
 
-// 34. Length policies run before sanitizing, and invalid caps leave input uncapped.
+// 34. Length policies run before sanitizing, and an invalid cap throws instead of meaning no cap.
 {
   const cp = String.fromCodePoint;
   const text = cp(0xD800, 0x200B) + 'abc';
   const options = { purgeInvisibleChars: true, maxLength: 1, onMaxLength: 'noop' };
   assertEqual(summonSanctifier(options)(text), text, '34. noop skips surrogate replacement and purging');
   assertEqual(summonSanctifier({ ...options, maxLength: text.length })(text), cp(0xFFFD) + 'abc', '34. input exactly at the cap is sanitized');
-  for (const maxLength of [-1, NaN, Infinity, '1', null]) {
-    assertEqual(summonSanctifier({ purgeInvisibleChars: true, maxLength })(text), cp(0xFFFD) + 'abc', '34. invalid or infinite cap does not limit input');
+  for (const maxLength of [Infinity, undefined]) {
+    assertEqual(summonSanctifier({ purgeInvisibleChars: true, maxLength })(text), cp(0xFFFD) + 'abc', '34. an infinite or missing cap does not limit input');
+  }
+  for (const maxLength of [-1, NaN, -Infinity, '1', null, true]) {
+    let threw = '';
+    try { summonSanctifier({ maxLength }); } catch (e) { threw = e.name + ': ' + e.message; }
+    assertEqual(threw, 'RangeError: Invalid maxLength', '34. invalid cap ' + String(maxLength) + ' throws when the sanctifier is built');
   }
   const emoji = cp(0x1F600);
   assertEqual(summonSanctifier({ maxLength: 2.5, onMaxLength: 'truncate' })('a' + emoji + 'b'), 'a', '34. fractional truncation does not split a surrogate pair');
@@ -477,6 +482,54 @@ assertEqual(
   assertEqual(clean(text), 'ab', '35. custom options remove text-default emoji whole');
   assertEqual(clean('a' + cp(0x2764) + 'b'), 'a' + cp(0x2764) + 'b', '35. bare text-default pictograph remains');
   assertEqual(clean('a' + cp(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB) + 'b'), 'ab', '35. custom options remove a joined emoji whole');
+}
+
+// 36. Removing a character must not leave a newly joined emoji behind.
+{
+  const cp = String.fromCodePoint;
+  const [u, s, grin, keycap, zwsp] = [cp(0x1F1FA), cp(0x1F1F8), cp(0x1F600), cp(0x20E3), cp(0x200B)];
+  const emojiOnly = summonSanctifier({ purgeEmojis: true });
+  const purgeAll = summonSanctifier({ purgeEmojis: true, purgeInvisibleChars: true, nukeControls: true });
+  for (const clean of [sanctifyStrict, sanctifyKeyboardOnly, purgeAll]) {
+    assertEqual(clean('a' + u + zwsp + s + 'b'), 'ab', '36. indicators split by a zero-width space do not survive as a flag');
+    assertEqual(clean('a' + u + cp(0x01) + s + 'b'), 'ab', '36. indicators split by a control character do not survive as a flag');
+    assertEqual(clean('a#' + zwsp + keycap + 'b'), 'ab', '36. a keycap split by a zero-width space does not survive');
+  }
+  assertEqual(emojiOnly('a' + u + grin + s + 'b'), 'ab', '36. indicators split by an emoji do not survive as a flag');
+  assertEqual(emojiOnly('a##' + keycap + keycap + 'b'), 'ab', '36. a keycap inside a keycap is removed');
+  assertEqual(emojiOnly('a' + u + 'b' + s + 'c'), 'a' + u + 'b' + s + 'c', '36. indicators that stay apart are kept');
+  assertEqual(sanctifyStrict('1 2 #3'), '1 2 #3', '36. digits and # without a keycap mark are kept');
+  // Nested so that each pass exposes one more keycap: past the pass limit the halves go.
+  const nested = (n) => 'a' + '#'.repeat(n) + keycap.repeat(n) + 'b' + u;
+  assertEqual(emojiOnly(nested(3)), 'ab' + u, '36. shallow nesting is removed exactly and a lone indicator is kept');
+  assertEqual(inspectText(emojiOnly(nested(50))).hasEmojis, false, '36. deep nesting leaves no emoji');
+  assertEqual(emojiOnly(emojiOnly(nested(50))), emojiOnly(nested(50)), '36. deep nesting is cleaned in one call');
+  const started = performance.now();
+  const big = sanctifyStrict('#'.repeat(500_000) + keycap.repeat(500_000));
+  assertEqual(inspectText(big).hasEmojis, false, '36. a very deep nest leaves no emoji');
+  assertEqual(performance.now() - started < 5000, true, '36. a very deep nest takes linear time');
+}
+
+// 37. The keyboard filter replaces tabs, look-alike spaces and line separators instead of joining words.
+{
+  const cp = String.fromCodePoint;
+  const grin = cp(0x1F600);
+  for (const clean of [sanctifyKeyboardOnly, sanctifyKeyboardOnlyEmoji, summonSanctifier({ keyboardOnlyFilter: true })]) {
+    assertEqual(clean('a\tb'), 'a b', '37. a tab becomes a space');
+    for (const space of [0xA0, 0x2003, 0x202F, 0x205F, 0x3000]) {
+      assertEqual(clean('a' + cp(space) + 'b'), 'a b', '37. U+' + space.toString(16).toUpperCase() + ' becomes a space');
+    }
+    for (const separator of [0x2028, 0x2029]) {
+      assertEqual(clean('a' + cp(separator) + 'b'), 'a\nb', '37. U+' + separator.toString(16).toUpperCase() + ' becomes a newline');
+    }
+    assertEqual(clean('a' + cp(0x200B) + 'b'), 'ab', '37. a zero-width space is still removed');
+  }
+  assertEqual(sanctifyKeyboardOnlyEmoji('a' + cp(0x85) + 'b'), 'a\nb', '37. next line becomes a newline when controls are kept');
+  assertEqual(sanctifyKeyboardOnlyEmoji(cp(0xE9) + grin + cp(0xE9) + '1' + cp(0xFE0F, 0x20E3) + cp(0x4E00)), grin + '1' + cp(0xFE0F, 0x20E3), '37. emoji between removed letters are kept whole');
+  const started = performance.now();
+  sanctifyKeyboardOnlyEmoji(cp(0x200B).repeat(2_000_000));
+  for (let i = 0; i < 20_000; i++) sanctifyKeyboardOnlyEmoji('Hello ' + grin + ' world');
+  assertEqual(performance.now() - started < 5000, true, '37. the keyboard filter with emoji is fast on long and short input');
 }
 
 // Fixed-seed differential coverage for scanners, positions, caps and purging.
