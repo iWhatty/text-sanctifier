@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.17 — 2026-11-16
 
 - `purgeEmojis` no longer leaves an emoji that forms when a removed character sat between its halves: two regional indicators around a zero-width space, control character or emoji came out as a flag, and `#` + zero-width space + U+20E3 came out as a keycap. This affected `sanctifyStrict`, `sanctifyKeyboardOnly` and custom sanctifiers. Text nested more than eight levels deep to keep producing such emoji loses its regional indicators, U+20E3 and U+FE0F.
 - Behavior change: the keyboard-only filter (`keyboardOnlyFilter`, `sanctifyKeyboardOnly`, `sanctifyKeyboardOnlyEmoji`) turns a tab or look-alike space into a space, and U+0085, U+2028 or U+2029 into a newline, instead of deleting them and joining the words around them. `sanctifyKeyboardOnly('a\tb')` is now `a b`, not `ab`.
