@@ -8,6 +8,17 @@
 /** RGI subdivision flags: U+1F3F4, the tags for these letters, U+E007F */
 export const SUBDIVISION_FLAGS = ['gbeng', 'gbsct', 'gbwls'];
 
+/**
+ * Replaces unpaired surrogates with U+FFFD. Done before characters are removed, so a
+ * removal cannot join two halves into a new character, such as a hidden tag. With the
+ * `u` flag a surrogate pair is one character, so the pattern matches only unpaired halves.
+ * @param {string} text
+ * @returns {string}
+ */
+export function replaceLoneSurrogates(text) {
+    return text.replace(/[\uD800-\uDFFF]/gu, '\uFFFD');
+}
+
 export const PICTOGRAPHIC_AT = /\p{Extended_Pictographic}/yu;
 const IDEOGRAPHIC_AT = /\p{Ideographic}/yu;
 

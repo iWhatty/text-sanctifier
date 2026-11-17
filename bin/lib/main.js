@@ -3,8 +3,8 @@ import { resolve, relative, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { inspectTextDetailed, summonSanctifier, revealInvisible } from '../../src/index.js';
 import { getNewlineStats } from '../../src/inspectText.js';
-import { SPACE_LOOKALIKES_REGEX, INVISIBLE_TRASH_REGEX } from '../../src/sanctifyText.js';
-import { benignCategoryAt } from '../../src/contextRules.js';
+import { SPACE_LOOKALIKES_REGEX } from '../../src/sanctifyText.js';
+import { purgeInvisibleInContext } from '../../src/context.js';
 import { VERSION, USAGE, UsageError, parseArgs } from './args.js';
 import { BOM, STDIN, STDIN_LABEL, BINARY_SNIFF_BYTES, toSlash, excludeRegExp, collectInputs, decode, readStdin } from './inputs.js';
 import { inspect, inspectAiConfig, describeRun, hex, formatCounts, plural } from './scan.js';
@@ -173,26 +173,9 @@ async function fix({ opts, inputs, forEachText, cwd, addError, err, out, skipped
         const body = leadingBom ? text.slice(1) : text;
         let cleaned;
         if (opts.keepBenign && opts.purgeInvisible) {
-            // Normalize lone surrogates before deletion can join them. Context is
-            // always tested against this whole string, never a chunk's neighbours.
-            const safe = summonSanctifier({ normalizeSpaces: opts.normalizeSpaces })(body);
-            const parts = [];
-            for (let start = 0; start < safe.length;) {
-                let end = Math.min(start + 65536, safe.length);
-                const last = safe.charCodeAt(end - 1);
-                if (last >= 0xD800 && last <= 0xDBFF) end--;
-                // Bound V8's temporary match storage even on all-invisible input.
-                parts.push(safe.slice(start, end).replace(INVISIBLE_TRASH_REGEX, (run, offset) => {
-                    let kept = '';
-                    for (const character of run) {
-                        if (benignCategoryAt(safe, start + offset)) kept += character;
-                        offset += character.length;
-                    }
-                    return kept;
-                }));
-                start = end;
-            }
-            cleaned = clean(parts.join(''));
+            // The remaining cleaning runs once over the whole result, never on slices
+            // around preserved characters.
+            cleaned = clean(purgeInvisibleInContext(body, { spaces: opts.normalizeSpaces ? 'normalize' : 'remove' }).text);
         } else cleaned = clean(body);
         if (leadingBom && !opts.stripBom) cleaned = String.fromCharCode(BOM) + cleaned;
 

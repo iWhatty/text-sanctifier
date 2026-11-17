@@ -35,6 +35,8 @@ export const PROBES = [
     { name: 'inspectTextDetailed', code: "import { inspectTextDetailed } from './src/index.js'; inspectTextDetailed('');", mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'text-sanctifier/hidden', code: "import { findHiddenRuns, decodeTagText } from './src/hiddenText.js'; findHiddenRuns(''); decodeTagText('');", mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'text-sanctifier/context', code: "import { inspectTextInContext } from './src/context.js'; inspectTextInContext('');", mustNotContain: [SANITIZER] },
+    { name: 'purgeInvisibleInContext', code: "import { purgeInvisibleInContext } from './src/context.js'; purgeInvisibleInContext('');", mustNotContain: [SANITIZER] },
+    { name: 'removeHiddenRuns', code: "import { removeHiddenRuns } from './src/hiddenText.js'; removeHiddenRuns('');", mustNotContain: [SANITIZER, EMOJI_TABLE] },
     { name: 'VERSION', code: "import { VERSION } from './src/index.js'; console.log(VERSION);", mustNotContain: [SANITIZER, EMOJI_TABLE] },
     // Web: what a page ships.
     { name: 'revealInvisible', code: "import { revealInvisible } from './src/index.js'; revealInvisible('');", budget: 900, mustNotContain: [SANITIZER, EMOJI_TABLE] },

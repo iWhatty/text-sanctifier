@@ -9,8 +9,10 @@
 // Exported as `text-sanctifier/context`. It needs Unicode property escapes in regexes,
 // so it lives apart from the core and the browser file and has its own size budget.
 
+import { INVISIBLE_TRASH_REGEX } from './categories.generated.js';
 import { inspectTextDetailed } from './inspectText.js';
 import { benignCategoryAt } from './contextRules.js';
+import { replaceLoneSurrogates } from './sequenceRules.js';
 
 /** @typedef {import('./inspectText.js').TrashFinding} TrashFinding */
 /** @typedef {import('./inspectText.js').TrashCounts} TrashCounts */
@@ -95,4 +97,84 @@ export function inspectTextInContext(text, options = {}) {
     }
 
     return { findings, counts: report.counts, total: report.total, truncated: report.truncated, benignCounts, benignTotal, benignSupplementarySelectorCount };
+}
+
+
+/**
+ * @typedef {Object} PurgeInContextOptions
+ * @property {'keep'|'normalize'|'remove'} [spaces='keep'] - What happens to look-alike
+ *   spaces (U+00A0, U+2000-U+200A, U+202F, U+205F): `'keep'` leaves them as they are,
+ *   `'normalize'` turns each into an ordinary space, `'remove'` deletes them as
+ *   `purgeInvisibleChars` does, which joins the words around them.
+ */
+
+/**
+ * @typedef {Object} PurgeInContextResult
+ * @property {string} text - The cleaned text.
+ * @property {number} removed - Code points deleted. Replaced characters are not counted.
+ */
+
+/** UTF-16 units scanned per replace call, which bounds the engine's temporary match storage. */
+const PURGE_CHUNK = 65536;
+
+/**
+ * The `nonbreaking_space` category except U+3000, which purging never removes. A test
+ * checks this against SPACE_LOOKALIKES_REGEX.
+ * @param {number} c - UTF-16 code unit
+ */
+function isSpaceLookalike(c) {
+    return c === 0xA0 || (c >= 0x2000 && c <= 0x200A) || c === 0x202F || c === 0x205F;
+}
+
+/**
+ * Removes the invisible characters `purgeInvisibleChars` removes, except the ones
+ * inspectTextInContext calls benign: emoji joiners and selectors, joiners in Indic and
+ * Arabic-script words, ideographic and Mongolian variation selectors, subdivision flags.
+ * A family emoji, a red heart and a Persian word come through whole; a zero-width space,
+ * a joiner inside a Latin word, bidi controls and tag text are removed.
+ *
+ * Look-alike spaces are kept by default, because rich editors write them for typed
+ * spaces; see `spaces`. Unpaired surrogates become U+FFFD first, so a removal cannot
+ * join two halves into a new character. Context is judged on the whole text as given.
+ * Control characters that only `nukeControls` removes are left alone.
+ *
+ * The result is stable: purging it again changes nothing.
+ *
+ * @param {string} text
+ * @param {PurgeInContextOptions} [options]
+ * @returns {PurgeInContextResult}
+ * @throws {TypeError} If `text` is not a string.
+ * @throws {RangeError} If `spaces` is not one of its three values.
+ */
+export function purgeInvisibleInContext(text, options = {}) {
+    if (typeof text !== 'string') {
+        throw new TypeError('purgeInvisibleInContext expects a string input.');
+    }
+    const spaces = options?.spaces === undefined ? 'keep' : options.spaces;
+    if (spaces !== 'keep' && spaces !== 'normalize' && spaces !== 'remove') {
+        throw new RangeError('Invalid spaces');
+    }
+
+    const safe = replaceLoneSurrogates(text);
+    let removed = 0;
+    const parts = [];
+    for (let start = 0; start < safe.length;) {
+        let end = Math.min(start + PURGE_CHUNK, safe.length);
+        const last = safe.charCodeAt(end - 1);
+        if (last >= 0xD800 && last <= 0xDBFF) end--; // never cut through a pair
+        const chunkStart = start;
+        parts.push(safe.slice(start, end).replace(INVISIBLE_TRASH_REGEX, (run, offset) => {
+            let kept = '';
+            for (const character of run) {
+                // Neighbours are read from the whole text, not from this chunk.
+                if (benignCategoryAt(safe, chunkStart + offset)) kept += character;
+                else if (spaces !== 'remove' && isSpaceLookalike(character.charCodeAt(0))) kept += spaces === 'keep' ? character : ' ';
+                else removed++;
+                offset += character.length;
+            }
+            return kept;
+        }));
+        start = end;
+    }
+    return { text: parts.join(''), removed };
 }

@@ -532,6 +532,52 @@ assertEqual(
   assertEqual(performance.now() - started < 5000, true, '37. the keyboard filter with emoji is fast on long and short input');
 }
 
+// 38. inspectText counts are opt-in, agree with the flags, and match what the options remove.
+{
+  const cp = String.fromCodePoint;
+  const points = (s) => [...s].length;
+  const family = cp(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467);
+  const flagPair = cp(0x1F1E8, 0x1F1E6);
+  assertEqual('counts' in inspectText('a' + cp(0x200B)), false, '38. no counts unless asked');
+  assertEqual('counts' in inspectText('a', { counts: false }), false, '38. counts: false adds nothing');
+  assertEqual(JSON.stringify(inspectText('plain', { counts: true }).counts), '{"controlChars":0,"invisibleChars":0,"emojis":0,"nonKeyboardChars":0}', '38. clean text counts zero of each');
+
+  const messy = 'a' + cp(0x200B) + cp(0x202E) + '\tb' + family + cp(0xE9) + cp(0xE0041) + cp(0x07) + flagPair + cp(0x1F1E8) + cp(0x2026);
+  const counts = inspectText(messy, { counts: true }).counts;
+  assertEqual(counts.controlChars, 2, '38. controls: the bidi override and BEL');
+  assertEqual(counts.invisibleChars, 5, '38. invisibles: zero-width space, bidi override, two joiners, one tag (a code point, not two units)');
+  assertEqual(counts.emojis, 2, '38. emoji are counted per sequence: one family, one flag, not the lone indicator');
+  assertEqual(counts.nonKeyboardChars, 7, '38. non-keyboard: everything outside ASCII once emoji are set aside, the tab included, the ellipsis not');
+  assertEqual(inspectText('a\tb', { counts: true }).counts.nonKeyboardChars, 1, '38. a tab is one non-keyboard character');
+  assertEqual(inspectText(family, { counts: true }).counts.nonKeyboardChars, 0, '38. an emoji alone is keyboard safe');
+
+  const nuke = summonSanctifier({ nukeControls: true });
+  const purge = summonSanctifier({ purgeInvisibleChars: true });
+  const alphabet = ['a', ' ', '\t', '\n', '\r', '#', '1', cp(0xA0), cp(0x200B), cp(0x200D), cp(0xFEFF), cp(0xFE0F), cp(0x20E3), cp(0x3000), cp(0x202E),
+    cp(0x01), cp(0x85), cp(0x2028), cp(0xAD), cp(0x1F1FA), cp(0x1F1F8), cp(0x1F600), cp(0x1F469), cp(0x1F3FD), cp(0x2764), cp(0xA9),
+    cp(0xE0067), cp(0xE007F), cp(0x4E00), cp(0xE9), cp(0x2019), cp(0xFF01), cp(0x2026)];
+  let seed = 0x0BADC0DE;
+  const next = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0);
+  let failure = '';
+  for (let k = 0; k < 20000 && !failure; k++) {
+    let s = '';
+    for (let j = (next() >>> 16) % 12; j >= 0; j--) s += alphabet[(next() >>> 16) % alphabet.length];
+    const report = inspectText(s, { counts: true });
+    const plain = inspectText(s);
+    const c = report.counts;
+    const detailed = inspectTextDetailed(s, { maxFindings: 0 }).counts;
+    if (JSON.stringify({ ...report, counts: undefined }) !== JSON.stringify(plain)) failure = 'flags change with counts';
+    else if ((c.controlChars > 0) !== report.hasControlChars || (c.invisibleChars > 0) !== report.hasInvisibleChars ||
+        (c.emojis > 0) !== report.hasEmojis || (c.nonKeyboardChars > 0) !== report.hasNonKeyboardChars) failure = 'a count disagrees with its flag';
+    else if (c.controlChars !== points(s) - points(nuke(s))) failure = 'controlChars is not what nukeControls removes';
+    else if (c.invisibleChars !== points(s) - points(purge(s))) failure = 'invisibleChars is not what purgeInvisibleChars removes';
+    else if (c.invisibleChars !== detailed.zero_width + detailed.nonbreaking_space + detailed.bom + detailed.bidi_control + detailed.invisible_format +
+        detailed.hangul_filler + detailed.variation_selector + detailed.tag - [...s].filter((ch) => ch === cp(0x3000)).length) failure = 'invisibleChars disagrees with inspectTextDetailed';
+    if (failure) failure += ': ' + [...s].map((ch) => 'U+' + ch.codePointAt(0).toString(16)).join(' ');
+  }
+  assertEqual(failure, '', '38. fixed-seed: counts agree with flags, with the sanitizer and with inspectTextDetailed');
+}
+
 // Fixed-seed differential coverage for scanners, positions, caps and purging.
 {
   let seed = 0x12345678;

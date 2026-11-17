@@ -2,6 +2,12 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
+## Unreleased
+
+- New in `text-sanctifier/context`: `purgeInvisibleInContext(text, options?)` removes what `purgeInvisibleChars` removes but keeps the sequences `inspectTextInContext` calls benign (emoji joiners and selectors, joiners in Indic and Arabic-script words, subdivision flags). It returns `{ text, removed }`. Look-alike spaces are kept by default; `spaces: 'normalize'` or `'remove'` changes that. This is what `fix --keep-benign` does, now callable from code and in a browser bundle.
+- New in `text-sanctifier/hidden`: `removeHiddenRuns(text, options?)` returns the `findHiddenRuns` scan plus `text` with every run removed and benign spans kept. The caps limit only the lists, so untrusted input can be cleaned with both caps set.
+- `inspectText(text, { counts: true })` adds `counts: { controlChars, invisibleChars, emojis, nonKeyboardChars }` to the report. Without the option the report is unchanged.
+
 ## 1.3.17 — 2026-11-16
 
 - `purgeEmojis` no longer leaves an emoji that forms when a removed character sat between its halves: two regional indicators around a zero-width space, control character or emoji came out as a flag, and `#` + zero-width space + U+20E3 came out as a keycap. This affected `sanctifyStrict`, `sanctifyKeyboardOnly` and custom sanctifiers. Text nested more than eight levels deep to keep producing such emoji loses its regional indicators, U+20E3 and U+FE0F.

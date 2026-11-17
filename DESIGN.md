@@ -85,16 +85,18 @@ Generated gzipped sizes on `main`; last release <!-- gen:release -->1.3.17 (2026
 | `inspectTextDetailed` | 1.0 KiB | reported only |
 | `text-sanctifier/hidden` | 1.4 KiB | reported only |
 | `text-sanctifier/context` | 2.1 KiB | reported only |
+| `purgeInvisibleInContext` | 1.5 KiB | reported only |
+| `removeHiddenRuns` | 1.4 KiB | reported only |
 | `VERSION` | 0.0 KiB | reported only |
 | `revealInvisible` | 0.7 KiB | 0.9 KiB |
 | `getNewlineStats` | 0.3 KiB | 0.3 KiB |
 | `getRecommendedSanctifierOptions` | 0.2 KiB | 0.2 KiB |
-| `inspectText` | 1.0 KiB | 1.3 KiB |
+| `inspectText` | 1.2 KiB | 1.3 KiB |
 | `summonSanctifier` | 1.6 KiB | 1.9 KiB |
 | `summonSanctifier.pasted` | 1.6 KiB | 1.9 KiB |
 | `sanctifyPasted` | 1.3 KiB | 1.4 KiB |
 | `sanctifyStrict` | 1.4 KiB | 1.4 KiB |
-| prebuilt browser file | 3.2 KiB | 4 KiB |
+| prebuilt browser file | 3.3 KiB | 4 KiB |
 <!-- gen:sizes:end -->
 
 ### Not planned here
@@ -109,7 +111,7 @@ Generated gzipped sizes on `main`; last release <!-- gen:release -->1.3.17 (2026
 
 **Implementation.** One pass like `inspectTextDetailed`; sticky property regexes (for example `/\p{Extended_Pictographic}/yu`) check finding neighbours. No per-character allocation, no `Intl.Segmenter`; full grapheme segmentation would allocate per cluster without helping these rules. Memory stays flat with `maxFindings` set. Requires Unicode property escapes.
 
-**CLI cleaning.** `fix --keep-benign` shares internal context predicates with inspection, retaining no finding objects. It normalizes lone surrogates and optional look-alike spaces first, removes suspicious invisibles in surrogate-safe chunks with whole-input neighbour checks, then runs remaining cleaning once over the result. Temporary match storage is bounded by chunk size; input/output buffers still scale with file size. Trimming/collapse must never run independently on slices around preserved characters.
+**Cleaning in context.** `purgeInvisibleInContext` in `text-sanctifier/context` is the one implementation; `fix --keep-benign` calls it. It shares internal context predicates with inspection, retaining no finding objects. It normalizes lone surrogates first, then in one pass over surrogate-safe chunks removes suspicious invisibles, with whole-input neighbour checks, and keeps, replaces or removes look-alike spaces as asked. The CLI then runs the remaining cleaning once over the result. Temporary match storage is bounded by chunk size; input/output buffers still scale with file size. Trimming/collapse must never run independently on slices around preserved characters.
 
 The CLI currently enables none of `collapseSpaces`, `trimSpacesAroundNewlines` or `finalTrim`. Per-slice `finalTrim` would remove internal spaces following a preserved selector; a whole-result pass avoids that trap if options expand. A CR and LF separated by a preserved character must stay two line endings: that character still separates them. Suspicious characters removed between CR and LF allow them to normalize as one CRLF.
 

@@ -32,7 +32,8 @@ npm i text-sanctifier
 | Sanitize text with presets | `import { sanctifyPasted, sanctifyStrict } from 'text-sanctifier'` |
 | Find and locate characters | `import { inspectTextDetailed } from 'text-sanctifier'` |
 | Emoji-aware findings | `import { inspectTextInContext } from 'text-sanctifier/context'` |
-| Text headed to a model | `import { findHiddenRuns, decodeTagText } from 'text-sanctifier/hidden'` |
+| Remove invisibles, keep emoji and script joiners | `import { purgeInvisibleInContext } from 'text-sanctifier/context'` |
+| Text headed to a model | `import { findHiddenRuns, removeHiddenRuns, decodeTagText } from 'text-sanctifier/hidden'` |
 | No build step | `import { sanctifyPasted } from 'https://cdn.jsdelivr.net/npm/text-sanctifier/dist/text-sanctifier.min.js'` |
 | Repository checks | `npx text-sanctifier check` |
 
@@ -148,9 +149,20 @@ revealInvisible('a\u202Eb', { format: (codePoint, category) => `[${category}]` }
 
 Default: `<U+XXXX>`, uppercase hex, minimum four digits, no cap. Literal markers look identical; use `format(codePoint, category)` to avoid collisions.
 
-### `inspectText(text: string): UnicodeTrashReport`
+### `inspectText(text: string, options?: { counts?: boolean }): UnicodeTrashReport`
 
 Returns `{ hasControlChars, hasInvisibleChars, hasMixedNewlines, newlineStyle, hasEmojis, hasNonKeyboardChars, summary }`. `newlineStyle`: `'LF'`, `'CRLF'`, `'CR'`, `'Mixed'` or `null`; `summary`: human-readable messages.
+
+With `{ counts: true }` the report also has `counts: { controlChars, invisibleChars, emojis, nonKeyboardChars }`. Each is above zero exactly when its flag is true.
+
+| Count | What it counts |
+| --- | --- |
+| `controlChars` | Code points `nukeControls` removes. |
+| `invisibleChars` | Code points `purgeInvisibleChars` removes. Bidi controls are in both, so these two can overlap. Not context-aware: the two joiners of a family emoji count. For the number a context-aware cleanup removes, use `removed` from `purgeInvisibleInContext`. |
+| `emojis` | Emoji sequences as `purgeEmojis` matches them: a family or a flag is one. |
+| `nonKeyboardChars` | Code points outside printable ASCII, CR and LF, after typographic punctuation is normalized and emoji are set aside. Tabs and look-alike spaces count, although `keyboardOnlyFilter` replaces them. |
+
+Counting reads the whole text for each kind; without the option each check stops at its first match. For counts per category, use `inspectTextDetailed`.
 
 ```js
 import { inspectText, getRecommendedSanctifierOptions, summonSanctifier } from 'text-sanctifier';
@@ -229,6 +241,23 @@ const { runs, benign, counts, total, truncated } = findHiddenRuns(text, { maxRun
 - `codePointCounts`: code-point totals per `counts` key. `supplementarySelectorCount`: U+E0100-U+E01EF only. Both exclude benign spans and remain exact under caps.
 - `VERSION` is exported here and from the package root: the installed version, as in `package.json`.
 
+#### `removeHiddenRuns(text, options?)`
+
+Returns the same scan as `findHiddenRuns` plus `text`: the input without its runs. Benign spans stay, so subdivision flags and emoji selectors survive.
+
+```js
+import { removeHiddenRuns } from 'text-sanctifier/hidden';
+
+const { text: clean, total, counts } = removeHiddenRuns(pageText, { maxRuns: 20, maxDecodedLength: 200 });
+```
+
+- Every run is removed whatever the caps are: `maxRuns` and `maxDecodedLength` limit only the lists in the result. Set both for untrusted input.
+- Offsets, lines and columns in the result refer to the input, not to `text`.
+- Unpaired surrogates in `text` become U+FFFD, so a removal cannot join two halves into a new character.
+- A lone ideographic or Mongolian variation selector is a run, so it is removed. `purgeInvisibleInContext` from `text-sanctifier/context` keeps those.
+- Zero-width spaces, bidi controls and other invisible characters are not runs and stay.
+- Scanning `text` again finds no runs.
+
 ### `text-sanctifier/context`: `inspectTextInContext(text, options?)`
 
 Extends `inspectTextDetailed` with `benign: true` or `false` on findings and exact `benignCounts`, even beyond listed findings. Categories and `counts` stay unchanged.
@@ -253,6 +282,30 @@ Benign, and nothing else:
 U+200B, U+2060, U+FEFF, bidi controls and all other tags are never benign, and neither is U+200D between Arabic letters. Requires Unicode property escapes; separate from the browser file, about <!-- gen:size:text-sanctifier/context -->2.1 KiB<!-- /gen --> gzipped on its own.
 
 `benignSupplementarySelectorCount` counts the benign ideographic selectors U+E0100–U+E01EF. With `findHiddenRuns` from `text-sanctifier/hidden`, `scan.supplementarySelectorCount - report.benignSupplementarySelectorCount` is the exact number of suspicious ones.
+
+#### `purgeInvisibleInContext(text, options?)`
+
+Removes what `purgeInvisibleChars` removes, except the characters listed above as benign. Returns `{ text, removed }`, where `removed` is the number of code points deleted.
+
+```js
+import { purgeInvisibleInContext } from 'text-sanctifier/context';
+
+const { text: clean, removed } = purgeInvisibleInContext(input);
+```
+
+A family emoji, a red heart, a Persian or Hindi word and the England flag come through whole. A zero-width space, a joiner inside a Latin word, bidi controls and tag text are removed.
+
+| `spaces` | Look-alike spaces (U+00A0, U+2000-U+200A, U+202F, U+205F) |
+| --- | --- |
+| `'keep'` (default) | Left as they are. Rich editors write them for typed spaces. |
+| `'normalize'` | Each becomes an ordinary space; not counted in `removed`. |
+| `'remove'` | Deleted, as `purgeInvisibleChars` does, which joins the words around them. |
+
+- Any other `spaces` value, including `null`, throws `RangeError`.
+- Unpaired surrogates become U+FFFD first, so a removal cannot join two halves into a new character.
+- Controls that only `nukeControls` removes (C0, C1, NUL) are left alone; run a sanitizer for those.
+- A lone ideographic or Mongolian variation selector is benign here and kept. `removeHiddenRuns` removes it, because a series of them can carry data.
+- Purging the result again changes nothing. `fix --keep-benign` uses this function.
 
 ---
 

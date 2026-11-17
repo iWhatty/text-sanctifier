@@ -2,11 +2,12 @@
 //
 // text-sanctifier/context: inspectTextInContext marks findings that belong to
 // legitimate sequences as benign and counts them exactly. Also findHiddenRuns
-// code-point totals. `npm test` runs this with --expose-gc for the heap checks.
+// code-point totals, and purgeInvisibleInContext, which removes all but the benign ones. `npm test` runs this with --expose-gc for the heap checks.
 
-import { inspectTextInContext } from '../src/context.js';
-import { inspectTextDetailed } from '../src/index.js';
-import { findHiddenRuns } from '../src/hiddenText.js';
+import { inspectTextInContext, purgeInvisibleInContext } from '../src/context.js';
+import { inspectTextDetailed, summonSanctifier } from '../src/index.js';
+import { SPACE_LOOKALIKES_REGEX } from '../src/sanctifyText.js';
+import { findHiddenRuns, removeHiddenRuns } from '../src/hiddenText.js';
 
 
 function assertEqual(actual, expected, message) {
@@ -151,6 +152,8 @@ function heapGrowthMb(fn) {
 
   const entry = await import('text-sanctifier/context');
   assertEqual(entry.inspectTextInContext === inspectTextInContext, true, '7. text-sanctifier/context through the package exports map');
+  assertEqual(entry.purgeInvisibleInContext === purgeInvisibleInContext, true, '7. purgeInvisibleInContext through the package exports map');
+  assertEqual((await import('text-sanctifier/hidden')).removeHiddenRuns === removeHiddenRuns, true, '7. removeHiddenRuns through the package exports map');
 }
 
 
@@ -249,6 +252,117 @@ function heapGrowthMb(fn) {
   assertEqual(a.grew < 4, true, `12. 16 M units of Persian joiners, maxFindings: 20 (heap grew ${a.grew.toFixed(1)} MB, limit 4)`);
 }
 
+
+// purgeInvisibleInContext: removes what purgeInvisibleChars removes, except benign sequences.
+{
+  const c = (...n) => String.fromCodePoint(...n);
+  const tags = (ascii) => [...ascii].map((ch) => c(0xE0000 + ch.charCodeAt(0))).join('');
+  const show = (s) => [...s].map((ch) => (ch >= ' ' && ch <= '~' ? ch : '<' + ch.codePointAt(0).toString(16) + '>')).join('');
+  const BLACK_FLAG = c(0x1F3F4);
+  const CANCEL = c(0xE007F);
+  const FAMILY = c(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467);
+  const NBSP = c(0xA0);
+  const ZW = c(0x200B);
+
+  const legitimate = {
+    'family emoji': FAMILY,
+    'flag of England': BLACK_FLAG + tags('gbeng') + CANCEL,
+    'red heart': c(0x2764, 0xFE0F),
+    'Persian word with a joiner': c(0x645, 0x6CC, 0x200C, 0x62E, 0x648, 0x627, 0x647, 0x645),
+    'Hindi joiner after a virama': c(0x915, 0x94D, 0x200D, 0x937),
+    'no-break space from a rich editor': 'two' + NBSP + 'words',
+    'thin spaces in French': 'dit' + c(0x202F) + ': oui' + c(0x2009) + '!',
+    'ideographic space': 'a' + c(0x3000) + 'b',
+  };
+  for (const [name, text] of Object.entries(legitimate)) {
+    const result = purgeInvisibleInContext(text);
+    assertEqual(show(result.text) + ' / ' + result.removed, show(text) + ' / 0', 'purge keeps: ' + name);
+  }
+
+  const hidden = {
+    'zero-width space': ['a' + ZW + 'b', 'ab', 1],
+    'joiner in a Latin word': ['pay' + c(0x200D) + 'pal', 'paypal', 1],
+    'bidi control': ['a' + c(0x202E) + 'b', 'ab', 1],
+    'soft hyphen': ['co' + c(0xAD) + 'op', 'coop', 1],
+    'tag text': ['hi' + tags('secret'), 'hi', 6],
+    'tag text after a black flag': [BLACK_FLAG + tags('hello') + CANCEL, BLACK_FLAG, 6],
+    'hidden character next to a kept space': ['two' + ZW + NBSP + 'words', 'two' + NBSP + 'words', 1],
+    'hidden characters around a family': ['a' + ZW + FAMILY + ZW + 'b', 'a' + FAMILY + 'b', 2],
+  };
+  for (const [name, [text, clean, removed]] of Object.entries(hidden)) {
+    const result = purgeInvisibleInContext(text);
+    assertEqual(show(result.text) + ' / ' + result.removed, show(clean) + ' / ' + removed, 'purge removes: ' + name);
+  }
+
+  const spaced = 'two' + NBSP + 'words' + c(0x3000) + 'x';
+  assertEqual(show(purgeInvisibleInContext(spaced, { spaces: 'keep' }).text), show(spaced), 'purge spaces keep: look-alike spaces stay');
+  assertEqual(show(purgeInvisibleInContext(spaced, { spaces: 'normalize' }).text), show('two words' + c(0x3000) + 'x'), 'purge spaces normalize: becomes a space, U+3000 stays');
+  assertEqual(purgeInvisibleInContext(spaced, { spaces: 'normalize' }).removed, 0, 'purge spaces normalize: a replaced space is not counted as removed');
+  const removedSpaces = purgeInvisibleInContext(spaced, { spaces: 'remove' });
+  assertEqual(show(removedSpaces.text) + ' / ' + removedSpaces.removed, show('twowords' + c(0x3000) + 'x') + ' / 1', 'purge spaces remove: deleted and counted, U+3000 stays');
+
+  // The space set is the sanitizer's SPACE_LOOKALIKES_REGEX, over every BMP code unit.
+  let spaceMismatch = '';
+  for (let unit = 0; unit < 0x10000 && !spaceMismatch; unit++) {
+    if (unit >= 0xD800 && unit <= 0xDFFF) continue;
+    const ch = String.fromCharCode(unit);
+    SPACE_LOOKALIKES_REGEX.lastIndex = 0;
+    const isSpace = SPACE_LOOKALIKES_REGEX.test(ch);
+    const kept = purgeInvisibleInContext('a' + ch + 'b', { spaces: 'normalize' }).text === 'a b';
+    if (isSpace !== (kept && ch !== ' ')) spaceMismatch = 'U+' + unit.toString(16);
+  }
+  assertEqual(spaceMismatch, '', 'purge: look-alike spaces are exactly SPACE_LOOKALIKES_REGEX');
+
+  for (const bad of ['delete', '', null, 1, true]) {
+    let error;
+    try { purgeInvisibleInContext('a', { spaces: bad }); } catch (e) { error = e; }
+    assertEqual(error instanceof RangeError, true, 'purge rejects invalid spaces (' + String(bad) + ')');
+  }
+  let typeError;
+  try { purgeInvisibleInContext(42); } catch (e) { typeError = e; }
+  assertEqual(typeError instanceof TypeError, true, 'purge: non-string throws TypeError');
+  assertEqual(purgeInvisibleInContext('', undefined).text, '', 'purge: empty text, no options');
+
+  // After the other cleaning options, as an editor's "fix all" would run it.
+  const others = summonSanctifier({ nukeControls: true, normalizeNewlines: true });
+  const mixed = FAMILY + ZW + c(0x07) + '\r\nnext\nline';
+  assertEqual(show(purgeInvisibleInContext(others(mixed)).text), show(FAMILY + '\nnext\nline'), 'purge after controls and newlines: legitimate text survives all three');
+
+  // Unpaired halves around a removed character must not join into a tag character.
+  const halves = String.fromCharCode(0xDB40) + ZW + String.fromCharCode(0xDC41);
+  assertEqual(show(purgeInvisibleInContext(halves).text), show(c(0xFFFD, 0xFFFD)), 'purge: split surrogate halves stay apart');
+
+  // Context is read from the whole text, across the internal chunk boundary.
+  for (const pad of [65533, 65534, 65535, 65536, 65537]) {
+    const text = 'x'.repeat(pad) + FAMILY + ZW + BLACK_FLAG + tags('gbsct') + CANCEL + ZW;
+    const result = purgeInvisibleInContext(text);
+    assertEqual(result.text === 'x'.repeat(pad) + FAMILY + BLACK_FLAG + tags('gbsct') + CANCEL && result.removed === 2, true, 'purge: sequences survive a chunk boundary at ' + pad);
+  }
+
+  // Fixed-seed invariants.
+  const alphabet = ['a', 'b', ' ', '\n', '#', '1', NBSP, ZW, c(0x200C), c(0x200D), c(0x2060), c(0xFEFF), c(0xFE0F), c(0xFE0E), c(0x20E3),
+    c(0x3000), c(0x202E), c(0x2003), c(0xAD), c(0x1F600), c(0x1F469), c(0x1F3FD), c(0x2764), BLACK_FLAG, c(0xE0067), c(0xE0062), c(0xE0065), c(0xE006E),
+    CANCEL, c(0xE0100), c(0x4E00), c(0x94D), c(0x915), c(0x644), c(0x64E), c(0x1820), c(0x180B), String.fromCharCode(0xD83D), String.fromCharCode(0xDB40), String.fromCharCode(0xDC67)];
+  const purgeAll = summonSanctifier({ purgeInvisibleChars: true });
+  let seed = 0x2545F491;
+  const next = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0);
+  let failure = '';
+  for (let k = 0; k < 20000 && !failure; k++) {
+    let s = '';
+    for (let j = (next() >>> 16) % 12; j >= 0; j--) s += alphabet[(next() >>> 16) % alphabet.length];
+    for (const spaces of ['keep', 'normalize', 'remove']) {
+      const once = purgeInvisibleInContext(s, { spaces });
+      const twice = purgeInvisibleInContext(once.text, { spaces });
+      const report = inspectTextInContext(once.text, { maxFindings: 0 });
+      const suspicious = Object.keys(report.counts).filter((key) => key !== 'nonbreaking_space' && report.counts[key] - report.benignCounts[key] > 0 && !['nul', 'c0_control', 'c1_control'].includes(key));
+      if (twice.text !== once.text || twice.removed !== 0) failure = 'not stable (' + spaces + '): ' + show(s);
+      else if (suspicious.length) failure = 'suspicious ' + suspicious.join(',') + ' left (' + spaces + '): ' + show(s);
+      else if (spaces !== 'normalize' && [...s].length - [...once.text].length !== once.removed) failure = 'removed count wrong (' + spaces + '): ' + show(s);
+      else if (spaces === 'remove' && report.benignTotal === 0 && inspectTextInContext(s, { maxFindings: 0 }).benignTotal === 0 && once.text !== purgeAll(s)) failure = 'differs from purgeInvisibleChars without benign text: ' + show(s);
+    }
+  }
+  assertEqual(failure, '', 'purge: stable, nothing suspicious left, exact removed count, same as purgeInvisibleChars when nothing is benign');
+}
 
 console.log('All context tests finished.');
 

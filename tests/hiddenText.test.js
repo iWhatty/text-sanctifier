@@ -5,7 +5,7 @@
 // catch large temporary allocations, not only what the result keeps.
 
 import { readFileSync } from 'node:fs';
-import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from '../src/hiddenText.js';
+import { findHiddenRuns, removeHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from '../src/hiddenText.js';
 import { inspectTextDetailed, VERSION } from '../src/index.js';
 
 
@@ -224,6 +224,70 @@ function heapGrowthMb(fn) {
   const payload = [...secret].map((ch, i) => cp(0x4E00 + i) + cp(0xE0100 + ch.charCodeAt(0))).join('');
   const scan = findHiddenRuns(payload);
   assertEqual(`${scan.total}:${scan.benignTotal}:${scan.supplementarySelectorCount}`, '6:0:6', '8. every selector of a payload is a counted run');
+}
+
+// 9. removeHiddenRuns: every run goes, benign sequences stay, caps limit only the lists.
+{
+  const c = (...n) => String.fromCodePoint(...n);
+  const tags = (ascii) => [...ascii].map((ch) => c(0xE0000 + ch.charCodeAt(0))).join('');
+  const show = (s) => [...s].map((ch) => (ch >= ' ' && ch <= '~' ? ch : '<' + ch.codePointAt(0).toString(16) + '>')).join('');
+  const BLACK_FLAG = c(0x1F3F4);
+  const CANCEL = c(0xE007F);
+  const HEART = c(0x2764, 0xFE0F);
+  const ENGLAND = BLACK_FLAG + tags('gbeng') + CANCEL;
+
+  const text = 'a' + tags('hi') + 'b' + HEART + c(0x2061) + ENGLAND + 'c' + c(0xFE0F) + BLACK_FLAG + tags('hello') + CANCEL;
+  const expected = 'ab' + HEART + ENGLAND + 'c' + BLACK_FLAG;
+  const result = removeHiddenRuns(text);
+  assertEqual(show(result.text), show(expected), '9. runs removed; heart selector and England flag kept; forged flag stripped');
+  const { text: _text, ...scan } = result;
+  assertEqual(JSON.stringify(scan), JSON.stringify(findHiddenRuns(text)), '9. the rest of the result is the findHiddenRuns scan of the input');
+  assertEqual(result.runs[0].offset, 1, '9. offsets refer to the input');
+
+  const capped = removeHiddenRuns(text, { maxRuns: 0, maxDecodedLength: 0 });
+  assertEqual(show(capped.text) + ' / ' + capped.runs.length + ' / ' + capped.total + ' / ' + capped.truncated, show(expected) + ' / 0 / 4 / true', '9. caps limit the lists, never the removal');
+
+  assertEqual(removeHiddenRuns('plain text').text, 'plain text', '9. clean text is returned as it is');
+  assertEqual(removeHiddenRuns('').text, '', '9. empty text');
+  const ideograph = c(0x4E00, 0xE0100);
+  assertEqual(show(removeHiddenRuns(ideograph).text), show(c(0x4E00)), '9. a lone ideographic selector is a run, so it is removed');
+
+  const halves = String.fromCharCode(0xDB40) + tags('x') + String.fromCharCode(0xDC41);
+  assertEqual(show(removeHiddenRuns(halves).text), show(c(0xFFFD, 0xFFFD)), '9. halves around a removed run do not join into a tag');
+
+  let typeError;
+  try { removeHiddenRuns(42); } catch (e) { typeError = e; }
+  assertEqual(typeError instanceof TypeError, true, '9. non-string throws TypeError');
+  let rangeError;
+  try { removeHiddenRuns('a', { maxRuns: '1' }); } catch (e) { rangeError = e; }
+  assertEqual(rangeError instanceof RangeError, true, '9. an invalid cap throws RangeError');
+
+  const alphabet = ['a', ' ', '\n', '#', '1', c(0x200D), c(0xFE0F), c(0xFE0E), c(0x20E3), c(0x2061), c(0x2764), c(0x1F600), BLACK_FLAG,
+    c(0xE0067), c(0xE0062), c(0xE0065), c(0xE006E), CANCEL, c(0xE0100), c(0xE0080), c(0x4E00), c(0x1820), c(0x180B),
+    String.fromCharCode(0xD83D), String.fromCharCode(0xDB40), String.fromCharCode(0xDC67)];
+  let seed = 0x1F123BB5;
+  const next = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0);
+  let failure = '';
+  for (let k = 0; k < 20000 && !failure; k++) {
+    let s = '';
+    for (let j = (next() >>> 16) % 12; j >= 0; j--) s += alphabet[(next() >>> 16) % alphabet.length];
+    const once = removeHiddenRuns(s, { maxRuns: (next() >>> 16) % 3 });
+    const again = findHiddenRuns(once.text);
+    if (again.total !== 0) failure = 'runs left: ' + show(s) + ' => ' + show(once.text);
+    else if (once.total !== findHiddenRuns(s).total) failure = 'total differs from findHiddenRuns: ' + show(s);
+    else if (/[\uD800-\uDFFF]/u.test(once.text)) failure = 'unpaired surrogate in output: ' + show(s);
+  }
+  assertEqual(failure, '', '9. fixed-seed: no runs left, totals match the scan, output well formed');
+
+  // Dense input with the caps set: the result keeps nothing per run.
+  const dense = ('a' + tags('x')).repeat(400_000);
+  globalThis.gc?.();
+  const before = process.memoryUsage().heapUsed;
+  const cleanedDense = removeHiddenRuns(dense, { maxRuns: 0, maxDecodedLength: 0 });
+  globalThis.gc?.();
+  const grown = (process.memoryUsage().heapUsed - before) / 1e6;
+  assertEqual(cleanedDense.text === 'a'.repeat(400_000) && cleanedDense.total === 400_000, true, '9. 400,000 runs removed and counted');
+  assertEqual(grown < 6, true, '9. capped removal of 400,000 runs keeps under 6 MB (' + grown.toFixed(1) + ' MB)');
 }
 
 

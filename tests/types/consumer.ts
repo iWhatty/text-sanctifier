@@ -17,7 +17,7 @@ import {
   VERSION,
 } from 'text-sanctifier';
 import type {
-  UnicodeTrashReport,
+  UnicodeTrashReport, UnicodeTrashTally, InspectTextOptions,
   DetailedTrashReport,
   TrashFinding,
   TrashCounts,
@@ -34,10 +34,10 @@ import type {
   TrashCategory as BrowserTrashCategory,
   InspectDetailedOptions as BrowserInspectDetailedOptions,
 } from 'text-sanctifier/browser';
-import { findHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-sanctifier/hidden';
-import type { HiddenRun, HiddenRunKind, HiddenRunSequence, HiddenTextScan, HiddenScanOptions, HiddenRunCounts } from 'text-sanctifier/hidden';
-import { inspectTextInContext } from 'text-sanctifier/context';
-import type { ContextReport, ContextFinding } from 'text-sanctifier/context';
+import { findHiddenRuns, removeHiddenRuns, decodeTagText, VERSION as HIDDEN_VERSION } from 'text-sanctifier/hidden';
+import type { HiddenRun, HiddenRunKind, HiddenRunSequence, HiddenTextScan, HiddenScanOptions, HiddenRunCounts, HiddenRunRemoval } from 'text-sanctifier/hidden';
+import { inspectTextInContext, purgeInvisibleInContext } from 'text-sanctifier/context';
+import type { ContextReport, ContextFinding, PurgeInContextOptions, PurgeInContextResult } from 'text-sanctifier/context';
 import * as browser from 'text-sanctifier/browser';
 import * as root from 'text-sanctifier';
 
@@ -105,6 +105,30 @@ const browserCategory: BrowserTrashCategory | undefined = browserFinding?.catego
 const browserCounts: BrowserTrashCounts = browserReport.counts;
 
 const basic: UnicodeTrashReport = inspectText('x');
+const countOptions: InspectTextOptions = { counts: true };
+const counted: UnicodeTrashReport = inspectText('x', countOptions);
+const tally: UnicodeTrashTally | undefined = counted.counts;
+const emojiCount: number | undefined = tally?.emojis;
+const tallySum: number = (counted.counts?.controlChars ?? 0) + (counted.counts?.invisibleChars ?? 0) + (counted.counts?.nonKeyboardChars ?? 0);
+// @ts-expect-error counts is a boolean
+inspectText('x', { counts: 1 });
+
+const purgeOptions: PurgeInContextOptions = { spaces: 'normalize' };
+const purged: PurgeInContextResult = purgeInvisibleInContext('x', purgeOptions);
+const purgedText: string = purgeInvisibleInContext('x').text;
+const purgedCount: number = purged.removed;
+// @ts-expect-error spaces is one of three strings
+purgeInvisibleInContext('x', { spaces: 'delete' });
+// @ts-expect-error purge input must be a string
+purgeInvisibleInContext(42);
+
+const removal: HiddenRunRemoval = removeHiddenRuns('x', { maxRuns: 20, maxDecodedLength: 200 });
+const removalText: string = removal.text;
+const removalRuns: HiddenRun[] = removal.runs;
+const removalScan: HiddenTextScan = removal;
+// @ts-expect-error removal input must be a string
+removeHiddenRuns(42);
+void [emojiCount, tallySum, purgedText, purgedCount, removalText, removalRuns, removalScan];
 const recommended: SanctifyOptions = getRecommendedSanctifierOptions(basic);
 const clean: string = summonSanctifier(recommended)('x');
 const pastedClean: string = summonSanctifier.pasted('x');

@@ -15,6 +15,8 @@ export { VERSION };
 
 // Type-only re-exports so TypeScript consumers can name these from the package root.
 /** @typedef {import('./inspectText.js').UnicodeTrashReport} UnicodeTrashReport */
+/** @typedef {import('./inspectText.js').UnicodeTrashTally} UnicodeTrashTally */
+/** @typedef {import('./inspectText.js').InspectTextOptions} InspectTextOptions */
 /** @typedef {import('./inspectText.js').TrashCategory} TrashCategory */
 /** @typedef {import('./inspectText.js').TrashFinding} TrashFinding */
 /** @typedef {import('./inspectText.js').TrashCounts} TrashCounts */

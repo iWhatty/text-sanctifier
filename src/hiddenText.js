@@ -10,6 +10,7 @@
 // not import this file, so it stays out of the browser bundle and its size budget.
 
 import { scanHiddenSpans, decodeRange } from './hiddenScan.js';
+import { replaceLoneSurrogates } from './sequenceRules.js';
 
 export { VERSION } from './version.generated.js';
 
@@ -100,4 +101,42 @@ export function decodeTagText(text) {
  */
 export function findHiddenRuns(text, options = {}) {
     return scanHiddenSpans(text, options);
+}
+
+
+/**
+ * @typedef {HiddenTextScan & { text: string }} HiddenRunRemoval
+ * The scan findHiddenRuns returns for the input, plus `text`: the input without its runs.
+ */
+
+/**
+ * Removes every run findHiddenRuns reports and keeps the benign sequences (subdivision
+ * flags, presentation selectors after emoji and in keycaps). Lone ideographic and
+ * Mongolian selectors are runs, so they are removed too.
+ *
+ * Every run is removed, whatever `maxRuns` is: the caps limit only the lists in the
+ * result, so untrusted input can be cleaned with both caps set and flat memory. Offsets
+ * in the result refer to the input. Unpaired surrogates in the output become U+FFFD,
+ * so a removal cannot join two halves into a new character.
+ *
+ * The result is stable: scanning `text` again finds no runs.
+ *
+ * @param {string} text
+ * @param {HiddenScanOptions} [options]
+ * @returns {HiddenRunRemoval}
+ * @throws {TypeError} If `text` is not a string.
+ * @throws {RangeError} If a cap is neither undefined, Infinity nor a non-negative integer.
+ */
+export function removeHiddenRuns(text, options = {}) {
+    if (typeof text !== 'string') throw new TypeError('removeHiddenRuns expects a string input.');
+    // Joined once at the end: appending piece by piece would keep a node per run alive.
+    const kept = [];
+    let from = 0;
+    const scan = scanHiddenSpans(text, options, (span) => {
+        if (span.benign) return;
+        if (span.offset > from) kept.push(replaceLoneSurrogates(text.slice(from, span.offset)));
+        from = span.end;
+    });
+    kept.push(replaceLoneSurrogates(text.slice(from)));
+    return { ...scan, text: kept.join('') };
 }

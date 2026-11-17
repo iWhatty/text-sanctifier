@@ -15,7 +15,33 @@ import { EMOJI_REGEX, ASCII_KEYBOARD_SAFE_REGEX, normalizeTypographicJank } from
 * @property {boolean} hasEmojis
 * @property {boolean} hasNonKeyboardChars
 * @property {string[]} summary
+* @property {UnicodeTrashTally} [counts] - Present only with the `counts` option.
 */
+
+/**
+ * How much of each kind inspectText found. A count is above zero exactly when the
+ * matching flag is true.
+ * - `controlChars`: code points `nukeControls` removes.
+ * - `invisibleChars`: code points `purgeInvisibleChars` removes. Bidi controls are in
+ *   both of these, so the two can overlap.
+ * - `emojis`: emoji sequences, as `purgeEmojis` matches them: a family or a flag is one.
+ * - `nonKeyboardChars`: code points outside printable ASCII, CR and LF, once typographic
+ *   punctuation is normalized and emoji are set aside. Tabs and look-alike spaces count,
+ *   though `keyboardOnlyFilter` replaces them instead of removing them.
+ *
+ * @typedef {Object} UnicodeTrashTally
+ * @property {number} controlChars
+ * @property {number} invisibleChars
+ * @property {number} emojis
+ * @property {number} nonKeyboardChars
+ */
+
+/**
+ * @typedef {Object} InspectTextOptions
+ * @property {boolean} [counts=false] - Also count what was found, as `report.counts`.
+ *   Counting reads all of the text for every kind; without it each check stops at the
+ *   first match.
+ */
 
 
 /**
@@ -30,26 +56,40 @@ function stableTest(re, s) {
 }
 
 /**
- * Returns true if text contains any non-keyboard characters (excluding emojis),
- * after typographic normalization.
- *
- * "Keyboard" here means:
- * - Printable ASCII (0x20–0x7E)
- * - CR/LF
- * - Emojis (per EMOJI_REGEX)
+ * The text with typographic punctuation normalized and emoji removed. What is left
+ * outside printable ASCII (0x20 to 0x7E), CR and LF is a non-keyboard character.
  *
  * @param {string} text
- * @returns {boolean}
+ * @returns {string}
  */
-function hasNonKeyboardCharsExcludingEmoji(text) {
-    return stableTest(ASCII_KEYBOARD_SAFE_REGEX, normalizeTypographicJank(text).replace(EMOJI_REGEX, ''));
+function withoutEmojiOrTypography(text) {
+    return normalizeTypographicJank(text).replace(EMOJI_REGEX, '');
+}
+
+/**
+ * Counts what a global regex matches, without keeping the matches.
+ * @param {RegExp} re
+ * @param {string} s
+ * @param {boolean} perCodePoint - count each code point of a match; otherwise each match
+ * @returns {number}
+ */
+function countMatches(re, s, perCodePoint) {
+    let n = 0;
+    re.lastIndex = 0;
+    for (let m; (m = re.exec(s));) {
+        if (!perCodePoint) n++;
+        else for (let i = 0; i < m[0].length; i++, n++) if (/** @type {number} */ (m[0].codePointAt(i)) > 0xFFFF) i++;
+    }
+    return n;
 }
 
 /**
  * Detects textual "trash" or anomalies in a given string.
- * @param {string} text @returns {UnicodeTrashReport}
+ * @param {string} text
+ * @param {InspectTextOptions} [options]
+ * @returns {UnicodeTrashReport}
  */
-export function inspectText(text) {
+export function inspectText(text, options = {}) {
     if (typeof text !== 'string') {
         throw new TypeError('inspectText expects a string input.');
     }
@@ -89,11 +129,17 @@ export function inspectText(text) {
     }
 
     // === Non-keyboard characters (excluding emojis) ===
-    flag(
-        hasNonKeyboardCharsExcludingEmoji(text),
-        'hasNonKeyboardChars',
-        'Non-keyboard characters detected.'
-    );
+    const typed = withoutEmojiOrTypography(text);
+    flag(stableTest(ASCII_KEYBOARD_SAFE_REGEX, typed), 'hasNonKeyboardChars', 'Non-keyboard characters detected.');
+
+    if (options?.counts) {
+        report.counts = {
+            controlChars: countMatches(CONTROL_CHARS_REGEX, text, true),
+            invisibleChars: countMatches(INVISIBLE_TRASH_REGEX, text, true),
+            emojis: countMatches(EMOJI_REGEX, text, false),
+            nonKeyboardChars: countMatches(ASCII_KEYBOARD_SAFE_REGEX, typed, true),
+        };
+    }
 
     return report;
 }
