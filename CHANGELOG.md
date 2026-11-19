@@ -2,7 +2,7 @@
 
 What changed for people using the package, per release. Entries before 1.1.0 were reconstructed from git history.
 
-## Unreleased
+## 1.3.18 — 2026-11-19
 
 - New in `text-sanctifier/context`: `purgeInvisibleInContext(text, options?)` removes what `purgeInvisibleChars` removes but keeps the sequences `inspectTextInContext` calls benign (emoji joiners and selectors, joiners in Indic and Arabic-script words, subdivision flags). It returns `{ text, removed }`. Look-alike spaces are kept by default; `spaces: 'normalize'` or `'remove'` changes that. This is what `fix --keep-benign` does, now callable from code and in a browser bundle.
 - New in `text-sanctifier/hidden`: `removeHiddenRuns(text, options?)` returns the `findHiddenRuns` scan plus `text` with every run removed and benign spans kept. The caps limit only the lists, so untrusted input can be cleaned with both caps set.
