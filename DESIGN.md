@@ -51,29 +51,11 @@ Emoji joiners and selector distinctions are answered without category changes by
 - Rules, skills, tool descriptions and web content hide instructions with tags, selectors and invisible operators.
 - Everyday hygiene: BOMs on CSV headers, U+2028/U+2029 breaking JavaScript or JSON, mixed line endings.
 
-## Roadmap: two tracks, one core
+## Architecture
 
-Share core work; grow each track in its own entry point. Status as of <!-- gen:release -->1.3.18 (2026-11-19)<!-- /gen -->.
-
-### Shared core
-
-- Coordinate category changes with consumers: rename `nonbreaking_space`; consider U+2028/U+2029, unpaired surrogates, noncharacters, U+FFFD and blank-looking U+1680/U+2800. Sanitizers already replace unpaired surrogates with U+FFFD to prevent newly joined hidden characters. Noncharacters should be reported or replaced with U+FFFD, never deleted.
-- One corpus against source and browser builds, preventing behavioral drift.
-
-### Server track
-
-- Dedicated entry point when the first server-only feature needs it.
-- Inspect tool descriptions served by live MCP servers; decode variation-selector payloads.
-- Per-finding severity and Unicode names; versioned JSON report schema. Names need a table unsuitable for the small browser core.
-- Bidi balance checks for unterminated or overlapping controls (Trojan Source).
-- `fix`: escape characters instead of deleting; report removals at original offsets; suppress by code point or path.
-- Streaming inspection for very large files.
-- Context refinements driven by reports: see below.
-
-### Web track
-
-- Form-input presets.
-- Optional quote and dash folding for pasted/model text.
+The web and server tracks share a Unicode classifier. Separate entry points
+keep optional analysis out of the browser core. The source and browser builds
+run against one test corpus to catch differences in behavior.
 
 ### Sizes now
 
@@ -99,7 +81,7 @@ Generated gzipped sizes on `main`; last release <!-- gen:release -->1.3.18 (2026
 | prebuilt browser file | 3.3 KiB | 4 KiB |
 <!-- gen:sizes:end -->
 
-### Not planned here
+### Scope
 
 - Confusables/homoglyphs (UTS #39 skeletons, mixed-script checks): large tables belong in another layer.
 - Code-aware interpretation: requires language parsing downstream.
@@ -129,8 +111,6 @@ Another intended difference: when U+FE0E/U+FE0F adjoins another hidden-run chara
 - Other joining scripts (Syriac, N'Ko, Mongolian, Adlam, Hanifi Rohingya) never get benign joiners, so legitimate text can warn.
 - `Extended_Pictographic` includes text-default copyright/registered symbols and unassigned emoji-range code points. Adjacent selectors/joiners can therefore read benign. `Ideographic` includes U+3006, U+3007, U+3021-U+3029 and Tangut, accepting supplementary selectors after them.
 - Each joiner needs sticky-regex checks: memory stays flat but speed depends on content. On 16 M characters (UTF-16 units), `maxFindings: 20`: clean text 62 ms, 5.6 M virama joiners 0.5 s, 8 M Arabic ZWNJ 1.6 s (`npm run bench`).
-
-**Next, when reports call for it.** No open consumer asks. False warnings in joining scripts would justify an exact Joining_Type table from ArabicShaping.txt, with generation data Node cannot validate. Misses beside copyright/registered symbols would justify limiting emoji rules to emoji presentation or VS16 before a joiner. Slow Persian/Indic scans would justify cheap code-unit range checks before property regexes. Selector payload decoding remains on the server roadmap.
 
 ## Releases
 
